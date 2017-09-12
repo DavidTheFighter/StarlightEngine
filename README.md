@@ -1,2 +1,2 @@
 # NimbusEngine
-The main repository and code base for the NimbusEngine. Issue tracker too
+The main repository for the source code and issue tracker of the Starlight Engine.
