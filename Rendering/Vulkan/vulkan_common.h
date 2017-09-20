@@ -11,7 +11,38 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-inline std::string getVkResultString(VkResult result)
+#define VENDOR_ID_AMD 		0x1002
+#define VENDOR_ID_NVIDIA 	0x10DE
+#define VENDOR_ID_INTEL 	0x8086
+#define VENDOR_ID_ARM 		0x13B5
+#define VENDOR_ID_QUALCOMM 	0x5143
+#define VENDOR_ID_IMGTEC 	0x1010
+
+#include <vk_mem_alloc.h>
+
+inline VkResult CreateDebugReportCallbackEXT (VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback)
+{
+	auto func = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
+	if (func != nullptr)
+	{
+		return func(instance, pCreateInfo, pAllocator, pCallback);
+	}
+	else
+	{
+		return VK_ERROR_EXTENSION_NOT_PRESENT;
+	}
+}
+
+inline void DestroyDebugReportCallbackEXT (VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator)
+{
+	auto func = (PFN_vkDestroyDebugReportCallbackEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
+	if (func != nullptr)
+	{
+		func(instance, callback, pAllocator);
+	}
+}
+
+inline std::string getVkResultString (VkResult result)
 {
 	switch (result)
 	{
@@ -71,6 +102,27 @@ inline std::string getVkResultString(VkResult result)
 			return "VK_ERROR_INVALID_EXTERNAL_HANDLE_KHR";
 		default:
 			return "Dunno" + toString(result);
+	}
+}
+
+inline std::string getVkVendorString (uint32_t vendor)
+{
+	switch (vendor)
+	{
+		case VENDOR_ID_AMD:
+			return "AMD";
+		case VENDOR_ID_NVIDIA:
+			return "NVIDIA";
+		case VENDOR_ID_INTEL:
+			return "Intel";
+		case VENDOR_ID_ARM:
+			return "ARM";
+		case VENDOR_ID_QUALCOMM:
+			return "Qualcomm";
+		case VENDOR_ID_IMGTEC:
+			return "ImgTec";
+		default:
+			return toString(vendor);
 	}
 }
 

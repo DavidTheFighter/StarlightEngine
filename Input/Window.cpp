@@ -48,6 +48,9 @@ void Window::initWindow(uint32_t windowWidth, uint32_t windowHeight, std::string
 
 			throw std::runtime_error("glfw error - window creation");
 		}
+
+		glfwSetWindowUserPointer(glfwWindow, this);
+		glfwSetWindowSizeCallback(glfwWindow, glfwWindowResizedCallback);
 	}
 	else if (windowRendererBackend == RENDERER_BACKEND_OPENGL)
 	{
@@ -75,10 +78,11 @@ void Window::initWindow(uint32_t windowWidth, uint32_t windowHeight, std::string
 			throw std::runtime_error("glfw error - window creation");
 		}
 	}
-	else if (windowRendererBackend == RENDERER_BACKEND_D3D12)
-	{
+}
 
-	}
+void Window::glfwWindowResizedCallback(GLFWwindow* window, int width, int height)
+{
+
 }
 
 void Window::setTitle(std::string title)
@@ -109,6 +113,41 @@ void Window::pollEvents()
 	}
 }
 
+uint32_t Window::getWidth()
+{
+	switch (windowRendererBackend)
+	{
+		case RENDERER_BACKEND_VULKAN:
+		case RENDERER_BACKEND_OPENGL:
+
+			int width, height;
+			glfwGetWindowSize(glfwWindow, &width, &height);
+
+			return width;
+
+		default:
+			return true;
+	}
+}
+
+uint32_t Window::getHeight()
+{
+	switch (windowRendererBackend)
+	{
+		case RENDERER_BACKEND_VULKAN:
+		case RENDERER_BACKEND_OPENGL:
+
+
+			int width, height;
+			glfwGetWindowSize(glfwWindow, &width, &height);
+
+			return height;
+
+		default:
+			return true;
+	}
+}
+
 bool Window::userRequestedClose()
 {
 	switch (windowRendererBackend)
@@ -118,5 +157,21 @@ bool Window::userRequestedClose()
 			return glfwWindowShouldClose(glfwWindow);
 		default:
 			return true;
+	}
+}
+
+/*
+ * Returns a ptr to the window handle used by the window class. In the case
+ * of an OpenGL or Vulkan backend, the handle returned is a GLFWwindow*.
+ */
+void* Window::getWindowObjectPtr ()
+{
+	switch (windowRendererBackend)
+	{
+		case RENDERER_BACKEND_VULKAN:
+		case RENDERER_BACKEND_OPENGL:
+			return glfwWindow;
+		default:
+			return nullptr;
 	}
 }

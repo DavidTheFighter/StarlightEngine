@@ -9,7 +9,7 @@
 #define INPUT_WINDOW_H_
 
 #include <common.h>
-#include <Rendering/RendererBackends.h>
+#include <Rendering/Renderer/RendererBackends.h>
 
 struct GLFWwindow;
 
@@ -23,13 +23,20 @@ class Window
 		void pollEvents();
 		void setTitle (std::string title);
 
+		uint32_t getWidth();
+		uint32_t getHeight();
+
 		bool userRequestedClose();
+
+		void* getWindowObjectPtr();
 
 	private:
 
 		GLFWwindow* glfwWindow;
 
 		RendererBackend windowRendererBackend;
+
+		static void glfwWindowResizedCallback(GLFWwindow* window, int width, int height);
 };
 
 #endif /* INPUT_WINDOW_H_ */

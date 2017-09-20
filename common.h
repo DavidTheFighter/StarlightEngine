@@ -63,6 +63,21 @@
 
 #define COMPILER_BARRIER() asm volatile("" ::: "memory")
 
+typedef struct simple_vector_2
+{
+		float x, y;
+} svec2;
+
+typedef struct simple_vector_3
+{
+		float x, y, z;
+} svec3;
+
+typedef struct simple_vector_4
+{
+		float x, y, z, w;
+} svec4;
+
 template<typename T0>
 inline std::string toString (T0 arg)
 {

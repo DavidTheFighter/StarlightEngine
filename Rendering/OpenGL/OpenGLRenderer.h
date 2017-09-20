@@ -9,9 +9,9 @@
 #define RENDERING_OPENGL_OPENGLRENDERER_H_
 
 #include <common.h>
-#include <Rendering/Renderer.h>
+#include <Rendering/Renderer/Renderer.h>
 
-class OpenGLRenderer : public Renderer
+class OpenGLRenderer// : public Renderer
 {
 	public:
 		OpenGLRenderer (const RendererAllocInfo& allocInfo);
