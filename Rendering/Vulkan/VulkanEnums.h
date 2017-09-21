@@ -86,6 +86,18 @@ inline VkBlendOp toVkBlendOp (BlendOp op)
 	return static_cast<VkBlendOp> (op);
 }
 
+inline VkCompareOp toVkCompareOp (CompareOp op)
+{
+	//  Generic compare ops map direclty to vulkan compare ops
+	return static_cast<VkCompareOp> (op);
+}
+
+inline VkLogicOp toVkLogicOp (LogicOp op)
+{
+	// Generic logic ops map directly to vulkan logic ops
+	return static_cast<VkLogicOp> (op);
+}
+
 inline VkDescriptorType toVkDescriptorType (DescriptorType type)
 {
 	// Generic descriptor types map directly to vulkan descriptor types

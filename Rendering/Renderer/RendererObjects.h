@@ -162,7 +162,7 @@ typedef struct RendererPipelineInputLayout
 
 typedef struct RendererPipelineShaderStage
 {
-		RendererShaderModule module;
+		RendererShaderModule *module;
 		const char *entry;
 		// Also eventually specialization constants
 } PipelineShaderStage;
@@ -199,11 +199,11 @@ typedef struct RendererPipelineTessellationInfo
 		uint32_t patchControlPoints;
 } PipelineTessellationInfo;
 
-typedef struct RendererPipelineViewportStateInfo
+typedef struct RendererPipelineViewportInfo
 {
 		std::vector<Viewport> viewports;
 		std::vector<Scissor> scissors;
-} PipelineViewportStateInfo;
+} PipelineViewportInfo;
 
 typedef struct RendererPipelineRasterizationInfo
 {
@@ -266,7 +266,7 @@ typedef struct RendererPipelineInfo
 		PipelineVertexInputInfo vertexInputInfo;
 		PipelineInputAssemblyInfo inputAssemblyInfo;
 		PipelineTessellationInfo tessellationInfo;
-		PipelineViewportStateInfo viewportInfo;
+		PipelineViewportInfo viewportInfo;
 		PipelineRasterizationInfo rasterizationInfo;
 		PipelineMultisampleInfo multisampleInfo;
 		PipelineDepthStencilInfo depthStencilInfo;

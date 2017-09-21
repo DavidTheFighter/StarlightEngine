@@ -9,11 +9,16 @@
 
 #include <Input/Window.h>
 #include <Rendering/Vulkan/VulkanSwapchain.h>
+#include <Rendering/Vulkan/VulkanPipelines.h>
 #include <Rendering/Vulkan/VulkanEnums.h>
 #include <Rendering/Vulkan/VulkanShaderLoader.h>
 
 const std::vector<const char*> validationLayers = {"VK_LAYER_LUNARG_standard_validation"};
 const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+#if defined(SE_DEBUG_BUILD)
+
+#endif
 
 VulkanRenderer::VulkanRenderer (const RendererAllocInfo& allocInfo)
 {
@@ -22,7 +27,18 @@ VulkanRenderer::VulkanRenderer (const RendererAllocInfo& allocInfo)
 
 	physicalDevice = VK_NULL_HANDLE;
 
+	bool shouldTryEnableValidationLayers = false;
+
 	if (std::find(allocInfo.launchArgs.begin(), allocInfo.launchArgs.end(), "-enable_vulkan_layers") != allocInfo.launchArgs.end())
+	{
+		shouldTryEnableValidationLayers = true;
+	}
+
+#ifdef SE_DEBUG_BUILD
+	shouldTryEnableValidationLayers = true;
+#endif
+
+	if (shouldTryEnableValidationLayers)
 	{
 		if (checkValidationLayerSupport(validationLayers))
 		{
@@ -92,6 +108,7 @@ void VulkanRenderer::initRenderer ()
 
 	// Note the swapchain renderer is initialized here because choosePhysicalDevices() relies on querying swapchain support
 	swapchain = new VulkanSwapchain(this);
+	pipelineHandler = new VulkanPipelines(this);
 
 	choosePhysicalDevice();
 	createLogicalDevice();
@@ -108,16 +125,7 @@ void VulkanRenderer::initRenderer ()
 void VulkanRenderer::cleanupVulkan ()
 {
 	delete swapchain;
-
-	for (auto pipelineLayout : pipelineLayoutCache)
-	{
-		vkDestroyPipelineLayout(device, pipelineLayout.second, nullptr);
-	}
-
-	for (auto descriptorSetLayout : descriptorSetLayoutCache)
-	{
-		vkDestroyDescriptorSetLayout(device, descriptorSetLayout.second, nullptr);
-	}
+	delete pipelineHandler;
 
 	vmaDestroyAllocator(memAllocator);
 	vkDestroyDevice(device, nullptr);
@@ -490,11 +498,7 @@ ShaderModule VulkanRenderer::createShaderModule (std::string file, ShaderStageFl
 
 Pipeline VulkanRenderer::createGraphicsPipeline (const PipelineInfo &pipelineInfo, const PipelineInputLayout &inputLayout, RenderPass renderPass, uint32_t subpass)
 {
-	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
-
-	//VkPipelineLayout pipelineLayout = findPipelineLayout();
-
-	return vulkanPipeline;
+	return pipelineHandler->createGraphicsPipeline(pipelineInfo, inputLayout, renderPass, subpass);
 }
 
 /*
@@ -956,200 +960,6 @@ void VulkanRenderer::choosePhysicalDevice ()
 		printf("%s \tGfx/general: %i/%u, Compute: %i/%u, Transfer: %i/%u, Present: %i/%u\n", INFO_PREFIX, deviceQueueInfo.graphicsFamily, deviceQueueInfo.graphicsQueue, deviceQueueInfo.computeFamily, deviceQueueInfo.computeQueue, deviceQueueInfo.transferFamily, deviceQueueInfo.transferQueue,
 				deviceQueueInfo.presentFamily, deviceQueueInfo.presentQueue);
 	}
-}
-
-/*
- * This is for comparing pipeline layout create infos to see if there's a pipeline layout object
- * available in the cache with the same data
- */
-struct pipelineLayoutCacheFind : public std::unary_function<VulkanPipelineLayoutCacheInfo, bool>
-{
-		explicit pipelineLayoutCacheFind (const VulkanPipelineLayoutCacheInfo& layoutCreateInfo)
-				: base(layoutCreateInfo)
-		{
-
-		}
-		;
-
-		bool comparePushConstantRanges (const VkPushConstantRange &range0, const VkPushConstantRange &range1)
-		{
-			return (range0.stageFlags == range1.stageFlags) && (range0.offset == range1.offset) && (range0.size == range1.size);
-		}
-
-		bool operator() (const std::pair<VulkanPipelineLayoutCacheInfo, VkPipelineLayout> &arg)
-		{
-			const VulkanPipelineLayoutCacheInfo &comp = arg.first;
-
-			if (comp.flags != base.flags)
-				return false;
-
-			if (comp.setLayouts.size() != base.setLayouts.size() || comp.pushConstantRanges.size() != base.pushConstantRanges.size())
-				return false;
-
-			// Make sure the set layouts match first (as they're slightly cheaper to compare)
-			{
-				// Make copies of each vector so we don't disturb the incoming data
-				std::vector<VkDescriptorSetLayout> compSetLayouts = std::vector<VkDescriptorSetLayout>(comp.setLayouts);
-				std::vector<VkDescriptorSetLayout> baseSetLayouts = std::vector<VkDescriptorSetLayout>(base.setLayouts);
-
-				// Use sorting to make sure we have equivalent sets
-				std::sort(compSetLayouts.begin(), compSetLayouts.end());
-				std::sort(baseSetLayouts.begin(), baseSetLayouts.end());
-
-				for (size_t i = 0; i < comp.setLayouts.size(); i ++)
-				{
-					if (compSetLayouts[i] != baseSetLayouts[i])
-						return false;
-				}
-			}
-
-			// Finally make sure the push constant ranges are equivalent
-			{
-				// Make copies of each vector so we don't disturb the incoming data
-				std::vector<VkPushConstantRange> compPushConstantRanges = std::vector<VkPushConstantRange>(comp.pushConstantRanges);
-				std::vector<VkPushConstantRange> basePushConstantRanges = std::vector<VkPushConstantRange>(base.pushConstantRanges);
-
-				size_t matchingCount = 0;
-
-				for (size_t i = 0; i < compPushConstantRanges.size(); i ++)
-				{
-					for (size_t t = 0; t < basePushConstantRanges.size(); t ++)
-					{
-						if (comparePushConstantRanges(compPushConstantRanges[i], basePushConstantRanges[t]))
-						{
-							matchingCount ++;
-							basePushConstantRanges.erase(basePushConstantRanges.begin() + t);
-
-							break;
-						}
-					}
-				}
-
-				if (matchingCount != compPushConstantRanges.size())
-					return false;
-			}
-
-			return true;
-		}
-
-		const VulkanPipelineLayoutCacheInfo& base;
-
-};
-
-/*
- * Attempts to reuse a pipeline layout object from the cache, but will make a new one if needed.
- * At least for now, I'm not going to handle automatic destroying. I'm assuming that the general nature
- * of a game (load a frick ton at startup and hopefully nothing afterwards), the extra pipeline layouts
- * won't become a problem.
- */
-VkPipelineLayout VulkanRenderer::findPipelineLayout (const VkPipelineLayoutCreateInfo &layoutInfo)
-{
-	// We have to make a copy of the create info because the pointers in the struct may not reference valid data while it's in the pool
-	VulkanPipelineLayoutCacheInfo cacheInfo = {};
-	cacheInfo.flags = layoutInfo.flags;
-	cacheInfo.setLayouts = std::vector<VkDescriptorSetLayout>(layoutInfo.pSetLayouts, layoutInfo.pSetLayouts + layoutInfo.setLayoutCount);
-	cacheInfo.pushConstantRanges = std::vector<VkPushConstantRange>(layoutInfo.pPushConstantRanges, layoutInfo.pPushConstantRanges + layoutInfo.pushConstantRangeCount);
-
-	auto it = std::find_if(pipelineLayoutCache.begin(), pipelineLayoutCache.end(), pipelineLayoutCacheFind(cacheInfo));
-
-	if (it == pipelineLayoutCache.end())
-	{
-		VkPipelineLayout pipelineLayout;
-
-		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout));
-
-		pipelineLayoutCache.push_back(std::make_pair(cacheInfo, pipelineLayout));
-
-		return pipelineLayout;
-	}
-
-	return it->second;
-}
-
-
-/*
- * This is for comparing descriptor set layout create infos to see if there's a descriptor set layout object
- * available in the cache with the same data
- */
-struct descriptorSetLayoutCacheFind : public std::unary_function<VulkanDescriptorSetLayoutCacheInfo, bool>
-{
-		explicit descriptorSetLayoutCacheFind (const VulkanDescriptorSetLayoutCacheInfo& setLayoutCreateInfo)
-				: base(setLayoutCreateInfo)
-		{
-
-		}
-		;
-
-		bool compareBinding (const VkDescriptorSetLayoutBinding &bind0, const VkDescriptorSetLayoutBinding &bind1)
-		{
-			// This place needs to be updated w/ immutable sampler support for when (if) I implement it
-			return (bind0.binding == bind1.binding) && (bind0.descriptorCount == bind1.descriptorCount) && (bind0.descriptorType == bind1.descriptorType) && (bind0.stageFlags == bind1.stageFlags);
-		}
-
-		bool operator() (const std::pair<VulkanDescriptorSetLayoutCacheInfo, VkDescriptorSetLayout> &arg)
-		{
-			const VulkanDescriptorSetLayoutCacheInfo &comp = arg.first;
-
-			if (comp.flags != base.flags)
-				return false;
-
-			// Make sure all the bindings match up
-			{
-				// Make copies of each vector so we don't disturb the incoming data
-				std::vector<VkDescriptorSetLayoutBinding> compBindings = std::vector<VkDescriptorSetLayoutBinding>(comp.bindings);
-				std::vector<VkDescriptorSetLayoutBinding> baseBindings = std::vector<VkDescriptorSetLayoutBinding>(base.bindings);
-
-				size_t matchingCount = 0;
-
-				for (size_t i = 0; i < compBindings.size(); i ++)
-				{
-					for (size_t t = 0; t < baseBindings.size(); t ++)
-					{
-						if (compareBinding(compBindings[i], baseBindings[i]))
-						{
-							matchingCount ++;
-
-							baseBindings.erase(baseBindings.begin() + t);
-
-							break;
-						}
-					}
-				}
-
-				if (matchingCount != compBindings.size())
-					return false;
-			}
-
-			return true;
-		}
-
-		const VulkanDescriptorSetLayoutCacheInfo& base;
-
-};
-
-/*
- * Attempts to reuse a descriptor set layout object from the cache, but will make a new one if needed.
- */
-VkDescriptorSetLayout VulkanRenderer::findDescriptorSetLayout (const VkDescriptorSetLayoutCreateInfo &setLayoutInfo)
-{
-	VulkanDescriptorSetLayoutCacheInfo cacheInfo = {};
-	cacheInfo.flags = setLayoutInfo.flags;
-	cacheInfo.bindings = std::vector<VkDescriptorSetLayoutBinding> (setLayoutInfo.pBindings, setLayoutInfo.pBindings + setLayoutInfo.bindingCount);
-
-	auto it = std::find_if(descriptorSetLayoutCache.begin(), descriptorSetLayoutCache.end(), descriptorSetLayoutCacheFind(cacheInfo));
-
-	if (it == descriptorSetLayoutCache.end())
-	{
-		VkDescriptorSetLayout setLayout;
-
-		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &setLayoutInfo, nullptr, &setLayout));
-
-		descriptorSetLayoutCache.push_back(std::make_pair(cacheInfo, setLayout));
-
-		return setLayout;
-	}
-
-	return it->second;
 }
 
 /*

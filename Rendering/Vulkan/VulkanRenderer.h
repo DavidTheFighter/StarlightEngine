@@ -13,6 +13,7 @@
 #include <Rendering/Vulkan/VulkanObjects.h>
 
 class VulkanSwapchain;
+class VulkanPipelines;
 
 class VulkanRenderer : public Renderer
 {
@@ -37,7 +38,8 @@ class VulkanRenderer : public Renderer
 		VmaAllocator memAllocator;
 		shaderc::Compiler *defaultCompiler;
 
-		VulkanSwapchain* swapchain;
+		VulkanSwapchain *swapchain;
+		VulkanPipelines *pipelineHandler; // Does all the pipeline handling (creation, caching, etc)
 
 		VulkanRenderer (const RendererAllocInfo& allocInfo);
 		virtual ~VulkanRenderer ();
@@ -101,11 +103,6 @@ class VulkanRenderer : public Renderer
 
 	private:
 
-		// I'm letting the renderer backend handle creation, destruction, and reusing of pipeline layouts
-		std::vector<std::pair<VulkanPipelineLayoutCacheInfo, VkPipelineLayout> > pipelineLayoutCache;
-
-		// I'm also letting the renderer backend handle descriptor set layout caches, so the front end only gives the layout info and gets it easy
-		std::vector<std::pair<VulkanDescriptorSetLayoutCacheInfo, VkDescriptorSetLayout> > descriptorSetLayoutCache;
 
 		VkDebugReportCallbackEXT dbgCallback;
 
@@ -115,9 +112,6 @@ class VulkanRenderer : public Renderer
 		void createLogicalDevice ();
 
 		void cleanupVulkan ();
-
-		VkPipelineLayout findPipelineLayout (const VkPipelineLayoutCreateInfo &layoutInfo);
-		VkDescriptorSetLayout findDescriptorSetLayout (const VkDescriptorSetLayoutCreateInfo &setLayoutInfo);
 
 		DeviceQueues findQueueFamilies (VkPhysicalDevice physDevice);
 		std::vector<const char*> getInstanceExtensions ();
