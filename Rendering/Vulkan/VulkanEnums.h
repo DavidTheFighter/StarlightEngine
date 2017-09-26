@@ -26,6 +26,12 @@ inline VkCommandBufferUsageFlags toVkCommandBufferUsageFlags (CommandBufferUsage
 	return static_cast<VkCommandBufferUsageFlags> (usage);
 }
 
+inline VkSubpassContents toVkSubpassContents (SubpassContents contents)
+{
+	// Generic subpass contents map directly to vulkan subpass contents
+	return static_cast<VkSubpassContents> (contents);
+}
+
 inline VkPipelineBindPoint toVkPipelineBindPoint (PipelineBindPoint point)
 {
 	// Generic pipeline bind points map directly to vulkan pipeline bind points
@@ -192,6 +198,12 @@ inline VmaMemoryUsage toVmaMemoryUsage (MemoryUsage usage)
 {
 	// Generic memory usage maps directly to vma usages
 	return static_cast<VmaMemoryUsage>(usage);
+}
+
+inline VkDebugReportObjectTypeEXT toVkDebugReportObjectTypeEXT (RendererObjectType type)
+{
+	// Map directly blah blah blah
+	return static_cast<VkDebugReportObjectTypeEXT> (type);
 }
 
 inline bool isVkDepthFormat (VkFormat format)

@@ -226,6 +226,52 @@ void VulkanRenderer::endCommandBuffer (CommandBuffer commandBuffer)
 	VK_CHECK_RESULT(vkEndCommandBuffer(static_cast<VulkanCommandBuffer*>(commandBuffer)->bufferHandle));
 }
 
+void VulkanRenderer::cmdBeginRenderPass (CommandBuffer cmdBuffer, RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents)
+{
+	VkRenderPassBeginInfo beginInfo = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+	beginInfo.renderPass = static_cast<VulkanRenderPass*>(renderPass)->renderPassHandle;
+	beginInfo.framebuffer = static_cast<VulkanFramebuffer*>(framebuffer)->framebufferHandle;
+	beginInfo.renderArea.offset =
+	{	renderArea.x, renderArea.y};
+	beginInfo.renderArea.extent =
+	{	renderArea.width, renderArea.height};
+	beginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	beginInfo.pClearValues = reinterpret_cast<const VkClearValue*>(clearValues.data()); // Generic clear values SHOULD map directly to vulkan clear values
+
+	vkCmdBeginRenderPass(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, &beginInfo, toVkSubpassContents(contents));
+}
+
+void VulkanRenderer::cmdEndRenderPass (CommandBuffer cmdBuffer)
+{
+	vkCmdEndRenderPass(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle);
+}
+
+void VulkanRenderer::cmdBindPipeline (CommandBuffer cmdBuffer, PipelineBindPoint point, Pipeline pipeline)
+{
+	vkCmdBindPipeline(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, toVkPipelineBindPoint(point), static_cast<VulkanPipeline*>(pipeline)->pipelineHandle);
+}
+
+void VulkanRenderer::cmdPushConstants (CommandBuffer cmdBuffer, const PipelineInputLayout &inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
+{
+	VkPipelineLayout layout = pipelineHandler->createPipelineLayout(inputLayout);
+
+	vkCmdPushConstants(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, layout, toVkShaderStageFlags(stages), offset, size, data);
+}
+
+void VulkanRenderer::cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, const PipelineInputLayout &inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets)
+{
+	VkPipelineLayout layout = pipelineHandler->createPipelineLayout(inputLayout);
+
+	std::vector<VkDescriptorSet> vulkanSets;
+
+	for (size_t i = 0; i < sets.size(); i ++)
+	{
+		vulkanSets.push_back(static_cast<VulkanDescriptorSet*>(sets[i])->setHandle);
+	}
+
+	vkCmdBindDescriptorSets(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, toVkPipelineBindPoint(point), layout, firstSet, static_cast<uint32_t>(sets.size()), vulkanSets.data(), 0, nullptr);
+}
+
 void VulkanRenderer::cmdTransitionTextureLayout (CommandBuffer cmdBuffer, Texture texture, TextureLayout oldLayout, TextureLayout newLayout)
 {
 	VkImageMemoryBarrier barrier = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -311,6 +357,18 @@ void VulkanRenderer::cmdStageBuffer (CommandBuffer cmdBuffer, StagingBuffer stag
 	vkCmdCopyBuffer(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, static_cast<VulkanStagingBuffer*>(stagingBuffer)->bufferHandle, static_cast<VulkanBuffer*>(dstBuffer)->bufferHandle, 1, &bufferCopyRegion);
 }
 
+void VulkanRenderer::cmdSetViewport (CommandBuffer cmdBuffer, uint32_t firstViewport, const std::vector<Viewport> &viewports)
+{
+	// Generic viewports have the same data struct as vulkan viewports, so they map directly
+	vkCmdSetViewport(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, firstViewport, static_cast<uint32_t>(viewports.size()), reinterpret_cast<const VkViewport*>(viewports.data()));
+}
+
+void VulkanRenderer::cmdSetScissor (CommandBuffer cmdBuffer, uint32_t firstScissor, const std::vector<Scissor> &scissors)
+{
+	// Generic scissors are laid out in the same way as VkRect2D's, so they should be fine to cast directly
+	vkCmdSetScissor(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, firstScissor, static_cast<uint32_t>(scissors.size()), reinterpret_cast<const VkRect2D*>(scissors.data()));
+}
+
 void VulkanRenderer::submitToQueue (QueueType queue, std::vector<CommandBuffer> cmdBuffers, Fence fence)
 {
 	std::vector<VkCommandBuffer> vkCmdBuffers;
@@ -344,7 +402,7 @@ void VulkanRenderer::submitToQueue (QueueType queue, std::vector<CommandBuffer> 
 			vulkanQueue = VK_NULL_HANDLE;
 	}
 
-	vkQueueSubmit(vulkanQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	VK_CHECK_RESULT(vkQueueSubmit(vulkanQueue, 1, &submitInfo, VK_NULL_HANDLE));
 }
 
 void VulkanRenderer::waitForQueueIdle (QueueType queue)
@@ -352,20 +410,83 @@ void VulkanRenderer::waitForQueueIdle (QueueType queue)
 	switch (queue)
 	{
 		case QUEUE_TYPE_GRAPHICS:
-			vkQueueWaitIdle(graphicsQueue);
+			VK_CHECK_RESULT(vkQueueWaitIdle(graphicsQueue))
+			;
 			break;
 		case QUEUE_TYPE_COMPUTE:
-			vkQueueWaitIdle(computeQueue);
+			VK_CHECK_RESULT(vkQueueWaitIdle(computeQueue))
+			;
 			break;
 		case QUEUE_TYPE_TRANSFER:
-			vkQueueWaitIdle(transferQueue);
+			VK_CHECK_RESULT(vkQueueWaitIdle(transferQueue))
+			;
 			break;
 		case QUEUE_TYPE_PRESENT:
-			vkQueueWaitIdle(presentQueue);
+			VK_CHECK_RESULT(vkQueueWaitIdle(presentQueue))
+			;
 			break;
 		default:
 			break;
 	}
+}
+
+void VulkanRenderer::waitForDeviceIdle ()
+{
+	VK_CHECK_RESULT(vkDeviceWaitIdle(device));
+}
+
+void VulkanRenderer::writeDescriptorSets (const std::vector<DescriptorWriteInfo> &writes)
+{
+	std::vector<VkDescriptorImageInfo> imageInfos; // To make sure pointers have the correct life-time
+	std::vector<VkDescriptorBufferInfo> bufferInfos; // same ^
+	std::vector<VkWriteDescriptorSet> vkWrites;
+
+	for (size_t i = 0; i < writes.size(); i ++)
+	{
+		const DescriptorWriteInfo &writeInfo = writes[i];
+		VkWriteDescriptorSet write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		write.dstSet = static_cast<VulkanDescriptorSet*>(writeInfo.dstSet)->setHandle;
+		write.descriptorCount = writeInfo.descriptorCount;
+		write.descriptorType = toVkDescriptorType(writeInfo.descriptorType);
+		write.dstArrayElement = writeInfo.dstArrayElement;
+		write.dstBinding = writeInfo.dstBinding;
+
+		if (writeInfo.imageInfo.size() > 0)
+		{
+			for (uint32_t t = 0; t < writeInfo.imageInfo.size(); t ++)
+			{
+				const DescriptorImageInfo &writeImageInfo = writeInfo.imageInfo[t];
+				VkDescriptorImageInfo imageInfo = {};
+				imageInfo.sampler = static_cast<VulkanSampler*>(writeImageInfo.sampler)->samplerHandle;
+				imageInfo.imageView = static_cast<VulkanTextureView*>(writeImageInfo.view)->imageView;
+				imageInfo.imageLayout = toVkImageLayout(writeImageInfo.layout);
+
+				imageInfos.push_back(imageInfo);
+			}
+
+			write.pImageInfo = imageInfos.data() + (imageInfos.size() - writeInfo.imageInfo.size()) * sizeof(VkDescriptorImageInfo);
+		}
+
+		if (writeInfo.bufferInfo.size() > 0)
+		{
+			for (uint32_t t = 0; t < writeInfo.bufferInfo.size(); t ++)
+			{
+				const DescriptorBufferInfo &writeBufferInfo = writeInfo.bufferInfo[t];
+				VkDescriptorBufferInfo bufferInfo = {};
+				bufferInfo.buffer = static_cast<VulkanBuffer*>(writeBufferInfo.buffer)->bufferHandle;
+				bufferInfo.offset = static_cast<VkDeviceSize>(writeBufferInfo.offset);
+				bufferInfo.range = static_cast<VkDeviceSize>(writeBufferInfo.range);
+
+				bufferInfos.push_back(bufferInfo);
+			}
+
+			write.pBufferInfo = bufferInfos.data() + bufferInfos.size() - writeInfo.bufferInfo.size();
+		}
+
+		vkWrites.push_back(write);
+	}
+
+	vkUpdateDescriptorSets(device, static_cast<uint32_t>(vkWrites.size()), vkWrites.data(), 0, nullptr);
 }
 
 RenderPass VulkanRenderer::createRenderPass (std::vector<AttachmentDescription> attachments, std::vector<SubpassDescription> subpasses, std::vector<SubpassDependency> dependencies)
@@ -486,12 +607,50 @@ RenderPass VulkanRenderer::createRenderPass (std::vector<AttachmentDescription> 
 	return renderPass;
 }
 
+Framebuffer VulkanRenderer::createFramebuffer (RenderPass renderPass, std::vector<TextureView> attachments, uint32_t width, uint32_t height, uint32_t layers)
+{
+	std::vector<VkImageView> imageAttachments = {};
+
+	for (size_t i = 0; i < attachments.size(); i ++)
+	{
+		imageAttachments.push_back(static_cast<VulkanTextureView*>(attachments[i])->imageView);
+	}
+
+	VkFramebufferCreateInfo framebufferCreateInfo = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+	framebufferCreateInfo.renderPass = static_cast<VulkanRenderPass*>(renderPass)->renderPassHandle;
+	framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(imageAttachments.size());
+	framebufferCreateInfo.pAttachments = imageAttachments.data();
+	framebufferCreateInfo.width = width;
+	framebufferCreateInfo.height = height;
+	framebufferCreateInfo.layers = layers;
+
+	VulkanFramebuffer *framebuffer = new VulkanFramebuffer();
+
+	VK_CHECK_RESULT(vkCreateFramebuffer(device, &framebufferCreateInfo, nullptr, &framebuffer->framebufferHandle));
+
+	return framebuffer;
+}
+
 ShaderModule VulkanRenderer::createShaderModule (std::string file, ShaderStageFlagBits stage)
 {
 	VulkanShaderModule *vulkanShader = new VulkanShaderModule();
 
 	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSL(*defaultCompiler, file, toVkShaderStageFlagBits(stage)));
 	vulkanShader->stage = stage;
+
+	/*
+	 * I'm formatting the debug name to trim it to the "GameData/shaders/" directory. For example:
+	 * "GameData/shaders/vulkan/temp-swapchain.glsl" would turn to ".../vulkan/temp-swapchain.glsl"
+	 */
+
+	size_t i = file.find("/shaders/");
+
+	std::string debugMarkerName = ".../";
+
+	if (i != file.npos)
+		debugMarkerName += file.substr(i + 9);
+
+	debugMarkerSetName(device, vulkanShader->module, VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT, debugMarkerName);
 
 	return vulkanShader;
 }
@@ -501,35 +660,40 @@ Pipeline VulkanRenderer::createGraphicsPipeline (const PipelineInfo &pipelineInf
 	return pipelineHandler->createGraphicsPipeline(pipelineInfo, inputLayout, renderPass, subpass);
 }
 
-/*
-DescriptorSetLayout VulkanRenderer::createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &bindings)
+DescriptorSet VulkanRenderer::createDescriptorSet (const std::vector<DescriptorSetLayoutBinding> &layoutBindings)
 {
-	VulkanDescriptorSetLayout *descriptorSetLayout = new VulkanDescriptorSetLayout();
-	descriptorSetLayout->bindings = bindings;
-
-	std::vector<VkDescriptorSetLayoutBinding> vulkanLayoutBindings;
-
-	for (size_t i = 0; i < bindings.size(); i ++)
-	{
-		const DescriptorSetLayoutBinding &binding = bindings[i];
-		VkDescriptorSetLayoutBinding layoutBinding = {};
-		layoutBinding.binding = binding.binding;
-		layoutBinding.descriptorCount = binding.descriptorCount;
-		layoutBinding.descriptorType = toVkDescriptorType(binding.descriptorType);
-		layoutBinding.stageFlags = toVkShaderStageFlags(binding.stageFlags);
-
-		vulkanLayoutBindings.push_back(layoutBinding);
-	}
-
-	VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-	layoutCreateInfo.bindingCount = static_cast<uint32_t>(vulkanLayoutBindings.size());
-	layoutCreateInfo.pBindings = vulkanLayoutBindings.data();
-
-	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr, &descriptorSetLayout->setLayoutHandle));
-
-	return descriptorSetLayout;
+	return pipelineHandler->allocateDescriptorSet(layoutBindings);
 }
-*/
+
+/*
+ DescriptorSetLayout VulkanRenderer::createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &bindings)
+ {
+ VulkanDescriptorSetLayout *descriptorSetLayout = new VulkanDescriptorSetLayout();
+ descriptorSetLayout->bindings = bindings;
+
+ std::vector<VkDescriptorSetLayoutBinding> vulkanLayoutBindings;
+
+ for (size_t i = 0; i < bindings.size(); i ++)
+ {
+ const DescriptorSetLayoutBinding &binding = bindings[i];
+ VkDescriptorSetLayoutBinding layoutBinding = {};
+ layoutBinding.binding = binding.binding;
+ layoutBinding.descriptorCount = binding.descriptorCount;
+ layoutBinding.descriptorType = toVkDescriptorType(binding.descriptorType);
+ layoutBinding.stageFlags = toVkShaderStageFlags(binding.stageFlags);
+
+ vulkanLayoutBindings.push_back(layoutBinding);
+ }
+
+ VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+ layoutCreateInfo.bindingCount = static_cast<uint32_t>(vulkanLayoutBindings.size());
+ layoutCreateInfo.pBindings = vulkanLayoutBindings.data();
+
+ VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr, &descriptorSetLayout->setLayoutHandle));
+
+ return descriptorSetLayout;
+ }
+ */
 
 Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, TextureType type)
 {
@@ -566,7 +730,7 @@ TextureView VulkanRenderer::createTextureView (Texture texture, TextureViewType 
 	VkImageViewCreateInfo imageViewCreateInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 	imageViewCreateInfo.image = vkTex->imageHandle;
 	imageViewCreateInfo.viewType = toVkImageViewType(viewType);
-	imageViewCreateInfo.format = viewFormat == TEXTURE_FORMAT_UNDEFINED ? vkTex->imageFormat : toVkFormat(viewFormat);
+	imageViewCreateInfo.format = viewFormat == RESOURCE_FORMAT_UNDEFINED ? vkTex->imageFormat : toVkFormat(viewFormat);
 	imageViewCreateInfo.subresourceRange.aspectMask = isVkDepthFormat(imageViewCreateInfo.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	imageViewCreateInfo.subresourceRange.baseMipLevel = subresourceRange.baseMipLevel;
 	imageViewCreateInfo.subresourceRange.levelCount = subresourceRange.levelCount;
@@ -739,6 +903,26 @@ void VulkanRenderer::destroyRenderPass (RenderPass renderPass)
 	delete renderPass;
 }
 
+void VulkanRenderer::destroyFramebuffer (Framebuffer framebuffer)
+{
+	VulkanFramebuffer *vulkanFramebuffer = static_cast<VulkanFramebuffer*>(framebuffer);
+
+	if (vulkanFramebuffer->framebufferHandle != VK_NULL_HANDLE)
+		vkDestroyFramebuffer(device, vulkanFramebuffer->framebufferHandle, nullptr);
+
+	delete framebuffer;
+}
+
+void VulkanRenderer::destroyPipeline (Pipeline pipeline)
+{
+	VulkanPipeline *vulkanPipeline = static_cast<VulkanPipeline*>(pipeline);
+
+	if (vulkanPipeline->pipelineHandle != VK_NULL_HANDLE)
+		vkDestroyPipeline(device, vulkanPipeline->pipelineHandle, nullptr);
+
+	delete pipeline;
+}
+
 void VulkanRenderer::destroyShaderModule (ShaderModule module)
 {
 	VulkanShaderModule *vulkanShader = static_cast<VulkanShaderModule*>(module);
@@ -749,17 +933,22 @@ void VulkanRenderer::destroyShaderModule (ShaderModule module)
 	delete module;
 }
 
-/*
-void VulkanRenderer::destroyDescriptorSetLayout (DescriptorSetLayout layout)
+void VulkanRenderer::destroyDescriptorSet (DescriptorSet set)
 {
-	VulkanDescriptorSetLayout *vulkanDescriptorSetLayout = static_cast<VulkanDescriptorSetLayout*>(layout);
-
-	if (vulkanDescriptorSetLayout->setLayoutHandle != VK_NULL_HANDLE)
-		vkDestroyDescriptorSetLayout(device, vulkanDescriptorSetLayout->setLayoutHandle, nullptr);
-
-	delete vulkanDescriptorSetLayout;
+	pipelineHandler->freeDescriptorset(set);
 }
-*/
+
+/*
+ void VulkanRenderer::destroyDescriptorSetLayout (DescriptorSetLayout layout)
+ {
+ VulkanDescriptorSetLayout *vulkanDescriptorSetLayout = static_cast<VulkanDescriptorSetLayout*>(layout);
+
+ if (vulkanDescriptorSetLayout->setLayoutHandle != VK_NULL_HANDLE)
+ vkDestroyDescriptorSetLayout(device, vulkanDescriptorSetLayout->setLayoutHandle, nullptr);
+
+ delete vulkanDescriptorSetLayout;
+ }
+ */
 
 void VulkanRenderer::destroyTexture (Texture texture)
 {
@@ -811,6 +1000,113 @@ void VulkanRenderer::destroyStagingBuffer (StagingBuffer stagingBuffer)
 	delete vkBuffer;
 }
 
+void VulkanRenderer::setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name)
+{
+#if SE_VULKAN_DEBUG_MARKERS
+
+	if (VulkanExtensions::enabled_VK_EXT_debug_marker)
+	{
+		uint64_t objHandle = 0;
+
+		switch (objType)
+		{
+			case OBJECT_TYPE_UNKNOWN:
+				objHandle = 0;
+				break;
+			case OBJECT_TYPE_COMMAND_BUFFER:
+				objHandle = (uint64_t) static_cast<VulkanCommandBuffer*>(obj)->bufferHandle;
+				break;
+			case OBJECT_TYPE_BUFFER:
+				objHandle = (uint64_t) static_cast<VulkanBuffer*>(obj)->bufferHandle;
+				break;
+			case OBJECT_TYPE_TEXTURE:
+				objHandle = (uint64_t) static_cast<VulkanTexture*>(obj)->imageHandle;
+				break;
+			case OBJECT_TYPE_TEXTURE_VIEW:
+				objHandle = (uint64_t) static_cast<VulkanTextureView*>(obj)->imageView;
+				break;
+			case OBJECT_TYPE_SHADER_MODULE:
+				objHandle = (uint64_t) static_cast<VulkanShaderModule*>(obj)->module;
+				break;
+			case OBJECT_TYPE_RENDER_PASS:
+				objHandle = (uint64_t) static_cast<VulkanRenderPass*>(obj)->renderPassHandle;
+				break;
+			case OBJECT_TYPE_PIPELINE:
+				objHandle = (uint64_t) static_cast<VulkanPipeline*>(obj)->pipelineHandle;
+				break;
+			case OBJECT_TYPE_SAMPLER:
+				objHandle = (uint64_t) static_cast<VulkanSampler*>(obj)->samplerHandle;
+				break;
+			case OBJECT_TYPE_DESCRIPTOR_SET:
+				objHandle = (uint64_t) static_cast<VulkanDescriptorSet*>(obj)->setHandle;
+				break;
+			case OBJECT_TYPE_FRAMEBUFFER:
+				objHandle = (uint64_t) static_cast<VulkanFramebuffer*>(obj)->framebufferHandle;
+				break;
+			case OBJECT_TYPE_COMMAND_POOL:
+				objHandle = (uint64_t) static_cast<VulkanCommandPool*>(obj)->poolHandle;
+				break;
+
+			default:
+
+				break;
+		}
+
+		VkDebugMarkerObjectNameInfoEXT nameInfo = {.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT};
+		nameInfo.objectType = toVkDebugReportObjectTypeEXT(objType);
+		nameInfo.object = objHandle;
+		nameInfo.pObjectName = name.c_str();
+
+		vkDebugMarkerSetObjectNameEXT(device, &nameInfo);
+	}
+
+#endif
+}
+
+void VulkanRenderer::cmdBeginDebugRegion (CommandBuffer cmdBuffer, const std::string &regionName, glm::vec4 color)
+{
+#if SE_VULKAN_DEBUG_MARKERS
+
+	if (VulkanExtensions::enabled_VK_EXT_debug_marker)
+	{
+		VkDebugMarkerMarkerInfoEXT info = {};
+		info.pMarkerName = regionName.c_str();
+		memcpy(info.color, &color.x, sizeof(color));
+
+		vkCmdDebugMarkerBeginEXT(static_cast<VulkanCommandBuffer*> (cmdBuffer)->bufferHandle, &info);
+	}
+
+#endif
+}
+
+void VulkanRenderer::cmdEndDebugRegion (CommandBuffer cmdBuffer)
+{
+#if SE_VULKAN_DEBUG_MARKERS
+
+	if (VulkanExtensions::enabled_VK_EXT_debug_marker)
+	{
+		vkCmdDebugMarkerEndEXT(static_cast<VulkanCommandBuffer*> (cmdBuffer)->bufferHandle);
+	}
+
+#endif
+}
+
+void VulkanRenderer::cmdInsertDebugMarker (CommandBuffer cmdBuffer, const std::string &markerName, glm::vec4 color)
+{
+#if SE_VULKAN_DEBUG_MARKERS
+
+	if (VulkanExtensions::enabled_VK_EXT_debug_marker)
+	{
+		VkDebugMarkerMarkerInfoEXT info = {};
+		info.pMarkerName = markerName.c_str();
+		memcpy(info.color, &color.x, sizeof(color));
+
+		vkCmdDebugMarkerInsertEXT(static_cast<VulkanCommandBuffer*> (cmdBuffer)->bufferHandle, &info);
+	}
+
+#endif
+}
+
 void VulkanRenderer::initSwapchain ()
 {
 	swapchain->initSwapchain();
@@ -850,14 +1146,41 @@ void VulkanRenderer::createLogicalDevice ()
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
+	std::vector<const char*> enabledDeviceExtensions;
+	enabledDeviceExtensions.insert(enabledDeviceExtensions.begin(), deviceExtensions.begin(), deviceExtensions.end());
+
+	uint32_t extensionCount;
+	vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
+	std::vector<VkExtensionProperties> extensions(extensionCount);
+	vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensions.data());
+
+	if (SE_VULKAN_DEBUG_MARKERS)
+	{
+		uint32_t extensionCount;
+		vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
+		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+		vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
+
+		for (auto ext : availableExtensions)
+		{
+			if (strcmp(ext.extensionName, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) == 0)
+			{
+				enabledDeviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+				VulkanExtensions::enabled_VK_EXT_debug_marker = true;
+
+				break;
+			}
+		}
+	}
+
 	VkPhysicalDeviceFeatures enabledDeviceFeatures = {};
 	enabledDeviceFeatures.samplerAnisotropy = deviceFeatures.samplerAnisotropy;
 
 	VkDeviceCreateInfo deviceCreateInfo = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
 	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
-	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-	deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
+	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(enabledDeviceExtensions.size());
+	deviceCreateInfo.ppEnabledExtensionNames = enabledDeviceExtensions.data();
 	deviceCreateInfo.pEnabledFeatures = &enabledDeviceFeatures;
 
 	if (validationLayersEnabled)
@@ -871,6 +1194,8 @@ void VulkanRenderer::createLogicalDevice ()
 	}
 
 	VK_CHECK_RESULT(vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device));
+
+	VulkanExtensions::getProcAddresses(device);
 
 	vkGetDeviceQueue(device, deviceQueueInfo.graphicsFamily, deviceQueueInfo.graphicsQueue, &graphicsQueue);
 	vkGetDeviceQueue(device, deviceQueueInfo.computeFamily, deviceQueueInfo.computeQueue, &computeQueue);
@@ -1222,7 +1547,24 @@ bool VulkanRenderer::checkValidationLayerSupport (std::vector<const char*> layer
 
 VkBool32 VulkanRenderer::debugCallback (VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t obj, size_t location, int32_t code, const char* layerPrefix, const char* msg, void* userData)
 {
-	printf("[StarlightEngine] [VkDbg] Layer: %s gave message: %s\n", layerPrefix, msg);
+	printf("[StarlightEngine] [VkDbg] ");
+
+	if (flags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT)
+		printf("[Info] ");
+
+	if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
+		printf("[Warning] ");
+
+	if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
+		printf("[Perf] ");
+
+	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+		printf("[Error] ");
+
+	if (flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT)
+		printf("[Dbg] ");
+
+	printf("Layer: %s gave message: %s\n", layerPrefix, msg);
 
 	return VK_FALSE;
 }

@@ -112,6 +112,21 @@ typedef struct RendererDescriptorSetLayoutBinding
 		uint32_t descriptorCount;
 		ShaderStageFlags stageFlags;
 		// TODO Add immutable sampler functionality, but don't forget the descriptor set layout cache also needs to be updated for this!!!!!!!!
+
+		bool operator< (const RendererDescriptorSetLayoutBinding &other)
+		{
+			return binding < other.binding;
+		}
+
+		bool operator== (const RendererDescriptorSetLayoutBinding &other)
+		{
+			return binding == other.binding && descriptorType == other.descriptorType && descriptorCount == other.descriptorCount && stageFlags == other.stageFlags;
+		}
+
+		bool operator!= (const RendererDescriptorSetLayoutBinding &other)
+		{
+			return !(operator==(other));
+		}
 } DescriptorSetLayoutBinding;
 
 /*
@@ -273,16 +288,70 @@ typedef struct RendererPipelineInfo
 		PipelineColorBlendInfo colorBlendInfo;
 		PipelineDynamicStateInfo dynamicStateInfo;
 
-		PipelineInputLayout inputLayout;
-		RendererRenderPass *renderPass;
-		uint32_t subpass;
+		//PipelineInputLayout inputLayout;
+		//RendererRenderPass *renderPass;
+		//uint32_t subpass;
 
 } PipelineInfo;
+
+typedef struct RendererDescriptorSet
+{
+
+} RendererDescriptorSet;
 
 typedef struct RendererPipeline
 {
 
 } RendererPipeline;
+
+typedef struct RendererFramebuffer
+{
+
+} RendererFramebuffer;
+
+typedef struct RendererDescriptorImageInfo
+{
+		RendererSampler *sampler;
+		RendererTextureView *view;
+		TextureLayout layout;
+
+} DescriptorImageInfo;
+
+typedef struct RendererDescriptorBufferInfo
+{
+		RendererBuffer *buffer;
+		size_t offset;
+		size_t range;
+} DescriptorBufferInfo;
+
+typedef struct RendererDescriptorWriteInfo
+{
+		RendererDescriptorSet *dstSet;
+		uint32_t dstBinding;
+		uint32_t dstArrayElement;
+		uint32_t descriptorCount;
+		DescriptorType descriptorType;
+
+		std::vector<DescriptorImageInfo> imageInfo;
+		std::vector<DescriptorBufferInfo> bufferInfo;
+
+} DescriptorWriteInfo;
+
+typedef union VRendererClearColorValue {
+    float       float32[4];
+    int32_t     int32[4];
+    uint32_t    uint32[4];
+} ClearColorValue;
+
+typedef struct RendererClearDepthStencilValue {
+    float       depth;
+    uint32_t    stencil;
+} ClearDepthStencilValue;
+
+typedef union RendererClearValue {
+    ClearColorValue           color;
+    ClearDepthStencilValue    depthStencil;
+} ClearValue;
 
 //f//
 
@@ -293,7 +362,9 @@ typedef struct RendererFence
 typedef RendererRenderPass *RenderPass;
 typedef RendererPipeline *Pipeline;
 //typedef RendererDescriptorSetLayout *DescriptorSetLayout;
+typedef RendererDescriptorSet *DescriptorSet;
 typedef RendererShaderModule *ShaderModule;
+typedef RendererFramebuffer *Framebuffer;
 typedef RendererTexture *Texture;
 typedef RendererTextureView *TextureView;
 typedef RendererSampler *Sampler;

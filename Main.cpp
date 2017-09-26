@@ -84,30 +84,6 @@ int main (int argc, char *argv[])
 	RenderGame* gameRenderer = new RenderGame(renderer);
 	gameRenderer->init();
 
-	std::vector<uint8_t> imageData;
-	unsigned width, height;
-
-	lodepng::decode(imageData, width, height, "GameData/textures/test_png.png", LCT_RGBA, 8);
-
-	CommandPool testPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
-	StagingBuffer bfr = renderer->createAndMapStagingBuffer(imageData.size(), imageData.data());
-
-	Texture testTexture = renderer->createTexture({float(width), float(height), 1.0f}, TEXTURE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY);
-	TextureView testTextureView = renderer->createTextureView(testTexture);
-	Sampler testSampler = renderer->createSampler();
-
-	CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(testPool);
-
-	renderer->cmdTransitionTextureLayout(cmdBuffer, testTexture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	renderer->cmdStageBuffer(cmdBuffer, bfr, testTexture);
-	renderer->cmdTransitionTextureLayout(cmdBuffer, testTexture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	renderer->endSingleTimeCommand(cmdBuffer, testPool, QUEUE_TYPE_GRAPHICS);
-
-	renderer->destroyStagingBuffer(bfr);
-
-	renderer->setSwapchainTexture(testTextureView, testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
 	printf("%s Completed startup\n", INFO_PREFIX);
 
 	double frameTimeTarget = 1 / 60.0;
@@ -126,11 +102,10 @@ int main (int argc, char *argv[])
 
 				while (glfwGetTime() - lastTime < frameTimeTarget)
 				{
-					// Busy wait for the rest of the loop
+					// Busy wait for the rest of the time
 				}
 			}
 		}
-
 		double currentTime = glfwGetTime();
 		double delta = currentTime - lastTime;
 
@@ -149,17 +124,14 @@ int main (int argc, char *argv[])
 		lastTime = glfwGetTime();
 
 		gameRenderer->renderGame();
-		renderer->presentToSwapchain();
 
+		renderer->presentToSwapchain();
 	}
 	while (!gameWindow->userRequestedClose());
 
 	printf("%s Beginning shutdown\n", INFO_PREFIX);
 
-	renderer->destroyTexture(testTexture);
-	renderer->destroyTextureView(testTextureView);
-	renderer->destroySampler(testSampler);
-	renderer->destroyCommandPool(testPool);
+	renderer->waitForDeviceIdle();
 
 	delete gameRenderer;
 	delete renderer;

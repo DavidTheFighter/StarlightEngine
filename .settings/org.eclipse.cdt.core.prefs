@@ -4,6 +4,6 @@ environment/project/cdt.managedbuild.config.gnu.exe.debug.1827087738/LD_LIBRARY_
 environment/project/cdt.managedbuild.config.gnu.exe.debug.1827087738/LD_LIBRARY_PATH/value=/media/david/Main Disk/Programming/StarlightEngineDev/libraries/lib\:${VULKAN_SDK_PATH}/x86_64/lib
 environment/project/cdt.managedbuild.config.gnu.exe.debug.1827087738/VULKAN_SDK_PATH/delimiter=\:
 environment/project/cdt.managedbuild.config.gnu.exe.debug.1827087738/VULKAN_SDK_PATH/operation=replace
-environment/project/cdt.managedbuild.config.gnu.exe.debug.1827087738/VULKAN_SDK_PATH/value=/media/david/Main Disk/Programming/CppFiles/VulkanSDK/1.0.54.0
+environment/project/cdt.managedbuild.config.gnu.exe.debug.1827087738/VULKAN_SDK_PATH/value=/media/david/Main Disk/Programming/CppFiles/VulkanSDK/1.0.61.1
 environment/project/cdt.managedbuild.config.gnu.exe.debug.1827087738/append=true
 environment/project/cdt.managedbuild.config.gnu.exe.debug.1827087738/appendContributed=true

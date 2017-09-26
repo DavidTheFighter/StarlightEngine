@@ -18,7 +18,24 @@
 #define VENDOR_ID_QUALCOMM 	0x5143
 #define VENDOR_ID_IMGTEC 	0x1010
 
+#define SE_VULKAN_DEBUG_MARKERS (1 && SE_RENDER_DEBUG_MARKERS)
+
 #include <vk_mem_alloc.h>
+
+class VulkanExtensions
+{
+	public:
+
+		static bool enabled_VK_EXT_debug_marker;
+
+		static PFN_vkDebugMarkerSetObjectTagEXT DebugMarkerSetObjectTagEXT;
+		static PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectNameEXT;
+		static PFN_vkCmdDebugMarkerBeginEXT CmdDebugMarkerBeginEXT;
+		static PFN_vkCmdDebugMarkerEndEXT CmdDebugMarkerEndEXT;
+		static PFN_vkCmdDebugMarkerInsertEXT CmdDebugMarkerInsertEXT;
+
+		static void getProcAddresses (VkDevice device);
+};
 
 inline VkResult CreateDebugReportCallbackEXT (VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback)
 {
@@ -41,6 +58,42 @@ inline void DestroyDebugReportCallbackEXT (VkInstance instance, VkDebugReportCal
 		func(instance, callback, pAllocator);
 	}
 }
+
+#if SE_RENDER_DEBUG_MARKERS
+inline void debugMarkerBeginRegion (VkCommandBuffer cmdBuffer, const std::string &name, const glm::vec4 &color)
+{
+	VkDebugMarkerMarkerInfoEXT info = {};
+	info.pMarkerName = name.c_str();
+	memcpy(info.color, &color.x, sizeof(color));
+
+	vkCmdDebugMarkerBeginEXT(cmdBuffer, &info);
+}
+
+inline void debugMarkerEndRegion (VkCommandBuffer cmdBuffer)
+{
+	vkCmdDebugMarkerEndEXT(cmdBuffer);
+}
+
+template<typename VulkanObject>
+inline void debugMarkerSetName (VkDevice device, VulkanObject obj, VkDebugReportObjectTypeEXT objType, const std::string &name)
+{
+	VkDebugMarkerObjectNameInfoEXT nameInfo = {.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT};
+	nameInfo.objectType = objType;
+	nameInfo.object = (uint64_t) obj;
+	nameInfo.pObjectName = name.c_str();
+
+	vkDebugMarkerSetObjectNameEXT(device, &nameInfo);
+}
+#else
+inline void debugMarkerBeginRegion (VkCommandBuffer cmdBuffer, const std::string &name, const glm::vec4 &color)
+{}
+inline void debugMarkerEndRegion (VkCommandBuffer cmdBuffer)
+{}
+template<typename VulkanObject>
+inline void debugMarkerSetName (VkDevice device, VulkanObject obj, VkDebugReportObjectTypeEXT objType, const std::string &name)
+{}
+
+#endif
 
 inline std::string getVkResultString (VkResult result)
 {

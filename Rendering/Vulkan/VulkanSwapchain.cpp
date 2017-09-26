@@ -54,8 +54,13 @@ VulkanSwapchain::~VulkanSwapchain ()
 
 void VulkanSwapchain::initSwapchain ()
 {
-	swapchainVertShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, "GameData/shaders/vulkan/temp-swapchain.glsl", VK_SHADER_STAGE_VERTEX_BIT));
-	swapchainFragShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, "GameData/shaders/vulkan/temp-swapchain.glsl", VK_SHADER_STAGE_FRAGMENT_BIT));
+	const std::string tempSwapchainShaderFile = "GameData/shaders/vulkan/temp-swapchain.glsl";
+
+	swapchainVertShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, tempSwapchainShaderFile, VK_SHADER_STAGE_VERTEX_BIT));
+	swapchainFragShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, tempSwapchainShaderFile, VK_SHADER_STAGE_FRAGMENT_BIT));
+
+	debugMarkerSetName(renderer->device, swapchainVertShader, VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT, ".../vulkan/temp-swapchain.glsl");
+	debugMarkerSetName(renderer->device, swapchainFragShader, VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT, ".../vulkan/temp-swapchain.glsl");
 
 	VkCommandPoolCreateInfo poolCreateInfo = {};
 	poolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -70,6 +75,8 @@ void VulkanSwapchain::initSwapchain ()
 
 void VulkanSwapchain::presentToSwapchain ()
 {
+	vkQueueWaitIdle(renderer->presentQueue);
+
 	uint32_t imageIndex;
 	VkResult result = vkAcquireNextImageKHR(renderer->device, swapchain, std::numeric_limits<uint64_t>::max(), swapchainNextImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
@@ -121,9 +128,6 @@ void VulkanSwapchain::presentToSwapchain ()
 	{
 		VK_CHECK_RESULT(result);
 	}
-
-	vkQueueWaitIdle(renderer->presentQueue);
-	vkDeviceWaitIdle(renderer->device);
 }
 
 void VulkanSwapchain::createSwapchain ()
@@ -309,6 +313,8 @@ void VulkanSwapchain::prerecordCommandBuffers ()
 
 		vkBeginCommandBuffer(swapchainCommandBuffers[i], &beginInfo);
 
+		debugMarkerBeginRegion(swapchainCommandBuffers[i], "Render to Swapchain", glm::vec4(1, 0, 0, 1));
+
 		std::array<VkClearValue, 1> clearValues = {};
 		clearValues[0].color =
 		{	0.0f, 0.0f, 0.0f, 1.0f};
@@ -334,6 +340,8 @@ void VulkanSwapchain::prerecordCommandBuffers ()
 		vkCmdDraw(swapchainCommandBuffers[i], 6, 1, 0, 0);
 
 		vkCmdEndRenderPass(swapchainCommandBuffers[i]);
+
+		debugMarkerEndRegion(swapchainCommandBuffers[i]);
 
 		VK_CHECK_RESULT(vkEndCommandBuffer(swapchainCommandBuffers[i]));
 	}
@@ -400,6 +408,8 @@ void VulkanSwapchain::createRenderPass ()
 	renderPassCreateInfo.pDependencies = &dependency;
 
 	VK_CHECK_RESULT(vkCreateRenderPass(renderer->device, &renderPassCreateInfo, nullptr, &swapchainRenderPass));
+
+	debugMarkerSetName(renderer->device, swapchainRenderPass, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT, "Swapchain Render Pass");
 }
 
 void VulkanSwapchain::createGraphicsPipeline ()
@@ -512,6 +522,9 @@ void VulkanSwapchain::createGraphicsPipeline ()
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(renderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &swapchainPipeline));
+
+	debugMarkerSetName(renderer->device, swapchainPipeline, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT, "Swapchain Graphics Pipeline Layout");
+	debugMarkerSetName(renderer->device, swapchainPipeline, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT, "Swapchain Graphics Pipeline");
 }
 
 void VulkanSwapchain::createFramebuffers ()
@@ -532,6 +545,8 @@ void VulkanSwapchain::createFramebuffers ()
 		framebufferCreateInfo.layers = 1;
 
 		VK_CHECK_RESULT(vkCreateFramebuffer(renderer->device, &framebufferCreateInfo, nullptr, &swapchainFramebuffers[i]));
+
+		debugMarkerSetName(renderer->device, swapchainFramebuffers[i], VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT, "Swapchain Framebuffer #" + toString(i));
 	}
 }
 

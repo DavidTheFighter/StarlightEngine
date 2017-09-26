@@ -1,8 +1,13 @@
-/*
+/*/vulkan/temp-swapchain.glsl
  * VulkanShaderLoader.cpp
  *
  *  Created on: Sep 14, 2017
  *      Author: david
+ *
+ *  Note: For future reference, the shaderc lib has a bug I don't feel like reporting. The compilation result
+ *  returns iterators, and the cend() iterator by default returns an incorrect value. By default, it returns:
+ *  "cbegin() + compilationLength() / sizeof(uint32_t). I have no idea why it does this, because it's incorrect.
+ *  It should be changed to "cbegin() + compilationLength()". Dunno why this is, but whatever :D.
  */
 
 #include "Rendering/Vulkan/VulkanShaderLoader.h"
@@ -21,20 +26,20 @@ std::vector<uint32_t> VulkanShaderLoader::compileGLSL (shaderc::Compiler &compil
 
 	if (spvComp.GetCompilationStatus() != shaderc_compilation_status_success)
 	{
-		printf("%s Failed to compile GLSL shader: %s, shaderc returned: %u, gave message: %s\n", ERR_PREFIX, file.c_str(), spvComp.GetCompilationStatus(), spvComp.GetErrorMessage());
+		printf("%s Failed to compile GLSL shader: %s, shaderc returned: %u, gave message: %s\n", ERR_PREFIX, file.c_str(), spvComp.GetCompilationStatus(), spvComp.GetErrorMessage().c_str());
 
 		throw std::runtime_error("shaderc error - failed compilation");
 	}
 
-	return std::vector<uint32_t> (spvComp.begin(), spvComp.end());
+	return std::vector<uint32_t> (spvComp.cbegin(), spvComp.cend());
 }
 
 VkShaderModule VulkanShaderLoader::createVkShaderModule (const VkDevice &device, const std::vector<uint32_t> &spirv)
 {
 	VkShaderModuleCreateInfo moduleCreateInfo = {};
 	moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	moduleCreateInfo.codeSize = spirv.size();
-	moduleCreateInfo.pCode = reinterpret_cast<const uint32_t*>(spirv.data());
+	moduleCreateInfo.codeSize = static_cast<uint32_t> (spirv.size());
+	moduleCreateInfo.pCode = spirv.data();
 
 	VkShaderModule module;
 	VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, nullptr, &module));

@@ -44,9 +44,21 @@ struct VulkanRenderPass : public RendererRenderPass
 		VkRenderPass renderPassHandle;
 };
 
+struct VulkanFramebuffer : public RendererFramebuffer
+{
+		VkFramebuffer framebufferHandle;
+};
+
 struct VulkanPipeline : public RendererPipeline
 {
 		VkPipeline pipelineHandle;
+};
+
+struct VulkanDescriptorSet : public RendererDescriptorSet
+{
+		VkDescriptorSet setHandle;
+		void *pipelineHandlerPoolPtr; // A ptr to the VulkanPipelineDescriptorAllocatorPool the set was allocated from. It's a void ptr because I'm lazy and don't wanna import the header
+		void *pipelineHandlerPoolSetPtr; // A ptr to the VulkanPipelineAllocatedDescriptorSet this set is a part of. It's a void ptr because above ^
 };
 
 /*

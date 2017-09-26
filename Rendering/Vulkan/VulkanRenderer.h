@@ -58,18 +58,32 @@ class VulkanRenderer : public Renderer
 		void freeCommandBuffer (CommandBuffer commandBuffer);
 		void freeCommandBuffers (std::vector<CommandBuffer> commandBuffers);
 
+		void cmdBeginRenderPass (CommandBuffer cmdBuffer, RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents);
+		void cmdEndRenderPass (CommandBuffer cmdBuffer);
+
+		void cmdBindPipeline (CommandBuffer cmdBuffer, PipelineBindPoint point, Pipeline pipeline);
+
+		void cmdPushConstants(CommandBuffer cmdBuffer, const PipelineInputLayout &inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data);
+		void cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, const PipelineInputLayout &inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets);
+
 		void cmdTransitionTextureLayout (CommandBuffer cmdBuffer, Texture texture, TextureLayout oldLayout, TextureLayout newLayout);
 		void cmdStageBuffer(CommandBuffer cmdBuffer, StagingBuffer stagingBuffer, Texture dstTexture);
 		void cmdStageBuffer (CommandBuffer cmdBuffer, StagingBuffer stagingBuffer, Buffer dstBuffer);
 
+		void cmdSetViewport (CommandBuffer cmdBuffer, uint32_t firstViewport, const std::vector<Viewport> &viewports);
+		void cmdSetScissor (CommandBuffer cmdBuffer, uint32_t firstScissor, const std::vector<Scissor> &scissors);
+
 		void submitToQueue (QueueType queue, std::vector<CommandBuffer> cmdBuffers, Fence fence);
 		void waitForQueueIdle (QueueType queue);
+		void waitForDeviceIdle ();
+
+		void writeDescriptorSets (const std::vector<DescriptorWriteInfo> &writes);
 
 		RenderPass createRenderPass(std::vector<AttachmentDescription> attachments, std::vector<SubpassDescription> subpasses, std::vector<SubpassDependency> dependencies);
-
+		Framebuffer createFramebuffer(RenderPass renderPass, std::vector<TextureView> attachments, uint32_t width, uint32_t height, uint32_t layers);
 		ShaderModule createShaderModule (std::string file, ShaderStageFlagBits stage);
-
 		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, const PipelineInputLayout &inputLayout, RenderPass renderPass, uint32_t subpass);
+		DescriptorSet createDescriptorSet(const std::vector<DescriptorSetLayoutBinding> &layoutBindings);
 
 		//DescriptorSetLayout createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &bindings);
 
@@ -86,13 +100,21 @@ class VulkanRenderer : public Renderer
 
 		void destroyCommandPool (CommandPool pool);
 		void destroyRenderPass (RenderPass renderPass);
+		void destroyFramebuffer (Framebuffer framebuffer);
+		void destroyPipeline (Pipeline pipeline);
 		void destroyShaderModule (ShaderModule module);
 		//void destroyDescriptorSetLayout (DescriptorSetLayout layout);
+		void destroyDescriptorSet (DescriptorSet set);
 		void destroyTexture (Texture texture);
 		void destroyTextureView (TextureView textureView);
 		void destroySampler (Sampler sampler);
 		void destroyBuffer (Buffer buffer);
 		void destroyStagingBuffer (StagingBuffer stagingBuffer);
+
+		void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name);
+		void cmdBeginDebugRegion (CommandBuffer cmdBuffer, const std::string &regionName, glm::vec4 color);
+		void cmdEndDebugRegion (CommandBuffer cmdBuffer);
+		void cmdInsertDebugMarker (CommandBuffer cmdBuffer, const std::string &markerName, glm::vec4 color);
 
 		void initSwapchain ();
 		void presentToSwapchain ();

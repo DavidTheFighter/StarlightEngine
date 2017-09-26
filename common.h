@@ -61,6 +61,8 @@
 #define ENGINE_VERSION_MINOR 0
 #define ENGINE_VERSION_REVISION 0
 
+#define SE_RENDER_DEBUG_MARKERS 1
+
 #define COMPILER_BARRIER() asm volatile("" ::: "memory")
 
 typedef struct simple_vector_2
@@ -108,7 +110,7 @@ inline std::vector<std::string> split (const std::string &s, char delim)
 
 inline std::vector<char> readFile (const std::string& filename)
 {
-	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+	std::ifstream file("/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/" + filename, std::ios::ate | std::ios::binary);
 
 	if (!file.is_open())
 	{

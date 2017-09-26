@@ -27,10 +27,10 @@
 								<option id="gnu.cpp.compiler.option.include.paths.1535583926" name="Include paths (-I)" superClass="gnu.cpp.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/StarlightEngineDev/libraries/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/CppFiles/VulkanSDK/1.0.54.0/x86_64/include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${VULKAN_SDK_PATH}/x86_64/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/EmbersEngineDev/libraries/include/bullet&quot;"/>
 								</option>
-								<option id="gnu.cpp.compiler.option.preprocessor.def.1553930357" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
+								<option id="gnu.cpp.compiler.option.preprocessor.def.1553930357" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="SE_DEBUG_BUILD"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1233785871" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
@@ -42,10 +42,10 @@
 								<option id="gnu.c.compiler.option.include.paths.1519008175" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/StarlightEngineDev/libraries/include&quot;"/>
 									<listOptionValue builtIn="false" value="${workspace_loc:/${ProjName}}"/>
-									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/CppFiles/VulkanSDK/1.0.54.0/x86_64/include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${VULKAN_SDK_PATH}/x86_64/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/EmbersEngineDev/libraries/include/bullet&quot;"/>
 								</option>
-								<option id="gnu.c.compiler.option.preprocessor.def.symbols.570296138" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
+								<option id="gnu.c.compiler.option.preprocessor.def.symbols.570296138" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="SE_DEBUG_BUILD"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.744650100" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
@@ -62,8 +62,8 @@
 								</option>
 								<option id="gnu.cpp.link.option.paths.2048719572" name="Library search path (-L)" superClass="gnu.cpp.link.option.paths" useByScannerDiscovery="false" valueType="libPaths">
 									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/EmbersEngineDev/libraries/lib&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/CppFiles/VulkanSDK/1.0.54.0/x86_64/lib&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/CppFiles/VulkanSDK/1.0.54.0/x86_64/lib/libshaderc&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${VULKAN_SDK_PATH}/x86_64/lib&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${VULKAN_SDK_PATH}/x86_64/lib/libshaderc&quot;"/>
 								</option>
 								<option id="gnu.cpp.link.option.strip.1798379911" name="Omit all symbol information (-s)" superClass="gnu.cpp.link.option.strip" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="gnu.cpp.link.option.pthread.1828478052" name="Support for pthread (-pthread)" superClass="gnu.cpp.link.option.pthread" useByScannerDiscovery="false" value="true" valueType="boolean"/>
@@ -77,6 +77,9 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<sourceEntries>
+						<entry excluding="textures" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+					</sourceEntries>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
@@ -110,7 +113,7 @@
 									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/CppFiles/VulkanSDK/1.0.54.0/x86_64/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/EmbersEngineDev/libraries/include/bullet&quot;"/>
 								</option>
-								<option id="gnu.cpp.compiler.option.preprocessor.def.8170686" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
+								<option id="gnu.cpp.compiler.option.preprocessor.def.8170686" name="Defined symbols (-D)" superClass="gnu.cpp.compiler.option.preprocessor.def" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="SE_RELEASE_BUILD"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1841579632" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
@@ -125,7 +128,7 @@
 									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/CppFiles/VulkanSDK/1.0.54.0/x86_64/include&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;/media/david/Main Disk/Programming/EmbersEngineDev/libraries/include/bullet&quot;"/>
 								</option>
-								<option id="gnu.c.compiler.option.preprocessor.def.symbols.1905157866" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
+								<option id="gnu.c.compiler.option.preprocessor.def.symbols.1905157866" name="Defined symbols (-D)" superClass="gnu.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="SE_RELEASE_BUILD"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.117775568" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
@@ -156,6 +159,9 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<sourceEntries>
+						<entry excluding="textures" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+					</sourceEntries>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
