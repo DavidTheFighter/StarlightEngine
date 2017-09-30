@@ -65,20 +65,43 @@
 
 #define COMPILER_BARRIER() asm volatile("" ::: "memory")
 
-typedef struct simple_vector_2
+#define DEBUG_ASSERT(x) if (!(x)) { printf("%s Assertion failed @ file %s, line %i\n", ERR_PREFIX, __FILE__, __LINE__); throw std::runtime_error("failed assertion"); }
+
+/*
+ * For some reasons, simple POD structs are faster than glm's vecs, so I'm
+ * using my own where I just need to store data, and no do any ops on it.
+ * The 's' prefix of the type indicates 'simple'.
+ */
+
+typedef struct simple_float_vector_2
 {
 		float x, y;
 } svec2;
 
-typedef struct simple_vector_3
+typedef struct simple_float_vector_3
 {
 		float x, y, z;
 } svec3;
 
-typedef struct simple_vector_4
+typedef struct simple_float_vector_4
 {
 		float x, y, z, w;
 } svec4;
+
+typedef struct simple_integer_vector_2
+{
+		int32_t x, y;
+} sivec2;
+
+typedef struct simple_integer_vector_3
+{
+		int32_t x, y, z;
+} sivec3;
+
+typedef struct simple_integer_vector_4
+{
+		int32_t x, y, z, w;
+} sivec4;
 
 template<typename T0>
 inline std::string toString (T0 arg)

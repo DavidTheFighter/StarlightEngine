@@ -7,22 +7,24 @@
 
 #include "Rendering/RenderGame.h"
 
-RenderGame::RenderGame (Renderer* rendererBackend)
+RenderGame::RenderGame (Renderer *rendererBackend, ResourceManager *rendererResourceManager)
 {
 	renderer = rendererBackend;
+	resources = rendererResourceManager;
 	testGBufferRenderPass = nullptr;
 	defaultMaterialPipeline = nullptr;
 	testMaterialDescriptorSet = nullptr;
 }
 
 CommandPool testPool;
-Texture testTexture;
+ResourceTexture testTexture;
 TextureView testTextureView;
 Sampler testSampler;
 
 RenderGame::~RenderGame ()
 {
-	renderer->destroyTexture(testTexture);
+	resources->returnTexture(testTexture);
+
 	renderer->destroyTextureView(testTextureView);
 	renderer->destroySampler(testSampler);
 	renderer->destroyCommandPool(testPool);
@@ -47,27 +49,11 @@ RenderGame::~RenderGame ()
 
 void RenderGame::init()
 {
-	std::vector<uint8_t> imageData;
-	unsigned width, height;
-
-	lodepng::decode(imageData, width, height, "/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/GameData/textures/test-png.png", LCT_RGBA, 8);
-
 	testPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
-	StagingBuffer bfr = renderer->createAndMapStagingBuffer(imageData.size(), imageData.data());
 
-	testTexture = renderer->createTexture({float(width), float(height), 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY);
-	testTextureView = renderer->createTextureView(testTexture);
+	testTexture = resources->loadTextureImmediate("GameData/textures/test-png.png");
+	testTextureView = renderer->createTextureView(testTexture->texture);
 	testSampler = renderer->createSampler();
-
-	CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(testPool);
-
-	renderer->cmdTransitionTextureLayout(cmdBuffer, testTexture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	renderer->cmdStageBuffer(cmdBuffer, bfr, testTexture);
-	renderer->cmdTransitionTextureLayout(cmdBuffer, testTexture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	renderer->endSingleTimeCommand(cmdBuffer, testPool, QUEUE_TYPE_GRAPHICS);
-
-	renderer->destroyStagingBuffer(bfr);
 
 	//** ------------------------------------------------------------------------------------------------------------------------------ **/
 
@@ -81,9 +67,10 @@ void RenderGame::init()
 
 	testGBufferCommandPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
 
+	createTestMesh();
 	createTestCommandBuffer();
 
-	renderer->setSwapchainTexture(gbuffer_NormalMetalnessView, gbufferSampler, TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	renderer->setSwapchainTexture(gbuffer_AlbedoRoughnessView, gbufferSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void RenderGame::renderGame()
@@ -92,17 +79,22 @@ void RenderGame::renderGame()
 	renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);
 }
 
+void RenderGame::createTestMesh()
+{
+	testMesh = resources->loadMeshImmediate("/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/GameData/meshes/test-bridge.dae", "bridge0");
+}
+
 void RenderGame::createTestCommandBuffer ()
 {
 	testGBufferCommandBuffer = renderer->allocateCommandBuffer(testGBufferCommandPool);
 
 	std::vector<ClearValue> clearValues = std::vector<ClearValue>(3);
 	clearValues[0].color =
-	{	1, 0.5f, 0.25f, 1};
+	{	0, 0, 0, 0};
 	clearValues[1].color =
-	{	0, 1, 1, 1};
+	{	0, 0, 0, 0};
 	clearValues[2].depthStencil =
-	{	0.5f, 0};
+	{	0, 0};
 
 	std::vector<Viewport> v = {{0, 0, 1920, 1080, 0, 1}};
 	std::vector<Scissor> s = {{0, 0, 1920, 1080}};
@@ -120,14 +112,20 @@ void RenderGame::createTestCommandBuffer ()
 	renderer->cmdSetViewport(testGBufferCommandBuffer, 0, v);
 	renderer->cmdSetScissor(testGBufferCommandBuffer, 0, s);
 
-	glm::mat4 proj = glm::perspective(60 * (3.141f / 180.0f), 1920 / float(1080), 1000.0f, 1.0f);
+	glm::mat4 proj = glm::perspective<float>(60 * (3.141f / 180.0f), 1920 / float(1080), 10000.0f, 1.0f);
 	proj[1][1] *= -1;
-	glm::mat4 view = glm::lookAt(glm::vec3(50), glm::vec3(0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt<float>(glm::vec3(100), glm::vec3(0), glm::vec3(0, 1, 0));
 	glm::mat4 mvp = proj * view;
 
-	renderer->cmdPushConstants(testGBufferCommandBuffer, pipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &mvp);
 	renderer->cmdBindDescriptorSets(testGBufferCommandBuffer, PIPELINE_BIND_POINT_GRAPHICS, pipelineInputLayout, 0, {testMaterialDescriptorSet});
 
+	{
+		renderer->cmdPushConstants(testGBufferCommandBuffer, pipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &mvp[0][0]);
+		renderer->cmdBindIndexBuffer(testGBufferCommandBuffer, testMesh->meshBuffer, 0, false);
+		renderer->cmdBindVertexBuffers(testGBufferCommandBuffer, 0, {testMesh->meshBuffer}, {testMesh->indexChunkSize});
+
+		renderer->cmdDrawIndexed(testGBufferCommandBuffer, testMesh->faceCount * 3);
+	}
 
 	renderer->cmdEndRenderPass(testGBufferCommandBuffer);
 	renderer->cmdEndDebugRegion(testGBufferCommandBuffer);
@@ -183,19 +181,19 @@ void RenderGame::createRenderPass()
 	AttachmentDescription albedo_roughnessAttachment = {}, normal_metalnessAttachment = {}, depthAttachment = {};
 	albedo_roughnessAttachment.format = testAttachmentFormat;
 	albedo_roughnessAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-	albedo_roughnessAttachment.finalLayout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	albedo_roughnessAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	albedo_roughnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
 	albedo_roughnessAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
 
 	normal_metalnessAttachment.format = testAttachmentFormat;
 	normal_metalnessAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-	normal_metalnessAttachment.finalLayout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	normal_metalnessAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	normal_metalnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
 	normal_metalnessAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
 
 	depthAttachment.format = testDepthAttachmentFormat;
 	depthAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-	depthAttachment.finalLayout = TEXTURE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthAttachment.finalLayout = TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 	depthAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
 
@@ -268,7 +266,7 @@ void RenderGame::createGraphicsPipeline()
 	viewportInfo.viewports = {{0, 0, 1920, 1080}};
 
 	PipelineRasterizationInfo rastInfo = {};
-	rastInfo.clockwiseFrontFace = true;
+	rastInfo.clockwiseFrontFace = false;
 	rastInfo.cullMode = CULL_MODE_BACK_BIT;
 	rastInfo.lineWidth = 1;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;

@@ -246,9 +246,45 @@ void VulkanRenderer::cmdEndRenderPass (CommandBuffer cmdBuffer)
 	vkCmdEndRenderPass(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle);
 }
 
+void VulkanRenderer::cmdNextSubpass (CommandBuffer cmdBuffer, SubpassContents contents)
+{
+	vkCmdNextSubpass (static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, toVkSubpassContents(contents));
+}
+
 void VulkanRenderer::cmdBindPipeline (CommandBuffer cmdBuffer, PipelineBindPoint point, Pipeline pipeline)
 {
 	vkCmdBindPipeline(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, toVkPipelineBindPoint(point), static_cast<VulkanPipeline*>(pipeline)->pipelineHandle);
+}
+
+void VulkanRenderer::cmdBindIndexBuffer (CommandBuffer cmdBuffer, Buffer buffer, size_t offset, bool uses32BitIndices)
+{
+	vkCmdBindIndexBuffer(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, static_cast<VulkanBuffer*>(buffer)->bufferHandle, static_cast<VkDeviceSize>(offset), uses32BitIndices ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16);
+}
+
+void VulkanRenderer::cmdBindVertexBuffers (CommandBuffer cmdBuffer, uint32_t firstBinding, const std::vector<Buffer> &buffers, const std::vector<size_t> &offsets)
+{
+	DEBUG_ASSERT(buffers.size() == offsets.size());
+
+	std::vector<VkBuffer> vulkanBuffers;
+	std::vector<VkDeviceSize> vulkanOffsets;
+
+	for (size_t i = 0; i < buffers.size(); i ++)
+	{
+		vulkanBuffers.push_back(static_cast<VulkanBuffer*>(buffers[i])->bufferHandle);
+		vulkanOffsets.push_back(static_cast<VkDeviceSize>(offsets[i]));
+	}
+
+	vkCmdBindVertexBuffers(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, firstBinding, static_cast<uint32_t>(buffers.size()), vulkanBuffers.data(), vulkanOffsets.data());
+}
+
+void VulkanRenderer::cmdDraw (CommandBuffer cmdBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
+{
+	vkCmdDraw(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+void VulkanRenderer::cmdDrawIndexed (CommandBuffer cmdBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance)
+{
+	vkCmdDrawIndexed(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
 void VulkanRenderer::cmdPushConstants (CommandBuffer cmdBuffer, const PipelineInputLayout &inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
@@ -1073,7 +1109,7 @@ void VulkanRenderer::cmdBeginDebugRegion (CommandBuffer cmdBuffer, const std::st
 		info.pMarkerName = regionName.c_str();
 		memcpy(info.color, &color.x, sizeof(color));
 
-		vkCmdDebugMarkerBeginEXT(static_cast<VulkanCommandBuffer*> (cmdBuffer)->bufferHandle, &info);
+		vkCmdDebugMarkerBeginEXT(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, &info);
 	}
 
 #endif
@@ -1085,7 +1121,7 @@ void VulkanRenderer::cmdEndDebugRegion (CommandBuffer cmdBuffer)
 
 	if (VulkanExtensions::enabled_VK_EXT_debug_marker)
 	{
-		vkCmdDebugMarkerEndEXT(static_cast<VulkanCommandBuffer*> (cmdBuffer)->bufferHandle);
+		vkCmdDebugMarkerEndEXT(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle);
 	}
 
 #endif
@@ -1101,7 +1137,7 @@ void VulkanRenderer::cmdInsertDebugMarker (CommandBuffer cmdBuffer, const std::s
 		info.pMarkerName = markerName.c_str();
 		memcpy(info.color, &color.x, sizeof(color));
 
-		vkCmdDebugMarkerInsertEXT(static_cast<VulkanCommandBuffer*> (cmdBuffer)->bufferHandle, &info);
+		vkCmdDebugMarkerInsertEXT(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, &info);
 	}
 
 #endif

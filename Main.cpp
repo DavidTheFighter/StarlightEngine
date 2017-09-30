@@ -30,6 +30,7 @@
 
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/RenderGame.h>
+#include <Resources/ResourceManager.h>
 
 #include <assimp/version.h>
 #include <GLFW/glfw3.h>
@@ -81,7 +82,8 @@ int main (int argc, char *argv[])
 	renderer->initRenderer();
 	renderer->initSwapchain();
 
-	RenderGame* gameRenderer = new RenderGame(renderer);
+	ResourceManager *resourceManager = new ResourceManager(renderer);
+	RenderGame* gameRenderer = new RenderGame(renderer, resourceManager);
 	gameRenderer->init();
 
 	printf("%s Completed startup\n", INFO_PREFIX);
@@ -134,6 +136,7 @@ int main (int argc, char *argv[])
 	renderer->waitForDeviceIdle();
 
 	delete gameRenderer;
+	delete resourceManager;
 	delete renderer;
 
 	switch (rendererBackend)

@@ -44,8 +44,15 @@ class Renderer
 
 		virtual void cmdBeginRenderPass (CommandBuffer cmdBuffer, RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents) = 0;
 		virtual void cmdEndRenderPass (CommandBuffer cmdBuffer) = 0;
+		virtual void cmdNextSubpass (CommandBuffer cmdBuffer, SubpassContents contents) = 0;
 
 		virtual void cmdBindPipeline (CommandBuffer cmdBuffer, PipelineBindPoint point, Pipeline pipeline) = 0;
+
+		virtual void cmdBindIndexBuffer (CommandBuffer cmdBuffer, Buffer buffer, size_t offset = 0, bool uses32BitIndices = false) = 0;
+		virtual void cmdBindVertexBuffers (CommandBuffer cmdBuffer, uint32_t firstBinding, const std::vector<Buffer> &buffers, const std::vector<size_t> &offsets) = 0;
+
+		virtual void cmdDraw (CommandBuffer cmdBuffer, uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0) = 0;
+		virtual void cmdDrawIndexed (CommandBuffer cmdBuffer, uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0) = 0;
 
 		virtual void cmdPushConstants(CommandBuffer cmdBuffer, const PipelineInputLayout &inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) = 0;
 		virtual void cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, const PipelineInputLayout &inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets) = 0;

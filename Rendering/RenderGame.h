@@ -10,20 +10,24 @@
 
 #include <common.h>
 #include <Rendering/Renderer/Renderer.h>
+#include <Resources/ResourceManager.h>
 
 class RenderGame
 {
 	public:
 
-		Renderer* renderer;
+		Renderer *renderer;
+		ResourceManager *resources;
 
-		RenderGame (Renderer* rendererBackend);
+		RenderGame (Renderer *rendererBackend, ResourceManager *rendererResourceManager);
 		virtual ~RenderGame ();
 
 		void init ();
 		void renderGame ();
 
 	private:
+
+		ResourceMesh testMesh;
 
 		RenderPass testGBufferRenderPass;
 		Pipeline defaultMaterialPipeline;
