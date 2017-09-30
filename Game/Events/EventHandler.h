@@ -40,26 +40,37 @@ class EventHandler
 		virtual ~EventHandler ();
 
 		template<typename EventCallbackFunc>
+		/*
+		 * Registers a function as an observer of a particular event. Note that if a single
+		 * function is going to registered multiple times, then each usrPtr given MUST be
+		 * different, to make sure the removeObserver() function removes the correct observer.
+		 * An example is a window resize function. Because an observer function must be static,
+		 * one would register it multiple times for each window. To distinguish between each
+		 * separate observer, the "usrPtr" parameter is used, and therefore must be different
+		 * for each time an instance is registered.
+		 */
 		void registerObserver (EventType eventType, EventCallbackFunc callback, void *usrPtr)
 		{
 			std::unique_lock<std::mutex> lock(eventObservers_mutex);
-			eventObservers[eventType].first.push_back(reinterpret_cast<void*>(callback));
-			eventObservers[eventType].second.push_back(usrPtr);
+			eventObservers[eventType].push_back(std::make_pair(reinterpret_cast<void*>(callback), usrPtr));
 		}
 
 		template<typename EventCallbackFunc>
-		void removeObserver (EventType eventType, EventCallbackFunc callback)
+		/*
+		 * Removes an observer function. Note that the usrPtr MUST be the same value as the
+		 * one passed to registerObserver() when that observer was registered. This is used
+		 * to distinguish multiple observers that all point to a single function.
+		 */
+		void removeObserver (EventType eventType, EventCallbackFunc callback, void *usrPtr)
 		{
 			std::unique_lock<std::mutex> lock(eventObservers_mutex);
-			std::vector<void*> &observerFuncList = eventObservers[eventType].first;
-			std::vector<void*> &observerUsrPtrList = eventObservers[eventType].second;
+			std::vector<std::pair<void*, void*> > &observerList = eventObservers[eventType];
 
-			auto it = std::find(observerFuncList.begin(), observerFuncList.end(), reinterpret_cast<void*>(callback));
+			auto it = std::find(observerList.begin(), observerList.end(), std::make_pair(reinterpret_cast<void*>(callback), usrPtr));
 
-			if (it != observerFuncList.end())
+			if (it != observerList.end())
 			{
-				observerFuncList.erase(it);
-				observerUsrPtrList.erase(observerUsrPtrList.begin() + (it - observerFuncList.begin()));
+				observerList.erase(it);
 			}
 		}
 
@@ -68,12 +79,11 @@ class EventHandler
 		{
 			std::unique_lock<std::mutex> lock(eventObservers_mutex);
 
-			std::vector<void*> &eventCallbacks = eventObservers[eventType].first;
-			std::vector<void*> &eventUserPtrs = eventObservers[eventType].second;
+			std::vector<std::pair<void*, void*> > observerList = eventObservers[eventType];
 
-			for (size_t i = 0; i < eventCallbacks.size(); i ++)
+			for (size_t i = 0; i < observerList.size(); i ++)
 			{
-				(reinterpret_cast<void (*) (const EventData&, void*)>(eventCallbacks[i]))(eventData, eventUserPtrs[i]);
+				(reinterpret_cast<void (*) (const EventData&, void*)>(observerList[i].first))(eventData, observerList[i].second);
 			}
 		}
 
@@ -83,7 +93,7 @@ class EventHandler
 	private:
 
 		std::mutex eventObservers_mutex; // Controls access of member "eventObservers"
-		std::map<int, std::pair<std::vector<void*>, std::vector<void*> > > eventObservers; // 1st in the pair is the callback function, 2nd is a ptr given when registering an observer (a user pointer, essentially)
+		std::map<EventType, std::vector<std::pair<void*, void*> > > eventObservers; // Each element of the observer list is a pair, 1st=callback, 2nd=usr ptr
 
 		static EventHandler *eventHandlerInstance;
 };

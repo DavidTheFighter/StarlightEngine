@@ -21,36 +21,49 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * EventHandler.cpp
+ * Game.h
  * 
  * Created on: Sep 30, 2017
  *     Author: david
  */
 
-#include "Game/Events/EventHandler.h"
+#ifndef GAME_GAME_H_
+#define GAME_GAME_H_
 
-EventHandler* EventHandler::eventHandlerInstance;
+#include <common.h>
+#include <Game/Events/EventHandler.h>
+#include <Input/Window.h>
 
-EventHandler::EventHandler ()
+struct Camera
 {
-	std::unique_lock<std::mutex> lock(eventObservers_mutex);
-	for (int i = 0; i < EVENT_MAX_ENUM; i ++)
-	{
-		eventObservers[static_cast<EventType> (i)] = std::vector<std::pair<void*, void*> > ();
-	}
-}
+		glm::vec3 position;
+		glm::vec2 lookAngles;
+};
 
-EventHandler::~EventHandler ()
+class Game
 {
+	public:
 
-}
+		Camera mainCamera;
 
-EventHandler *EventHandler::instance ()
-{
-	return eventHandlerInstance;
-}
+		Game (Window *gameWindow);
+		virtual ~Game ();
 
-void EventHandler::setInstance (EventHandler* inst)
-{
-	eventHandlerInstance = inst;
-}
+		void init();
+
+		void update(float delta);
+
+		static void windowCursorMoveCallback (const EventCursorMoveData &eventData, void *usrPtr);
+		static void windowMouseButtonCallback (const EventMouseButtonData &eventData, void *usrPtr);
+
+		static void setInstance(Game *inst);
+		static Game *instance();
+
+	private:
+
+		Window *gameWindow;
+
+		static Game *gameInstance;
+};
+
+#endif /* GAME_GAME_H_ */

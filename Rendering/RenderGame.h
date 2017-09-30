@@ -11,6 +11,7 @@
 #include <common.h>
 #include <Rendering/Renderer/Renderer.h>
 #include <Resources/ResourceManager.h>
+#include <Game/Events/EventHandler.h>
 
 class RenderGame
 {
@@ -24,6 +25,8 @@ class RenderGame
 
 		void init ();
 		void renderGame ();
+
+		static void gameWindowResizedCallback (const EventWindowResizeData &eventData, void *usrPtr);
 
 	private:
 

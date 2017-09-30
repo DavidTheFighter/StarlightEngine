@@ -8,11 +8,24 @@
 #include "Input/Window.h"
 
 #include <GLFW/glfw3.h>
+#include <Game/Events/EventHandler.h>
 
 Window::Window (RendererBackend backend)
 {
 	windowRendererBackend = backend;
 	glfwWindow = nullptr;
+
+	mouseGrabbed = false;
+
+	windowWidth = 0;
+	windowHeight = 0;
+
+	cursorX = 0.0;
+	cursorY = 0.0;
+
+	memset(keysPressed, 0, sizeof(keysPressed));
+	memset(mouseButtonsPressed, 0, sizeof(mouseButtonsPressed));
+	memset(mouseButtonPressTime, 0, sizeof(mouseButtonPressTime));
 }
 
 Window::~Window ()
@@ -49,8 +62,18 @@ void Window::initWindow(uint32_t windowWidth, uint32_t windowHeight, std::string
 			throw std::runtime_error("glfw error - window creation");
 		}
 
+		windowWidth = (uint32_t) glfwWindowWidth;
+		windowHeight = (uint32_t) glfwWindowHeight;
+
+		glfwGetCursorPos(glfwWindow, &cursorX, &cursorY);
+
 		glfwSetWindowUserPointer(glfwWindow, this);
 		glfwSetWindowSizeCallback(glfwWindow, glfwWindowResizedCallback);
+		glfwSetCursorPosCallback(glfwWindow, glfwWindowCursorMoveCallback);
+		glfwSetMouseButtonCallback(glfwWindow, glfwWindowMouseButtonCallback);
+		glfwSetKeyCallback(glfwWindow, glfwWindowKeyCallback);
+
+		glfwSetInputMode(glfwWindow, GLFW_STICKY_KEYS, 0);
 	}
 	else if (windowRendererBackend == RENDERER_BACKEND_OPENGL)
 	{
@@ -77,12 +100,130 @@ void Window::initWindow(uint32_t windowWidth, uint32_t windowHeight, std::string
 
 			throw std::runtime_error("glfw error - window creation");
 		}
+
+		windowWidth = (uint32_t) glfwWindowWidth;
+		windowHeight = (uint32_t) glfwWindowHeight;
+
+		glfwGetCursorPos(glfwWindow, &cursorX, &cursorY);
 	}
 }
 
 void Window::glfwWindowResizedCallback(GLFWwindow* window, int width, int height)
 {
+	Window* windowInstance = static_cast<Window*> (glfwGetWindowUserPointer(window));
 
+	EventWindowResizeData eventData = {};
+	eventData.window = windowInstance;
+	eventData.width = (uint32_t) width;
+	eventData.height = (uint32_t) height;
+	eventData.oldWidth = windowInstance->windowWidth;
+	eventData.oldHeight = windowInstance->windowHeight;
+
+	EventHandler::instance()->triggerEvent(EVENT_WINDOW_RESIZE, eventData);
+
+	windowInstance->windowWidth = (uint32_t) width;
+	windowInstance->windowHeight = (uint32_t) height;
+}
+
+void Window::glfwWindowCursorMoveCallback (GLFWwindow* window, double newCursorX, double newCursorY)
+{
+	Window* windowInstance = static_cast<Window*> (glfwGetWindowUserPointer(window));
+
+	EventCursorMoveData eventData = {};
+	eventData.window = windowInstance;
+	eventData.cursorX = newCursorX;
+	eventData.cursorY = newCursorY;
+	eventData.oldCursorX = windowInstance->cursorX;
+	eventData.oldCursorY = windowInstance->cursorY;
+
+	EventHandler::instance()->triggerEvent(EVENT_CURSOR_MOVE, eventData);
+
+	windowInstance->cursorX = newCursorX;
+	windowInstance->cursorY = newCursorY;
+}
+
+void Window::glfwWindowMouseButtonCallback (GLFWwindow* window, int button, int action, int mods)
+{
+	Window* windowInstance = static_cast<Window*> (glfwGetWindowUserPointer(window));
+
+	bool doubleClick = false;
+
+	switch (action)
+	{
+		case GLFW_PRESS:
+		{
+			if (glfwGetTime() - windowInstance->mouseButtonPressTime[button] < 0.5)
+			{
+				doubleClick = true;
+			}
+
+			windowInstance->mouseButtonsPressed[button] = true;
+			windowInstance->mouseButtonPressTime[button] = glfwGetTime();
+
+			break;
+		}
+		case GLFW_REPEAT:
+		{
+			windowInstance->mouseButtonsPressed[button] = true;
+
+			break;
+		}
+		case GLFW_RELEASE:
+		{
+			windowInstance->mouseButtonsPressed[button] = false;
+
+			break;
+		}
+		case GLFW_DOUBLE_PRESS:
+		{
+			windowInstance->mouseButtonsPressed[button] = true;
+
+			break;
+		}
+	}
+
+	EventMouseButtonData eventData = {};
+	eventData.window = windowInstance;
+	eventData.button = button;
+	eventData.action = action;
+	eventData.mods = mods;
+
+	EventHandler::instance()->triggerEvent(EVENT_MOUSE_BUTTON, eventData);
+
+	if (doubleClick)
+	{
+		glfwWindowMouseButtonCallback(window, button, GLFW_DOUBLE_PRESS, mods);
+	}
+}
+
+void Window::glfwWindowKeyCallback (GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	Window* windowInstance = static_cast<Window*> (glfwGetWindowUserPointer(window));
+
+	switch (action)
+	{
+		case GLFW_PRESS:
+		{
+			windowInstance->keysPressed[key] = true;
+
+			break;
+		}
+		case GLFW_RELEASE:
+		{
+			windowInstance->keysPressed[key] = false;
+
+			break;
+		}
+	}
+
+	EventKeyActionData eventData = {};
+	eventData.window = windowInstance;
+	eventData.key = key;
+	eventData.scancode = scancode;
+	eventData.action = action;
+	eventData.mods = mods;
+
+	EventHandler::instance()->triggerEvent(EVENT_KEY_ACTION, eventData);
 }
 
 void Window::setTitle(std::string title)
@@ -96,6 +237,8 @@ void Window::setTitle(std::string title)
 
 			break;
 		}
+		default:
+			break;
 	}
 }
 
@@ -110,42 +253,82 @@ void Window::pollEvents()
 
 			break;
 		}
+		default:
+			break;
 	}
+}
+
+void Window::setMouseGrabbed (bool grabbed)
+{
+	if (mouseGrabbed == grabbed)
+		return;
+
+	switch (windowRendererBackend)
+	{
+		case RENDERER_BACKEND_OPENGL:
+		case RENDERER_BACKEND_VULKAN:
+		{
+			glfwSetCursorPos(glfwWindow, getWidth() / 2, getHeight() / 2);
+
+			cursorX = getWidth() / 2;
+			cursorY = getHeight() / 2;
+
+			if (grabbed)
+			{
+				glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			}
+			else
+			{
+				glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			}
+
+			break;
+		}
+		default:
+			break;
+	}
+
+	mouseGrabbed = grabbed;
+}
+
+void Window::toggleMouseGrabbed ()
+{
+	setMouseGrabbed(!mouseGrabbed);
+}
+
+bool Window::isKeyPressed(int key)
+{
+	return keysPressed[key] == 1;
+}
+
+bool Window::isMouseGrabbed()
+{
+	return mouseGrabbed;
+}
+
+bool Window::isMouseButtonPressed (int button)
+{
+	return mouseButtonsPressed[button];
 }
 
 uint32_t Window::getWidth()
 {
-	switch (windowRendererBackend)
-	{
-		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_OPENGL:
-
-			int width, height;
-			glfwGetWindowSize(glfwWindow, &width, &height);
-
-			return width;
-
-		default:
-			return true;
-	}
+	return windowWidth;
 }
 
 uint32_t Window::getHeight()
 {
-	switch (windowRendererBackend)
-	{
-		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_OPENGL:
+	return windowHeight;
+}
 
+double Window::getCursorX()
+{
+	return cursorX;
+}
 
-			int width, height;
-			glfwGetWindowSize(glfwWindow, &width, &height);
-
-			return height;
-
-		default:
-			return true;
-	}
+double Window::getCursorY()
+{
+	return cursorY;
 }
 
 bool Window::userRequestedClose()
@@ -174,4 +357,9 @@ void* Window::getWindowObjectPtr ()
 		default:
 			return nullptr;
 	}
+}
+
+const RendererBackend &Window::getRendererBackend()
+{
+	return windowRendererBackend;
 }

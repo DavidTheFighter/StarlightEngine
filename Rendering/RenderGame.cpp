@@ -7,6 +7,8 @@
 
 #include "Rendering/RenderGame.h"
 
+#include <Game/Game.h>
+
 RenderGame::RenderGame (Renderer *rendererBackend, ResourceManager *rendererResourceManager)
 {
 	renderer = rendererBackend;
@@ -14,6 +16,23 @@ RenderGame::RenderGame (Renderer *rendererBackend, ResourceManager *rendererReso
 	testGBufferRenderPass = nullptr;
 	defaultMaterialPipeline = nullptr;
 	testMaterialDescriptorSet = nullptr;
+
+	gbuffer_AlbedoRoughness = nullptr;
+	gbuffer_NormalMetalness = nullptr;
+	gbuffer_Depth = nullptr;
+
+	gbuffer_AlbedoRoughnessView = nullptr;
+	gbuffer_NormalMetalnessView = nullptr;
+	gbuffer_DepthView = nullptr;
+
+	gbufferSampler = nullptr;
+
+	testGBufferFramebuffer = nullptr;
+
+	testGBufferCommandPool = nullptr;
+	testGBufferCommandBuffer = nullptr;
+
+	testMesh = nullptr;
 }
 
 CommandPool testPool;
@@ -68,15 +87,26 @@ void RenderGame::init()
 	testGBufferCommandPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
 
 	createTestMesh();
-	createTestCommandBuffer();
+	//createTestCommandBuffer();
 
 	renderer->setSwapchainTexture(gbuffer_AlbedoRoughnessView, gbufferSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	EventHandler::instance()->registerObserver(EVENT_WINDOW_RESIZE, gameWindowResizedCallback, this);
 }
 
 void RenderGame::renderGame()
 {
+	createTestCommandBuffer();
+
 	renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {testGBufferCommandBuffer}, nullptr);
 	renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);
+}
+
+void RenderGame::gameWindowResizedCallback (const EventWindowResizeData &eventData, void *usrPtr)
+{
+	RenderGame *inst = static_cast<RenderGame*> (usrPtr);
+
+	inst->renderer->recreateSwapchain();
 }
 
 void RenderGame::createTestMesh()
@@ -86,6 +116,11 @@ void RenderGame::createTestMesh()
 
 void RenderGame::createTestCommandBuffer ()
 {
+	if (testGBufferCommandBuffer != nullptr)
+	{
+		renderer->freeCommandBuffer(testGBufferCommandBuffer);
+	}
+
 	testGBufferCommandBuffer = renderer->allocateCommandBuffer(testGBufferCommandPool);
 
 	std::vector<ClearValue> clearValues = std::vector<ClearValue>(3);
@@ -112,9 +147,16 @@ void RenderGame::createTestCommandBuffer ()
 	renderer->cmdSetViewport(testGBufferCommandBuffer, 0, v);
 	renderer->cmdSetScissor(testGBufferCommandBuffer, 0, s);
 
+	glm::vec3 playerPos = Game::instance()->mainCamera.position;
+	glm::vec2 playerLookAngles = Game::instance()->mainCamera.lookAngles;
+
+	glm::vec3 playerLookDir = glm::vec3(cos(playerLookAngles.y) * sin(playerLookAngles.x), sin(playerLookAngles.y), cos(playerLookAngles.y) * cos(playerLookAngles.x));
+	glm::vec3 playerLookRight = glm::vec3(sin(playerLookAngles.x - M_PI * 0.5f), 0, cos(playerLookAngles.x - M_PI * 0.5f));
+	glm::vec3 playerLookUp = glm::cross(playerLookRight, playerLookDir);
+
 	glm::mat4 proj = glm::perspective<float>(60 * (3.141f / 180.0f), 1920 / float(1080), 10000.0f, 1.0f);
 	proj[1][1] *= -1;
-	glm::mat4 view = glm::lookAt<float>(glm::vec3(100), glm::vec3(0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt<float>(playerPos, playerPos + playerLookDir, playerLookUp);
 	glm::mat4 mvp = proj * view;
 
 	renderer->cmdBindDescriptorSets(testGBufferCommandBuffer, PIPELINE_BIND_POINT_GRAPHICS, pipelineInputLayout, 0, {testMaterialDescriptorSet});

@@ -31,6 +31,8 @@
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/RenderGame.h>
 #include <Resources/ResourceManager.h>
+#include <Game/Events/EventHandler.h>
+#include <Game/Game.h>
 
 #include <assimp/version.h>
 #include <GLFW/glfw3.h>
@@ -84,7 +86,16 @@ int main (int argc, char *argv[])
 
 	ResourceManager *resourceManager = new ResourceManager(renderer);
 	RenderGame* gameRenderer = new RenderGame(renderer, resourceManager);
+
+	// Handles most of the logic for the game
+	Game *gameHandler = new Game(gameWindow);
+	EventHandler *eventHandler = new EventHandler();
+
+	EventHandler::setInstance(eventHandler);
+	Game::setInstance(gameHandler);
+
 	gameRenderer->init();
+	gameHandler->init();
 
 	printf("%s Completed startup\n", INFO_PREFIX);
 
@@ -94,8 +105,6 @@ int main (int argc, char *argv[])
 	double windowTitleFrametimeUpdateTimer = 0;
 	do
 	{
-		gameWindow->pollEvents();
-
 		if (true)
 		{
 			if (glfwGetTime() - lastTime < frameTimeTarget)
@@ -108,6 +117,9 @@ int main (int argc, char *argv[])
 				}
 			}
 		}
+
+		gameWindow->pollEvents();
+
 		double currentTime = glfwGetTime();
 		double delta = currentTime - lastTime;
 
@@ -125,8 +137,13 @@ int main (int argc, char *argv[])
 
 		lastTime = glfwGetTime();
 
-		gameRenderer->renderGame();
+		// --- Logic/Update --- //
 
+		gameHandler->update(delta);
+
+		// --- Rendering    --- //
+
+		gameRenderer->renderGame();
 		renderer->presentToSwapchain();
 	}
 	while (!gameWindow->userRequestedClose());
@@ -135,6 +152,7 @@ int main (int argc, char *argv[])
 
 	renderer->waitForDeviceIdle();
 
+	delete gameHandler;
 	delete gameRenderer;
 	delete resourceManager;
 	delete renderer;

@@ -39,12 +39,13 @@ typedef enum EventType
 	EVENT_WINDOW_RESIZE = 0,
 	EVENT_CURSOR_MOVE,
 	EVENT_MOUSE_BUTTON,
+	EVENT_KEY_ACTION,
 	EVENT_MAX_ENUM
 } EventType;
 
 typedef struct EventWindowResizeData
 {
-		Window* window;
+		Window *window;
 		uint32_t width;
 		uint32_t height;
 		uint32_t oldWidth;
@@ -53,7 +54,7 @@ typedef struct EventWindowResizeData
 
 typedef struct EventCursorMoveData
 {
-		Window* window;
+		Window *window;
 		double cursorX;
 		double cursorY;
 		double oldCursorX;
@@ -62,14 +63,24 @@ typedef struct EventCursorMoveData
 
 typedef struct EventMouseButtonData
 {
-		Window* window;
+		Window *window;
 		int button;
 		int action;
 		int mods;
 } EventMouseButtonData;
 
+typedef struct EventKeyActionData
+{
+		Window *window;
+		int key;
+		int scancode;
+		int action;
+		int mods;
+} EventKeyActionData;
+
 typedef void (*EventWindowResizeCallback) (const EventWindowResizeData&, void*);
 typedef void (*EventCursorMoveCallback) (const EventCursorMoveData&, void*);
 typedef void (*EventMouseButtonCallback) (const EventMouseButtonData&, void*);
+typedef void (*EvenKeyActionCallback) (const EventKeyActionData&, void*);
 
 #endif /* GAME_EVENTS_EVENTTYPES_H_ */
