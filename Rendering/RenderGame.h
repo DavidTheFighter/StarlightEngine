@@ -20,6 +20,8 @@ class RenderGame
 		Renderer *renderer;
 		ResourceManager *resources;
 
+		glm::vec2 gbufferRenderDimensions;
+
 		RenderGame (Renderer *rendererBackend, ResourceManager *rendererResourceManager);
 		virtual ~RenderGame ();
 
@@ -53,6 +55,7 @@ class RenderGame
 		void createTestCommandBuffer ();
 		void createTestMesh ();
 		void createGBuffer ();
+		void destroyGBuffer ();
 		void createRenderPass ();
 		void createGraphicsPipeline ();
 		void createDescriptorSets ();

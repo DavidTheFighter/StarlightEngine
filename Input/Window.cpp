@@ -37,7 +37,7 @@ Window::~Window ()
  * Inits and creates the window of this object. If windowWidth or windowHeight are equal
  * to zero, then the resolution will be decided by 0.75 * res of the current monitor.
  */
-void Window::initWindow(uint32_t windowWidth, uint32_t windowHeight, std::string windowName)
+void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::string windowName)
 {
 	if (windowRendererBackend == RENDERER_BACKEND_VULKAN)
 	{
@@ -72,8 +72,7 @@ void Window::initWindow(uint32_t windowWidth, uint32_t windowHeight, std::string
 		glfwSetCursorPosCallback(glfwWindow, glfwWindowCursorMoveCallback);
 		glfwSetMouseButtonCallback(glfwWindow, glfwWindowMouseButtonCallback);
 		glfwSetKeyCallback(glfwWindow, glfwWindowKeyCallback);
-
-		glfwSetInputMode(glfwWindow, GLFW_STICKY_KEYS, 0);
+		glfwSetScrollCallback(glfwWindow, glfwWindowMouseScrollCallback);
 	}
 	else if (windowRendererBackend == RENDERER_BACKEND_OPENGL)
 	{
@@ -108,9 +107,9 @@ void Window::initWindow(uint32_t windowWidth, uint32_t windowHeight, std::string
 	}
 }
 
-void Window::glfwWindowResizedCallback(GLFWwindow* window, int width, int height)
+void Window::glfwWindowResizedCallback (GLFWwindow* window, int width, int height)
 {
-	Window* windowInstance = static_cast<Window*> (glfwGetWindowUserPointer(window));
+	Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
 	EventWindowResizeData eventData = {};
 	eventData.window = windowInstance;
@@ -123,11 +122,13 @@ void Window::glfwWindowResizedCallback(GLFWwindow* window, int width, int height
 
 	windowInstance->windowWidth = (uint32_t) width;
 	windowInstance->windowHeight = (uint32_t) height;
+
+	printf("%i %i\n", width, height);
 }
 
 void Window::glfwWindowCursorMoveCallback (GLFWwindow* window, double newCursorX, double newCursorY)
 {
-	Window* windowInstance = static_cast<Window*> (glfwGetWindowUserPointer(window));
+	Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
 	EventCursorMoveData eventData = {};
 	eventData.window = windowInstance;
@@ -144,7 +145,7 @@ void Window::glfwWindowCursorMoveCallback (GLFWwindow* window, double newCursorX
 
 void Window::glfwWindowMouseButtonCallback (GLFWwindow* window, int button, int action, int mods)
 {
-	Window* windowInstance = static_cast<Window*> (glfwGetWindowUserPointer(window));
+	Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
 	bool doubleClick = false;
 
@@ -198,7 +199,9 @@ void Window::glfwWindowMouseButtonCallback (GLFWwindow* window, int button, int 
 
 void Window::glfwWindowKeyCallback (GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	Window* windowInstance = static_cast<Window*> (glfwGetWindowUserPointer(window));
+	Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+//	printf("window=%p key=%i, scancode=%i, action=%i, mods=%i\n", window, key, scancode, action, mods);
 
 	switch (action)
 	{
@@ -226,7 +229,19 @@ void Window::glfwWindowKeyCallback (GLFWwindow* window, int key, int scancode, i
 	EventHandler::instance()->triggerEvent(EVENT_KEY_ACTION, eventData);
 }
 
-void Window::setTitle(std::string title)
+void Window::glfwWindowMouseScrollCallback (GLFWwindow* window, double xoffset, double yoffset)
+{
+	Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+	EventMouseScrollData eventData = {};
+	eventData.window = windowInstance;
+	eventData.deltaX = xoffset;
+	eventData.deltaY = yoffset;
+
+	EventHandler::instance()->triggerEvent(EVENT_MOUSE_SCROLL, eventData);
+}
+
+void Window::setTitle (std::string title)
 {
 	switch (windowRendererBackend)
 	{
@@ -242,7 +257,7 @@ void Window::setTitle(std::string title)
 	}
 }
 
-void Window::pollEvents()
+void Window::pollEvents ()
 {
 	switch (windowRendererBackend)
 	{
@@ -296,12 +311,12 @@ void Window::toggleMouseGrabbed ()
 	setMouseGrabbed(!mouseGrabbed);
 }
 
-bool Window::isKeyPressed(int key)
+bool Window::isKeyPressed (int key)
 {
 	return keysPressed[key] == 1;
 }
 
-bool Window::isMouseGrabbed()
+bool Window::isMouseGrabbed ()
 {
 	return mouseGrabbed;
 }
@@ -311,27 +326,27 @@ bool Window::isMouseButtonPressed (int button)
 	return mouseButtonsPressed[button];
 }
 
-uint32_t Window::getWidth()
+uint32_t Window::getWidth ()
 {
 	return windowWidth;
 }
 
-uint32_t Window::getHeight()
+uint32_t Window::getHeight ()
 {
 	return windowHeight;
 }
 
-double Window::getCursorX()
+double Window::getCursorX ()
 {
 	return cursorX;
 }
 
-double Window::getCursorY()
+double Window::getCursorY ()
 {
 	return cursorY;
 }
 
-bool Window::userRequestedClose()
+bool Window::userRequestedClose ()
 {
 	switch (windowRendererBackend)
 	{
@@ -359,7 +374,7 @@ void* Window::getWindowObjectPtr ()
 	}
 }
 
-const RendererBackend &Window::getRendererBackend()
+const RendererBackend &Window::getRendererBackend ()
 {
 	return windowRendererBackend;
 }

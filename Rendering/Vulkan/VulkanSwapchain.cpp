@@ -573,6 +573,8 @@ void VulkanSwapchain::createSyncPrimitives ()
 
 void VulkanSwapchain::recreateSwapchain ()
 {
+	vkDeviceWaitIdle(renderer->device);
+
 	destroySwapchain();
 	createSwapchain();
 }
@@ -632,6 +634,7 @@ VkPresentModeKHR VulkanSwapchain::chooseSwapPresentMode (const std::vector<VkPre
 	{
 		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
 		{
+			printf("Mailbox\n");
 			return VK_PRESENT_MODE_MAILBOX_KHR;
 		}
 		else if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)

@@ -33,6 +33,8 @@ RenderGame::RenderGame (Renderer *rendererBackend, ResourceManager *rendererReso
 	testGBufferCommandBuffer = nullptr;
 
 	testMesh = nullptr;
+
+	gbufferRenderDimensions = glm::vec2(1920, 1080);
 }
 
 CommandPool testPool;
@@ -48,19 +50,10 @@ RenderGame::~RenderGame ()
 	renderer->destroySampler(testSampler);
 	renderer->destroyCommandPool(testPool);
 
-	renderer->destroyTexture(gbuffer_AlbedoRoughness);
-	renderer->destroyTexture(gbuffer_NormalMetalness);
-	renderer->destroyTexture(gbuffer_Depth);
-
-	renderer->destroyTextureView(gbuffer_AlbedoRoughnessView);
-	renderer->destroyTextureView(gbuffer_NormalMetalnessView);
-	renderer->destroyTextureView(gbuffer_DepthView);
-
-	renderer->destroySampler(gbufferSampler);
+	destroyGBuffer();
 
 	renderer->destroyCommandPool(testGBufferCommandPool);
 
-	renderer->destroyFramebuffer(testGBufferFramebuffer);
 	renderer->destroyPipeline(defaultMaterialPipeline);
 	renderer->destroyDescriptorSet(testMaterialDescriptorSet);
 	renderer->destroyRenderPass(testGBufferRenderPass);
@@ -70,7 +63,7 @@ void RenderGame::init()
 {
 	testPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
 
-	testTexture = resources->loadTextureImmediate("GameData/textures/test-png.png");
+	testTexture = resources->loadTextureImmediate("/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/GameData/textures/test-png.png");
 	testTextureView = renderer->createTextureView(testTexture->texture);
 	testSampler = renderer->createSampler();
 
@@ -82,7 +75,6 @@ void RenderGame::init()
 
 	createGBuffer();
 
-	testGBufferFramebuffer = renderer->createFramebuffer(testGBufferRenderPass, {gbuffer_AlbedoRoughnessView, gbuffer_NormalMetalnessView, gbuffer_DepthView}, 1920, 1080);
 
 	testGBufferCommandPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
 
@@ -106,7 +98,17 @@ void RenderGame::gameWindowResizedCallback (const EventWindowResizeData &eventDa
 {
 	RenderGame *inst = static_cast<RenderGame*> (usrPtr);
 
+	if (eventData.width == 0 || eventData.height == 0)
+		return;
+
+	inst->gbufferRenderDimensions = glm::vec2(eventData.width, eventData.height);
+
 	inst->renderer->recreateSwapchain();
+
+	inst->destroyGBuffer();
+	inst->createGBuffer();
+
+	inst->renderer->setSwapchainTexture(inst->gbuffer_AlbedoRoughnessView, inst->gbufferSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void RenderGame::createTestMesh()
@@ -131,8 +133,8 @@ void RenderGame::createTestCommandBuffer ()
 	clearValues[2].depthStencil =
 	{	0, 0};
 
-	std::vector<Viewport> v = {{0, 0, 1920, 1080, 0, 1}};
-	std::vector<Scissor> s = {{0, 0, 1920, 1080}};
+	std::vector<Viewport> v = {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y, 0, 1}};
+	std::vector<Scissor> s = {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}};
 
 	PipelineInputLayout pipelineInputLayout = {};
 	pipelineInputLayout.pushConstantRanges = {{0, sizeof(glm::mat4), SHADER_STAGE_VERTEX_BIT}};
@@ -197,7 +199,7 @@ void RenderGame::createDescriptorSets()
 
 void RenderGame::createGBuffer()
 {
-	svec3 extent = {1920, 1080, 1};
+	svec3 extent = {gbufferRenderDimensions.x, gbufferRenderDimensions.y, 1};
 
 	gbuffer_AlbedoRoughness = renderer->createTexture(extent, testAttachmentFormat, TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, true);
 	gbuffer_NormalMetalness = renderer->createTexture(extent, testAttachmentFormat, TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false);
@@ -216,6 +218,23 @@ void RenderGame::createGBuffer()
 
 		renderer->setObjectDebugName(gbufferSampler, OBJECT_TYPE_SAMPLER, "GBuffer Sampler");
 	}
+
+	testGBufferFramebuffer = renderer->createFramebuffer(testGBufferRenderPass, {gbuffer_AlbedoRoughnessView, gbuffer_NormalMetalnessView, gbuffer_DepthView}, gbufferRenderDimensions.x, gbufferRenderDimensions.y);
+}
+
+void RenderGame::destroyGBuffer()
+{
+	renderer->destroyTexture(gbuffer_AlbedoRoughness);
+	renderer->destroyTexture(gbuffer_NormalMetalness);
+	renderer->destroyTexture(gbuffer_Depth);
+
+	renderer->destroyTextureView(gbuffer_AlbedoRoughnessView);
+	renderer->destroyTextureView(gbuffer_NormalMetalnessView);
+	renderer->destroyTextureView(gbuffer_DepthView);
+
+	renderer->destroySampler(gbufferSampler);
+
+	renderer->destroyFramebuffer(testGBufferFramebuffer);
 }
 
 void RenderGame::createRenderPass()
