@@ -21,34 +21,69 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * GameState.h
+ * GUIRenderer.h
  * 
- * Created on: Sep 30, 2017
+ * Created on: Oct 1, 2017
  *     Author: david
  */
 
-#ifndef ENGINE_GAMESTATE_H_
-#define ENGINE_GAMESTATE_H_
+#ifndef RENDERING_GUIRENDERER_H_
+#define RENDERING_GUIRENDERER_H_
 
 #include <common.h>
+#include <Rendering/Renderer/RendererEnums.h>
+#include <Rendering/Renderer/RendererObjects.h>
+#include <Resources/Resources.h>
 
+struct nk_vertex
+{
+		svec2 vertex;
+		svec2 uv;
+		svec4 color;
+};
+
+class Renderer;
 class StarlightEngine;
 
-class GameState
+class GUIRenderer
 {
 	public:
 
-		StarlightEngine *engine;
+		CommandPool testGUICommandPool;
+		RenderPass guiRenderPass;
 
-		virtual void init () = 0;
-		virtual void destroy () = 0;
+		StarlightEngine *temp_engine;
 
-		virtual void pause () = 0;
-		virtual void resume () = 0;
+		Sampler testSampler;
 
-		virtual void handleEvents () = 0;
-		virtual void update () = 0;
-		virtual void render () = 0;
+		Texture fontAtlas;
+		TextureView fontAtlasView;
+		DescriptorSet fontAtlasDescriptor;
+
+		ResourceTexture whiteTexture;
+		TextureView whiteTextureView;
+		DescriptorSet whiteTextureDescriptor;
+
+		Buffer guiVertexStreamBuffer;
+		Buffer guiIndexStreamBuffer;
+
+		GUIRenderer (Renderer *engineRenderer);
+		virtual ~GUIRenderer ();
+
+		void init ();
+		void destroy ();
+
+		void writeTestGUI ();
+		void recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuffer framebuffer, uint32_t renderWidth, uint32_t renderHeight);
+
+	private:
+
+		Renderer *renderer;
+
+		Pipeline guiGraphicsPipeline;
+
+		void createRenderPass ();
+		void createGraphicsPipeline ();
 };
 
-#endif /* ENGINE_GAMESTATE_H_ */
+#endif /* RENDERING_GUIRENDERER_H_ */

@@ -17,8 +17,8 @@ Window::Window (RendererBackend backend)
 
 	mouseGrabbed = false;
 
-	windowWidth = 0;
-	windowHeight = 0;
+	windowWidth = 1;
+	windowHeight = 1;
 
 	cursorX = 0.0;
 	cursorY = 0.0;
@@ -50,10 +50,20 @@ void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::strin
 		glfwWindowHint(GLFW_AUTO_ICONIFY, 0);
 		glfwWindowHint(GLFW_DECORATED, 1);
 
+		bool testUltrawide = false;
+
 		int glfwWindowWidth = windowWidth == 0 ? int(videomode->width * 0.75f) : (int) windowWidth;
 		int glfwWindowHeight = windowHeight == 0 ? int(videomode->height * 0.75f) : (int) windowHeight;
 
-		glfwWindow = glfwCreateWindow(int(videomode->width * 0.75f), int(videomode->height * 0.75f), windowName.c_str(), nullptr, nullptr);
+		if (testUltrawide)
+		{
+			glfwWindowWidth = videomode->width;
+			glfwWindowHeight = (int) (float(glfwWindowWidth) * (9 / 21.0f));
+		}
+
+		printf("aspect ratio - %f\n", glfwWindowWidth / float(glfwWindowHeight));
+
+		glfwWindow = glfwCreateWindow(glfwWindowWidth, glfwWindowHeight, windowName.c_str(), nullptr, nullptr);
 
 		if (glfwWindow == nullptr)
 		{
@@ -62,8 +72,13 @@ void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::strin
 			throw std::runtime_error("glfw error - window creation");
 		}
 
-		windowWidth = (uint32_t) glfwWindowWidth;
-		windowHeight = (uint32_t) glfwWindowHeight;
+		if (testUltrawide)
+		{
+			glfwSetWindowSize(glfwWindow, glfwWindowWidth, glfwWindowHeight);
+		}
+
+		this->windowWidth = (uint32_t) glfwWindowWidth;
+		this->windowHeight = (uint32_t) glfwWindowHeight;
 
 		glfwGetCursorPos(glfwWindow, &cursorX, &cursorY);
 
@@ -100,8 +115,8 @@ void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::strin
 			throw std::runtime_error("glfw error - window creation");
 		}
 
-		windowWidth = (uint32_t) glfwWindowWidth;
-		windowHeight = (uint32_t) glfwWindowHeight;
+		this->windowWidth = (uint32_t) glfwWindowWidth;
+		this->windowHeight = (uint32_t) glfwWindowHeight;
 
 		glfwGetCursorPos(glfwWindow, &cursorX, &cursorY);
 	}
@@ -111,6 +126,9 @@ void Window::glfwWindowResizedCallback (GLFWwindow* window, int width, int heigh
 {
 	Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
+	windowInstance->windowWidth = (uint32_t) width;
+	windowInstance->windowHeight = (uint32_t) height;
+
 	EventWindowResizeData eventData = {};
 	eventData.window = windowInstance;
 	eventData.width = (uint32_t) width;
@@ -119,16 +137,14 @@ void Window::glfwWindowResizedCallback (GLFWwindow* window, int width, int heigh
 	eventData.oldHeight = windowInstance->windowHeight;
 
 	EventHandler::instance()->triggerEvent(EVENT_WINDOW_RESIZE, eventData);
-
-	windowInstance->windowWidth = (uint32_t) width;
-	windowInstance->windowHeight = (uint32_t) height;
-
-	printf("%i %i\n", width, height);
 }
 
 void Window::glfwWindowCursorMoveCallback (GLFWwindow* window, double newCursorX, double newCursorY)
 {
 	Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+	windowInstance->cursorX = newCursorX;
+	windowInstance->cursorY = newCursorY;
 
 	EventCursorMoveData eventData = {};
 	eventData.window = windowInstance;
@@ -138,9 +154,6 @@ void Window::glfwWindowCursorMoveCallback (GLFWwindow* window, double newCursorX
 	eventData.oldCursorY = windowInstance->cursorY;
 
 	EventHandler::instance()->triggerEvent(EVENT_CURSOR_MOVE, eventData);
-
-	windowInstance->cursorX = newCursorX;
-	windowInstance->cursorY = newCursorY;
 }
 
 void Window::glfwWindowMouseButtonCallback (GLFWwindow* window, int button, int action, int mods)

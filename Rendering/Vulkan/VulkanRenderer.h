@@ -99,11 +99,11 @@ class VulkanRenderer : public Renderer
 		Sampler createSampler (SamplerAddressMode addressMode, SamplerFilter minFilter, SamplerFilter magFilter, float anisotropy, svec3 min_max_biasLod, SamplerMipmapMode mipmapMode);
 
 		Buffer createBuffer (size_t size, BufferUsageFlags usage, MemoryUsage memUsage, bool ownMemory);
-		void mapBuffer (Buffer buffer, size_t dataSize, void *data);
+		void mapBuffer (Buffer buffer, size_t dataSize, const void *data);
 
 		StagingBuffer createStagingBuffer (size_t dataSize);
-		StagingBuffer createAndMapStagingBuffer (size_t dataSize, void *data);
-		void mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, void *data);
+		StagingBuffer createAndMapStagingBuffer (size_t dataSize, const void *data);
+		void mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, const void *data);
 
 		void destroyCommandPool (CommandPool pool);
 		void destroyRenderPass (RenderPass renderPass);

@@ -19,7 +19,7 @@ typedef struct RendererAllocInfo
 {
 		RendererBackend backend;
 		std::vector<std::string> launchArgs;
-		Window* window;
+		Window* mainWindow;
 } RendererAllocInfo;
 
 class Renderer
@@ -82,11 +82,11 @@ class Renderer
 				SAMPLER_MIPMAP_MODE_LINEAR) = 0;
 
 		virtual Buffer createBuffer (size_t size, BufferUsageFlags usage, MemoryUsage memUsage, bool ownMemory = false) = 0;
-		virtual void mapBuffer (Buffer buffer, size_t dataSize, void *data) = 0;
+		virtual void mapBuffer (Buffer buffer, size_t dataSize, const void *data) = 0;
 
 		virtual StagingBuffer createStagingBuffer (size_t dataSize) = 0;
-		virtual StagingBuffer createAndMapStagingBuffer (size_t dataSize, void *data) = 0;
-		virtual void mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, void *data) = 0;
+		virtual StagingBuffer createAndMapStagingBuffer (size_t dataSize, const void *data) = 0;
+		virtual void mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, const void *data) = 0;
 
 		virtual CommandBuffer beginSingleTimeCommand (CommandPool pool);
 		virtual void endSingleTimeCommand (CommandBuffer cmdBuffer, CommandPool pool, QueueType queue);

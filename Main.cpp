@@ -13,6 +13,7 @@
  *  - lodepng
  *  - assimp
  *  - VMA
+ *  - Nuklear
  */
 
 /*
@@ -26,16 +27,14 @@
 
 #include <common.h>
 
-#include <Input/Window.h>
-
 #include <Rendering/Renderer/Renderer.h>
-#include <Rendering/RenderGame.h>
-#include <Resources/ResourceManager.h>
 #include <Game/Events/EventHandler.h>
-#include <Game/Game.h>
 
 #include <assimp/version.h>
 #include <GLFW/glfw3.h>
+
+#include <Engine/StarlightEngine.h>
+#include <Engine/GameStateTitleScreen.h>
 
 void printEnvironment (std::vector<std::string> launchArgs);
 
@@ -71,91 +70,52 @@ int main (int argc, char *argv[])
 			break;
 	}
 
-	Window* gameWindow = new Window(rendererBackend);
-	gameWindow->initWindow(0, 0, APP_NAME);
+	// Initialize the (hopefully) few singletons
+	EventHandler::setInstance(new EventHandler());
 
-	RendererAllocInfo renderAlloc = {};
-	renderAlloc.backend = rendererBackend;
-	renderAlloc.launchArgs = launchArgs;
-	renderAlloc.window = gameWindow;
+	// Create our engine
+	StarlightEngine *gameEngine = new StarlightEngine(launchArgs, 60);
+	gameEngine->init(rendererBackend);
 
-	Renderer* renderer = Renderer::allocateRenderer(renderAlloc);
+	// Startup the game with the title screen
+	GameStateTitleScreen *titleScreen = new GameStateTitleScreen(gameEngine);
 
-	renderer->initRenderer();
-	renderer->initSwapchain();
-
-	ResourceManager *resourceManager = new ResourceManager(renderer);
-	RenderGame* gameRenderer = new RenderGame(renderer, resourceManager);
-
-	// Handles most of the logic for the game
-	Game *gameHandler = new Game(gameWindow);
-	EventHandler *eventHandler = new EventHandler();
-
-	EventHandler::setInstance(eventHandler);
-	Game::setInstance(gameHandler);
-
-	gameRenderer->init();
-	gameHandler->init();
+	gameEngine->changeState(titleScreen);
 
 	printf("%s Completed startup\n", INFO_PREFIX);
 
-	double frameTimeTarget = 1 / 60.0;
-
-	double lastTime = 0;
-	double windowTitleFrametimeUpdateTimer = 0;
 	do
 	{
-		if (true)
-		{
-			if (glfwGetTime() - lastTime < frameTimeTarget)
-			{
-				usleep(uint32_t(std::max<double>(frameTimeTarget - (glfwGetTime() - lastTime) - 0.001, 0) * 1000000.0));
+		/*
+		 if (true)
+		 {
+		 if (glfwGetTime() - lastTime < frameTimeTarget)
+		 {
+		 usleep(uint32_t(std::max<double>(frameTimeTarget - (glfwGetTime() - lastTime) - 0.001, 0) * 1000000.0));
 
-				while (glfwGetTime() - lastTime < frameTimeTarget)
-				{
-					// Busy wait for the rest of the time
-				}
-			}
-		}
+		 while (glfwGetTime() - lastTime < frameTimeTarget)
+		 {
+		 // Busy wait for the rest of the time
+		 }
+		 }
+		 }
+		 */
 
-		gameWindow->pollEvents();
-
-		double currentTime = glfwGetTime();
-		double delta = currentTime - lastTime;
-
-		windowTitleFrametimeUpdateTimer += delta;
-
-		if (windowTitleFrametimeUpdateTimer > 0.3333)
-		{
-			windowTitleFrametimeUpdateTimer = 0;
-
-			char windowTitle[256];
-			sprintf(windowTitle, "%s (%.3f ms)", APP_NAME, delta * 1000.0);
-
-			gameWindow->setTitle(windowTitle);
-		}
-
-		lastTime = glfwGetTime();
-
-		// --- Logic/Update --- //
-
-		gameHandler->update(delta);
-
-		// --- Rendering    --- //
-
-		gameRenderer->renderGame();
-		renderer->presentToSwapchain();
+		gameEngine->update();
+		gameEngine->render();
+		gameEngine->handleEvents();
 	}
-	while (!gameWindow->userRequestedClose());
+	while (gameEngine->isRunning());
 
 	printf("%s Beginning shutdown\n", INFO_PREFIX);
 
-	renderer->waitForDeviceIdle();
+	gameEngine->destroy();
 
-	delete gameHandler;
-	delete gameRenderer;
-	delete resourceManager;
-	delete renderer;
+	delete titleScreen;
+	delete gameEngine;
+
+	// Delete the (hopefully) few singletons
+	delete EventHandler::instance();
 
 	switch (rendererBackend)
 	{
@@ -171,6 +131,7 @@ int main (int argc, char *argv[])
 	}
 
 	printf("%s Completed graceful shutdown\n", INFO_PREFIX);
+
 	return 0;
 }
 

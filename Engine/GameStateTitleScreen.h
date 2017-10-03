@@ -21,34 +21,55 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * GameState.h
+ * GameStateTitleScreen.h
  * 
  * Created on: Sep 30, 2017
  *     Author: david
  */
 
-#ifndef ENGINE_GAMESTATE_H_
-#define ENGINE_GAMESTATE_H_
+#ifndef ENGINE_GAMESTATETITLESCREEN_H_
+#define ENGINE_GAMESTATETITLESCREEN_H_
 
 #include <common.h>
+#include <Engine/GameState.h>
+#include <Rendering/Renderer/RendererEnums.h>
+#include <Rendering/Renderer/RendererObjects.h>
+#include <Game/Events/EventHandler.h>
 
-class StarlightEngine;
-
-class GameState
+class GameStateTitleScreen : public GameState
 {
 	public:
 
-		StarlightEngine *engine;
+		CommandPool titleScreenCommandPool;
+		CommandBuffer titleScreenGUICommandBuffer;
 
-		virtual void init () = 0;
-		virtual void destroy () = 0;
+		Texture titleScreenRT, titleScreenRTDepth;
+		TextureView titleScreenRTView, titleScreenRTDepthView;
+		Sampler titleScreenSampler;
 
-		virtual void pause () = 0;
-		virtual void resume () = 0;
+		sivec2 titleScreenFramebufferSize;
+		Framebuffer titleScreenFramebuffer;
 
-		virtual void handleEvents () = 0;
-		virtual void update () = 0;
-		virtual void render () = 0;
+		GameStateTitleScreen (StarlightEngine *enginePtr);
+		virtual ~GameStateTitleScreen ();
+
+		void init ();
+		void destroy ();
+
+		void pause ();
+		void resume ();
+
+		void handleEvents ();
+		void update ();
+		void render ();
+
+		void createTitleScreenRenderTargets ();
+		void destroyTitleScreenRenderTargets ();
+
+		static void gameWindowResizedCallback (const EventWindowResizeData &eventData, void *usrPtr);
+
+	private:
+
 };
 
-#endif /* ENGINE_GAMESTATE_H_ */
+#endif /* ENGINE_GAMESTATETITLESCREEN_H_ */

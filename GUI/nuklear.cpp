@@ -21,34 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * GameState.h
+ * nuklear.cpp
  * 
- * Created on: Sep 30, 2017
+ * Created on: Oct 1, 2017
  *     Author: david
  */
 
-#ifndef ENGINE_GAMESTATE_H_
-#define ENGINE_GAMESTATE_H_
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+//#define NK_INCLUDE_DEFAULT_FONT
 
-#include <common.h>
+//#define NK_BUTTON_TRIGGER_ON_RELEASE
 
-class StarlightEngine;
-
-class GameState
-{
-	public:
-
-		StarlightEngine *engine;
-
-		virtual void init () = 0;
-		virtual void destroy () = 0;
-
-		virtual void pause () = 0;
-		virtual void resume () = 0;
-
-		virtual void handleEvents () = 0;
-		virtual void update () = 0;
-		virtual void render () = 0;
-};
-
-#endif /* ENGINE_GAMESTATE_H_ */
+#define NK_IMPLEMENTATION
+#include <nuklear.h>

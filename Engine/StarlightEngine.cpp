@@ -28,46 +28,155 @@
  */
 
 #include "Engine/StarlightEngine.h"
+
 #include <Engine/GameState.h>
 
-StarlightEngine::StarlightEngine ()
+#include <Input/Window.h>
+
+#include <Rendering/Renderer/Renderer.h>
+#include <Rendering/GUIRenderer.h>
+
+#include <Resources/ResourceManager.h>
+
+#include <GLFW/glfw3.h>
+
+StarlightEngine::StarlightEngine (const std::vector<std::string> &launchArgs, uint32_t engineUpdateFrequencyCap)
 {
 	engineIsRunning = false;
+	updateFrequencyCap = engineUpdateFrequencyCap;
+
+	renderer = nullptr;
+	mainWindow = nullptr;
+	resources = nullptr;
+	guiRenderer = nullptr;
+
+	this->launchArgs = launchArgs;
+
+	lastUpdateTime = 0;
 }
 
 StarlightEngine::~StarlightEngine ()
 {
-
+	EventHandler::instance()->removeObserver(EVENT_WINDOW_RESIZE, windowResizeEventCallback, this);
 }
 
-void StarlightEngine::init ()
+void StarlightEngine::init (RendererBackend rendererBackendType)
 {
 	engineIsRunning = true;
+
+	EventHandler::instance()->registerObserver(EVENT_WINDOW_RESIZE, windowResizeEventCallback, this);
+
+	mainWindow = new Window(rendererBackendType);
+	mainWindow->initWindow(0, 0, APP_NAME);
+
+	RendererAllocInfo renderAlloc = {};
+	renderAlloc.backend = rendererBackendType;
+	renderAlloc.launchArgs = launchArgs;
+	renderAlloc.mainWindow = mainWindow;
+
+	renderer = Renderer::allocateRenderer(renderAlloc);
+
+	renderer->initRenderer();
+	renderer->initSwapchain();
+
+	resources = new ResourceManager(renderer);
+	guiRenderer = new GUIRenderer(renderer);
+	guiRenderer->temp_engine = this;
+
+	guiRenderer->init();
 }
 
 void StarlightEngine::destroy ()
 {
+	renderer->waitForDeviceIdle();
+
 	while (!gameStates.empty())
 	{
 		gameStates.back()->destroy();
 		gameStates.pop_back();
 	}
 
+	guiRenderer->destroy();
+
+	delete guiRenderer;
+	delete resources;
+	delete mainWindow;
+	delete renderer;
+}
+
+void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &eventData, void *usrPtr)
+{
+	StarlightEngine *enginePtr = static_cast<StarlightEngine*> (usrPtr);
+
+	enginePtr->renderer->recreateSwapchain();
 }
 
 void StarlightEngine::handleEvents ()
 {
-	gameStates.back()->handleEvents();
+	mainWindow->pollEvents();
+
+	if (mainWindow->userRequestedClose())
+	{
+		quit();
+
+		return;
+	}
+
+	if (!gameStates.empty())
+		gameStates.back()->handleEvents();
 }
 
 void StarlightEngine::update ()
 {
-	gameStates.back()->update();
+	if (true)
+	{
+		double frameTimeTarget = 1 / double(updateFrequencyCap);
+
+		if (getTime() - lastUpdateTime < frameTimeTarget)
+		{
+			usleep(uint32_t(std::max<double>(frameTimeTarget - (getTime() - lastUpdateTime) - 0.001, 0) * 1000000.0));
+
+			while (getTime() - lastUpdateTime < frameTimeTarget)
+			{
+				// Busy wait for the rest of the time
+			}
+		}
+	}
+
+	if (true)
+	{
+		static double windowTitleFrametimeUpdateTimer;
+
+		windowTitleFrametimeUpdateTimer += getTime() - lastUpdateTime;
+
+		if (windowTitleFrametimeUpdateTimer > 0.3333)
+		{
+			windowTitleFrametimeUpdateTimer = 0;
+
+			char windowTitle[256];
+			sprintf(windowTitle, "%s (%.3f ms)", APP_NAME, (getTime() - lastUpdateTime) * 1000.0);
+
+			mainWindow->setTitle(windowTitle);
+		}
+	}
+
+	lastUpdateTime = getTime();
+
+	if (!gameStates.empty())
+		gameStates.back()->update();
 }
 
 void StarlightEngine::render ()
 {
-	gameStates.back()->render();
+	if (!gameStates.empty())
+		gameStates.back()->render();
+
+	renderer->presentToSwapchain();
+}
+
+double StarlightEngine::getTime ()
+{
+	return glfwGetTime();
 }
 
 void StarlightEngine::changeState (GameState *state)

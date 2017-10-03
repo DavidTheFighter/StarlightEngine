@@ -104,7 +104,7 @@ void VulkanRenderer::initRenderer ()
 	}
 
 	// Note the surface is created here because choosePhysicalDevice() needs to query swapchain support
-	VK_CHECK_RESULT(glfwCreateWindowSurface(instance, static_cast<GLFWwindow*>(onAllocInfo.window->getWindowObjectPtr()), nullptr, &surface));
+	VK_CHECK_RESULT(glfwCreateWindowSurface(instance, static_cast<GLFWwindow*>(onAllocInfo.mainWindow->getWindowObjectPtr()), nullptr, &surface));
 
 	// Note the swapchain renderer is initialized here because choosePhysicalDevices() relies on querying swapchain support
 	swapchain = new VulkanSwapchain(this);
@@ -828,7 +828,7 @@ Buffer VulkanRenderer::createBuffer (size_t size, BufferUsageFlags usage, Memory
 	return vkBuffer;
 }
 
-void VulkanRenderer::mapBuffer (Buffer buffer, size_t dataSize, void *data)
+void VulkanRenderer::mapBuffer (Buffer buffer, size_t dataSize, const void *data)
 {
 	VulkanBuffer *vkBuffer = static_cast<VulkanBuffer*>(buffer);
 
@@ -867,7 +867,7 @@ StagingBuffer VulkanRenderer::createStagingBuffer (size_t dataSize)
 	return stagingBuffer;
 }
 
-StagingBuffer VulkanRenderer::createAndMapStagingBuffer (size_t dataSize, void *data)
+StagingBuffer VulkanRenderer::createAndMapStagingBuffer (size_t dataSize, const void *data)
 {
 	StagingBuffer stagingBuffer = createStagingBuffer(dataSize);
 
@@ -876,7 +876,7 @@ StagingBuffer VulkanRenderer::createAndMapStagingBuffer (size_t dataSize, void *
 	return stagingBuffer;
 }
 
-void VulkanRenderer::mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, void *data)
+void VulkanRenderer::mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, const void *data)
 {
 	VulkanStagingBuffer* vkStagingBuffer = static_cast<VulkanStagingBuffer*>(stagingBuffer);
 
@@ -1211,6 +1211,7 @@ void VulkanRenderer::createLogicalDevice ()
 
 	VkPhysicalDeviceFeatures enabledDeviceFeatures = {};
 	enabledDeviceFeatures.samplerAnisotropy = deviceFeatures.samplerAnisotropy;
+	enabledDeviceFeatures.logicOp = true;
 
 	VkDeviceCreateInfo deviceCreateInfo = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
 	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());

@@ -10,15 +10,6 @@
 
 #include <common.h>
 
-typedef enum MemoryUsage
-{
-	MEMORY_USAGE_CPU_ONLY = 0,
-	MEMORY_USAGE_GPU_ONLY,
-	MEMORY_USAGE_CPU_TO_GPU,
-	MEMORY_USAGE_GPU_TO_CPU,
-	MEMORY_USAGE_MAX_ENUM
-} MemoryUsage;
-
 typedef struct RendererTexture
 {
 		uint32_t width, height, depth;

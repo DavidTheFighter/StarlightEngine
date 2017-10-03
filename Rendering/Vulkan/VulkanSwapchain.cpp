@@ -136,7 +136,7 @@ void VulkanSwapchain::createSwapchain ()
 
 	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapchainDetails.formats);
 	VkPresentModeKHR presentMode = chooseSwapPresentMode(swapchainDetails.presentModes);
-	VkExtent2D extent = chooseSwapExtent(swapchainDetails.capabilities, renderer->onAllocInfo.window->getWidth(), renderer->onAllocInfo.window->getHeight());
+	VkExtent2D extent = chooseSwapExtent(swapchainDetails.capabilities, renderer->onAllocInfo.mainWindow->getWidth(), renderer->onAllocInfo.mainWindow->getHeight());
 
 	uint32_t imageCount = swapchainDetails.capabilities.minImageCount + 1;
 	if (swapchainDetails.capabilities.maxImageCount > 0 && imageCount > swapchainDetails.capabilities.maxImageCount)

@@ -31,16 +31,28 @@
 #define ENGINE_STARLIGHTENGINE_H_
 
 #include <common.h>
+#include <Rendering/Renderer/RendererBackends.h>
+#include <Game/Events/EventHandler.h>
 
+class Window;
+class Renderer;
 class GameState;
+class ResourceManager;
+class GUIRenderer;
 
 class StarlightEngine
 {
 	public:
-		StarlightEngine ();
+
+		Renderer *renderer;
+		Window *mainWindow;
+		ResourceManager *resources;
+		GUIRenderer *guiRenderer;
+
+		StarlightEngine (const std::vector<std::string> &launchArgs, uint32_t engineUpdateFrequencyCap);
 		virtual ~StarlightEngine ();
 
-		void init ();
+		void init (RendererBackend rendererBackendType);
 		void destroy ();
 
 		void handleEvents ();
@@ -54,11 +66,21 @@ class StarlightEngine
 		bool isRunning ();
 		void quit ();
 
+		double getTime();
+
+		static void windowResizeEventCallback (const EventWindowResizeData &eventData, void *usrPtr);
+
 	private:
 
+		std::vector<std::string> launchArgs;
 		std::vector<GameState*> gameStates;
 
+		double lastUpdateTime;
+
 		bool engineIsRunning;
+
+		// Defines an upper limit to the frequency at which the game is allowed to update. Can be pretty high without causing any trouble. Defined in Hertz
+		uint32_t updateFrequencyCap;
 };
 
 #endif /* ENGINE_STARLIGHTENGINE_H_ */
