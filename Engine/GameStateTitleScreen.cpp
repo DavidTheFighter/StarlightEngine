@@ -92,11 +92,11 @@ void GameStateTitleScreen::render ()
 
 	titleScreenGUICommandBuffer = engine->renderer->allocateCommandBuffer(titleScreenCommandPool);
 
-	engine->renderer->beginCommandBuffer(titleScreenGUICommandBuffer, 0);
+	titleScreenGUICommandBuffer->beginCommands(0);
 
 	engine->guiRenderer->recordGUIRenderCommandList(titleScreenGUICommandBuffer, titleScreenFramebuffer, titleScreenFramebufferSize.x, titleScreenFramebufferSize.y);
 
-	engine->renderer->endCommandBuffer(titleScreenGUICommandBuffer);
+	titleScreenGUICommandBuffer->endCommands();
 
 	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {titleScreenGUICommandBuffer}, nullptr);
 	engine->renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);

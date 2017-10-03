@@ -39,31 +39,6 @@ class Renderer
 		virtual CommandBuffer allocateCommandBuffer (CommandPool pool, CommandBufferLevel level = COMMAND_BUFFER_LEVEL_PRIMARY) = 0;
 		virtual std::vector<CommandBuffer> allocateCommandBuffers (CommandPool pool, CommandBufferLevel level, uint32_t commandBufferCount) = 0;
 
-		virtual void beginCommandBuffer (CommandBuffer commandBuffer, CommandBufferUsageFlags usage) = 0;
-		virtual void endCommandBuffer (CommandBuffer commandBuffer) = 0;
-
-		virtual void cmdBeginRenderPass (CommandBuffer cmdBuffer, RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents) = 0;
-		virtual void cmdEndRenderPass (CommandBuffer cmdBuffer) = 0;
-		virtual void cmdNextSubpass (CommandBuffer cmdBuffer, SubpassContents contents) = 0;
-
-		virtual void cmdBindPipeline (CommandBuffer cmdBuffer, PipelineBindPoint point, Pipeline pipeline) = 0;
-
-		virtual void cmdBindIndexBuffer (CommandBuffer cmdBuffer, Buffer buffer, size_t offset = 0, bool uses32BitIndices = false) = 0;
-		virtual void cmdBindVertexBuffers (CommandBuffer cmdBuffer, uint32_t firstBinding, const std::vector<Buffer> &buffers, const std::vector<size_t> &offsets) = 0;
-
-		virtual void cmdDraw (CommandBuffer cmdBuffer, uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0) = 0;
-		virtual void cmdDrawIndexed (CommandBuffer cmdBuffer, uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0) = 0;
-
-		virtual void cmdPushConstants(CommandBuffer cmdBuffer, PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) = 0;
-		virtual void cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets) = 0;
-
-		virtual void cmdTransitionTextureLayout (CommandBuffer cmdBuffer, Texture texture, TextureLayout oldLayout, TextureLayout newLayout) = 0;
-		virtual void cmdStageBuffer (CommandBuffer cmdBuffer, StagingBuffer stagingBuffer, Texture dstTexture) = 0;
-		virtual void cmdStageBuffer (CommandBuffer cmdBuffer, StagingBuffer stagingBuffer, Buffer dstBuffer) = 0;
-
-		virtual void cmdSetViewport (CommandBuffer cmdBuffer, uint32_t firstViewport, const std::vector<Viewport> &viewports) = 0;
-		virtual void cmdSetScissor (CommandBuffer cmdBuffer, uint32_t firstScissor, const std::vector<Scissor> &scissors) = 0;
-
 		virtual void submitToQueue (QueueType queue, std::vector<CommandBuffer> cmdBuffers, Fence fence) = 0;
 		virtual void waitForQueueIdle (QueueType queue) = 0;
 		virtual void waitForDeviceIdle () = 0;
@@ -108,17 +83,12 @@ class Renderer
 		virtual void freeCommandBuffer (CommandBuffer commandBuffer) = 0;
 		virtual void freeCommandBuffers (std::vector<CommandBuffer> commandBuffers) = 0;
 
-#if SE_RENDER_DEBUG_MARKERS
+#if SE_DEBUG_MARKERS
 		virtual void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name) = 0;
-		virtual void cmdBeginDebugRegion (CommandBuffer cmdBuffer, const std::string &regionName, glm::vec4 color = glm::vec4(1)) = 0;
-		virtual void cmdEndDebugRegion (CommandBuffer cmdBuffer) = 0;
-		virtual void cmdInsertDebugMarker (CommandBuffer cmdBuffer, const std::string &markerName, glm::vec4 color = glm::vec4(1)) = 0;
 #else
 		inline void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name) {};
-		inline void cmdBeginDebugRegion (CommandBuffer cmdBuffer, const std::string &regionName, glm::vec4 color = glm::vec4(1)) {};
-		inline void cmdEndDebugRegion (CommandBuffer cmdBuffer) {};
-		inline void cmdInsertDebugMarker (CommandBuffer cmdBuffer, const std::string &markerName, glm::vec4 color = glm::vec4(1)) {};
 #endif
+
 		/*
 		 * Initializes the swapchain. Note that this should only be called once, in the event you
 		 * want to explicitly recreate the swapchain, call recreateSwapchain(). However in most cases

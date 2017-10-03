@@ -82,7 +82,7 @@ ResourceMesh ResourceManager::loadMeshImmediate (const std::string &file, const 
 		meshRes->meshBuffer = renderer->createBuffer(formattedData.size(), BUFFER_USAGE_INDEX_BUFFER_BIT | BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
 
 		CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
-		renderer->cmdStageBuffer(cmdBuffer, stagingBuffer, meshRes->meshBuffer);
+		cmdBuffer->stageBuffer(stagingBuffer, meshRes->meshBuffer);
 		renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
 
 		renderer->destroyStagingBuffer(stagingBuffer);
@@ -230,9 +230,9 @@ void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 
 	CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
 
-	renderer->cmdTransitionTextureLayout(cmdBuffer, tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	renderer->cmdStageBuffer(cmdBuffer, stagingBuffer, tex->texture);
-	renderer->cmdTransitionTextureLayout(cmdBuffer, tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	cmdBuffer->stageBuffer(stagingBuffer, tex->texture);
+	cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
 

@@ -74,14 +74,14 @@ CommandBuffer Renderer::beginSingleTimeCommand (CommandPool pool)
 {
 	CommandBuffer cmdBuffer = allocateCommandBuffer(pool, COMMAND_BUFFER_LEVEL_PRIMARY);
 
-	beginCommandBuffer(cmdBuffer, COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	cmdBuffer->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 	return cmdBuffer;
 }
 
 void Renderer::endSingleTimeCommand (CommandBuffer cmdBuffer, CommandPool pool, QueueType queue)
 {
-	endCommandBuffer(cmdBuffer);
+	cmdBuffer->endCommands();
 
 	submitToQueue(queue, {cmdBuffer}, nullptr);
 	waitForQueueIdle(queue);

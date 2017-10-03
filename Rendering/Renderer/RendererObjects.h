@@ -38,13 +38,6 @@ typedef struct RendererCommandPool
 
 } RendererCommandPool;
 
-typedef struct RendererCommandBuffer
-{
-		CommandBufferLevel level;
-		RendererCommandPool *pool;
-
-} RendererCommandBuffer;
-
 typedef struct RendererStagingBuffer
 {
 } RendererStagingBuffer;
@@ -361,8 +354,9 @@ typedef RendererTextureView *TextureView;
 typedef RendererSampler *Sampler;
 typedef RendererBuffer *Buffer;
 typedef RendererCommandPool *CommandPool;
-typedef RendererCommandBuffer *CommandBuffer;
 typedef RendererStagingBuffer *StagingBuffer;
 typedef RendererFence *Fence;
+
+#include <Rendering/Renderer/RendererCommandBuffer.h>
 
 #endif /* RENDERING_RENDERER_RENDEREROBJECTS_H_ */

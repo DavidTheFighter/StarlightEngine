@@ -34,11 +34,6 @@ struct VulkanCommandPool : public RendererCommandPool
 		VkCommandPool poolHandle;
 };
 
-struct VulkanCommandBuffer : public RendererCommandBuffer
-{
-		VkCommandBuffer bufferHandle;
-};
-
 struct VulkanRenderPass : public RendererRenderPass
 {
 		VkRenderPass renderPassHandle;
@@ -165,5 +160,7 @@ class DeviceQueues
 		}
 
 };
+
+#include <Rendering/Vulkan/VulkanCommandBuffer.h>
 
 #endif /* RENDERING_VULKAN_VULKANOBJECTS_H_ */

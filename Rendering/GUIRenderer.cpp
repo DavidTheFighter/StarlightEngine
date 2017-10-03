@@ -163,18 +163,18 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 	clearValues[1].depthStencil =
 	{	1, 0};
 
-	renderer->cmdBeginDebugRegion(cmdBuffer, "Render GUI", glm::vec4(0.929f, 0.22f, 1.0f, 1.0f));
-	renderer->cmdBeginRenderPass(cmdBuffer, guiRenderPass, framebuffer, {0, 0, renderWidth, renderHeight}, clearValues, SUBPASS_CONTENTS_INLINE);
-	renderer->cmdBindPipeline(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipeline);
+	cmdBuffer->beginDebugRegion("Render GUI", glm::vec4(0.929f, 0.22f, 1.0f, 1.0f));
+	cmdBuffer->beginRenderPass(guiRenderPass, framebuffer, {0, 0, renderWidth, renderHeight}, clearValues, SUBPASS_CONTENTS_INLINE);
+	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipeline);
 
-	renderer->cmdSetViewport(cmdBuffer, 0, {{0, 0, (float) renderWidth, (float) renderHeight}});
+	cmdBuffer->setViewports(0, {{0, 0, (float) renderWidth, (float) renderHeight}});
 
 	glm::mat4 orthoProj = glm::ortho<float>(0, renderWidth, 0, renderHeight);
 
-	renderer->cmdPushConstants(cmdBuffer, guiGraphicsPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &orthoProj[0][0]);
+	cmdBuffer->pushConstants(guiGraphicsPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &orthoProj[0][0]);
 
-	renderer->cmdBindIndexBuffer(cmdBuffer, guiIndexStreamBuffer, 0, false);
-	renderer->cmdBindVertexBuffers(cmdBuffer, 0, {guiVertexStreamBuffer}, {0});
+	cmdBuffer->bindIndexBuffer(guiIndexStreamBuffer, 0, false);
+	cmdBuffer->bindVertexBuffers(0, {guiVertexStreamBuffer}, {0});
 
 	// The list of draw commands, immediately sorted by texture
 	std::map<void*, std::vector<nk_draw_command_extended> > drawCommands;
@@ -202,7 +202,7 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 	uint32_t drawCommandCount = cmdIndex;
 
 	DescriptorSet *currentDrawCommandTexture = nullptr;
-	renderer->cmdBindDescriptorSets(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {whiteTextureDescriptor});
+	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {whiteTextureDescriptor});
 
 	for (auto drawCommandIt = drawCommands.begin(); drawCommandIt != drawCommands.end(); drawCommandIt ++)
 	{
@@ -226,25 +226,25 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 			{
 				if (cmd->texture.ptr == nullptr)
 				{
-					renderer->cmdBindDescriptorSets(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {whiteTextureDescriptor});
+					cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {whiteTextureDescriptor});
 				}
 				else
 				{
-					renderer->cmdBindDescriptorSets(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {static_cast<DescriptorSet> (cmd->texture.ptr)});
+					cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {static_cast<DescriptorSet> (cmd->texture.ptr)});
 				}
 
 				currentDrawCommandTexture = static_cast<DescriptorSet*> (cmd->texture.ptr);
 			}
 
-			renderer->cmdSetScissor(cmdBuffer, 0, {cmdScissor});
-			renderer->cmdPushConstants(cmdBuffer, guiGraphicsPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(float), &depth);
+			cmdBuffer->setScissors(0, {cmdScissor});
+			cmdBuffer->pushConstants( guiGraphicsPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(float), &depth);
 
-			renderer->cmdDrawIndexed(cmdBuffer, cmd->elem_count, 1, offset, 0, 0);
+			cmdBuffer->drawIndexed(cmd->elem_count, 1, offset, 0, 0);
 		}
 	}
 
-	renderer->cmdEndRenderPass(cmdBuffer);
-	renderer->cmdEndDebugRegion(cmdBuffer);
+	cmdBuffer->endRenderPass();
+	cmdBuffer->endDebugRegion();
 
 	nk_buffer_free(&cmds);
 	nk_buffer_free(&verts);
@@ -283,9 +283,9 @@ void GUIRenderer::init ()
 
 		CommandBuffer fontAtlasUploadCommandBuffer = renderer->beginSingleTimeCommand(testGUICommandPool);
 
-		renderer->cmdTransitionTextureLayout(fontAtlasUploadCommandBuffer, fontAtlas, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		renderer->cmdStageBuffer(fontAtlasUploadCommandBuffer, stagingBuffer, fontAtlas);
-		renderer->cmdTransitionTextureLayout(fontAtlasUploadCommandBuffer, fontAtlas, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		fontAtlasUploadCommandBuffer->transitionTextureLayout(fontAtlas, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		fontAtlasUploadCommandBuffer->stageBuffer(stagingBuffer, fontAtlas);
+		fontAtlasUploadCommandBuffer->transitionTextureLayout(fontAtlas, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		renderer->endSingleTimeCommand(fontAtlasUploadCommandBuffer, testGUICommandPool, QUEUE_TYPE_GRAPHICS);
 

@@ -52,34 +52,6 @@ class VulkanRenderer : public Renderer
 		CommandBuffer allocateCommandBuffer (CommandPool pool, CommandBufferLevel level);
 		std::vector<CommandBuffer> allocateCommandBuffers (CommandPool pool, CommandBufferLevel level, uint32_t commandBufferCount);
 
-		void beginCommandBuffer (CommandBuffer commandBuffer, CommandBufferUsageFlags usage);
-		void endCommandBuffer (CommandBuffer commandBuffer);
-
-		void freeCommandBuffer (CommandBuffer commandBuffer);
-		void freeCommandBuffers (std::vector<CommandBuffer> commandBuffers);
-
-		void cmdBeginRenderPass (CommandBuffer cmdBuffer, RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents);
-		void cmdEndRenderPass (CommandBuffer cmdBuffer);
-		void cmdNextSubpass (CommandBuffer cmdBuffer, SubpassContents contents);
-
-		void cmdBindPipeline (CommandBuffer cmdBuffer, PipelineBindPoint point, Pipeline pipeline);
-
-		void cmdBindIndexBuffer (CommandBuffer cmdBuffer, Buffer buffer, size_t offset, bool uses32BitIndices);
-		void cmdBindVertexBuffers (CommandBuffer cmdBuffer, uint32_t firstBinding, const std::vector<Buffer> &buffers, const std::vector<size_t> &offsets);
-
-		void cmdDraw (CommandBuffer cmdBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
-		void cmdDrawIndexed (CommandBuffer cmdBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
-
-		void cmdPushConstants(CommandBuffer cmdBuffer, PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data);
-		void cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets);
-
-		void cmdTransitionTextureLayout (CommandBuffer cmdBuffer, Texture texture, TextureLayout oldLayout, TextureLayout newLayout);
-		void cmdStageBuffer(CommandBuffer cmdBuffer, StagingBuffer stagingBuffer, Texture dstTexture);
-		void cmdStageBuffer (CommandBuffer cmdBuffer, StagingBuffer stagingBuffer, Buffer dstBuffer);
-
-		void cmdSetViewport (CommandBuffer cmdBuffer, uint32_t firstViewport, const std::vector<Viewport> &viewports);
-		void cmdSetScissor (CommandBuffer cmdBuffer, uint32_t firstScissor, const std::vector<Scissor> &scissors);
-
 		void submitToQueue (QueueType queue, std::vector<CommandBuffer> cmdBuffers, Fence fence);
 		void waitForQueueIdle (QueueType queue);
 		void waitForDeviceIdle ();
@@ -120,10 +92,10 @@ class VulkanRenderer : public Renderer
 		void destroyBuffer (Buffer buffer);
 		void destroyStagingBuffer (StagingBuffer stagingBuffer);
 
+		void freeCommandBuffer (CommandBuffer commandBuffer);
+		void freeCommandBuffers (std::vector<CommandBuffer> commandBuffers);
+
 		void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name);
-		void cmdBeginDebugRegion (CommandBuffer cmdBuffer, const std::string &regionName, glm::vec4 color);
-		void cmdEndDebugRegion (CommandBuffer cmdBuffer);
-		void cmdInsertDebugMarker (CommandBuffer cmdBuffer, const std::string &markerName, glm::vec4 color);
 
 		void initSwapchain ();
 		void presentToSwapchain ();
