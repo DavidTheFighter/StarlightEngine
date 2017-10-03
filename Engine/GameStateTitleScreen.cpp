@@ -98,7 +98,7 @@ void GameStateTitleScreen::render ()
 
 	titleScreenGUICommandBuffer->endCommands();
 
-	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {titleScreenGUICommandBuffer}, nullptr);
+	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {titleScreenGUICommandBuffer});
 	engine->renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);
 }
 

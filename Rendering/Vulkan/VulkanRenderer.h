@@ -52,9 +52,15 @@ class VulkanRenderer : public Renderer
 		CommandBuffer allocateCommandBuffer (CommandPool pool, CommandBufferLevel level);
 		std::vector<CommandBuffer> allocateCommandBuffers (CommandPool pool, CommandBufferLevel level, uint32_t commandBufferCount);
 
-		void submitToQueue (QueueType queue, std::vector<CommandBuffer> cmdBuffers, Fence fence);
+		void submitToQueue (QueueType queue, const std::vector<CommandBuffer> &cmdBuffers, const std::vector<Semaphore> &waitSemaphores, const std::vector<PipelineStageFlags> &waitSemaphoreStages, const std::vector<Semaphore> &signalSemaphores, Fence fence);
 		void waitForQueueIdle (QueueType queue);
 		void waitForDeviceIdle ();
+
+		bool getFenceStatus (Fence fence);
+		void resetFence (Fence fence);
+		void resetFences (const std::vector<Fence> &fences);
+		void waitForFence (Fence fence, double timeoutInSeconds);
+		void waitForFences (const std::vector<Fence> &fences, bool waitForAll, double timeoutInSeconds);
 
 		void writeDescriptorSets (const std::vector<DescriptorWriteInfo> &writes);
 
@@ -65,7 +71,8 @@ class VulkanRenderer : public Renderer
 		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass);
 		DescriptorSet createDescriptorSet(const std::vector<DescriptorSetLayoutBinding> &layoutBindings);
 
-		//DescriptorSetLayout createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &bindings);
+		Fence createFence (bool createAsSignaled);
+		Semaphore createSemaphore ();
 
 		Texture createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, TextureType type);
 		TextureView createTextureView (Texture texture, TextureViewType viewType, TextureSubresourceRange subresourceRange, ResourceFormat viewFormat);
@@ -84,13 +91,15 @@ class VulkanRenderer : public Renderer
 		void destroyPipelineInputLayout (PipelineInputLayout layout);
 		void destroyPipeline (Pipeline pipeline);
 		void destroyShaderModule (ShaderModule module);
-		//void destroyDescriptorSetLayout (DescriptorSetLayout layout);
 		void destroyDescriptorSet (DescriptorSet set);
 		void destroyTexture (Texture texture);
 		void destroyTextureView (TextureView textureView);
 		void destroySampler (Sampler sampler);
 		void destroyBuffer (Buffer buffer);
 		void destroyStagingBuffer (StagingBuffer stagingBuffer);
+
+		void destroyFence (Fence fence);
+		void destroySemaphore (Semaphore sem);
 
 		void freeCommandBuffer (CommandBuffer commandBuffer);
 		void freeCommandBuffers (std::vector<CommandBuffer> commandBuffers);

@@ -87,6 +87,16 @@ struct VulkanBuffer : public RendererBuffer
 		VkDeviceSize memorySize;
 };
 
+struct VulkanFence : public RendererFence
+{
+		VkFence fenceHandle;
+};
+
+struct VulkanSemaphore : public RendererSemaphore
+{
+		VkSemaphore semHandle;
+};
+
 // Data store for each VkPipelineLayout object in the cache to compare against others
 typedef struct VulkanPipelineLayoutCacheInfo
 {

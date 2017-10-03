@@ -39,9 +39,15 @@ class Renderer
 		virtual CommandBuffer allocateCommandBuffer (CommandPool pool, CommandBufferLevel level = COMMAND_BUFFER_LEVEL_PRIMARY) = 0;
 		virtual std::vector<CommandBuffer> allocateCommandBuffers (CommandPool pool, CommandBufferLevel level, uint32_t commandBufferCount) = 0;
 
-		virtual void submitToQueue (QueueType queue, std::vector<CommandBuffer> cmdBuffers, Fence fence) = 0;
+		virtual void submitToQueue (QueueType queue, const std::vector<CommandBuffer> &cmdBuffers, const std::vector<Semaphore> &waitSemaphores = {}, const std::vector<PipelineStageFlags> &waitSemaphoreStages = {}, const std::vector<Semaphore> &signalSemaphores = {}, Fence fence = nullptr) = 0;
 		virtual void waitForQueueIdle (QueueType queue) = 0;
 		virtual void waitForDeviceIdle () = 0;
+
+		virtual bool getFenceStatus (Fence fence) = 0;
+		virtual void resetFence (Fence fence) = 0;
+		virtual void resetFences (const std::vector<Fence> &fences) = 0;
+		virtual void waitForFence (Fence fence, double timeoutInSeconds) = 0;
+		virtual void waitForFences (const std::vector<Fence> &fences, bool waitForAll, double timeoutInSeconds) = 0;
 
 		virtual void writeDescriptorSets (const std::vector<DescriptorWriteInfo> &writes) = 0;
 
@@ -51,6 +57,9 @@ class Renderer
 		virtual PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts) = 0;
 		virtual Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass) = 0;
 		virtual DescriptorSet createDescriptorSet (const std::vector<DescriptorSetLayoutBinding> &layoutBindings) = 0;
+
+		virtual Fence createFence (bool createAsSignaled = false) = 0;
+		virtual Semaphore createSemaphore () = 0;
 
 		virtual Texture createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory = false, uint32_t mipLevelCount = 1, TextureType type = TEXTURE_TYPE_2D) = 0;
 		virtual TextureView createTextureView (Texture texture, TextureViewType viewType = TEXTURE_VIEW_TYPE_2D, TextureSubresourceRange subresourceRange = {0, 1, 0, 1}, ResourceFormat viewFormat = RESOURCE_FORMAT_UNDEFINED) = 0;
@@ -79,6 +88,9 @@ class Renderer
 		virtual void destroySampler (Sampler sampler) = 0;
 		virtual void destroyBuffer (Buffer buffer) = 0;
 		virtual void destroyStagingBuffer (StagingBuffer stagingBuffer) = 0;
+
+		virtual void destroyFence (Fence fence) = 0;
+		virtual void destroySemaphore (Semaphore sem) = 0;
 
 		virtual void freeCommandBuffer (CommandBuffer commandBuffer) = 0;
 		virtual void freeCommandBuffers (std::vector<CommandBuffer> commandBuffers) = 0;

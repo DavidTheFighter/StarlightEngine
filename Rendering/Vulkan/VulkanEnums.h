@@ -122,6 +122,12 @@ inline VkPipelineStageFlags toVkPipelineStageFlags (PipelineStageFlags flags)
 	return static_cast<VkPipelineStageFlags> (flags);
 }
 
+inline VkPipelineStageFlagBits toVkPipelineStageFlagBits (PipelineStageFlagBits bit)
+{
+	// Generic pipelien stage flag bits map directly to vulkan pipeline stage flag bits
+	return static_cast<VkPipelineStageFlagBits> (bit);
+}
+
 inline VkAttachmentLoadOp toVkAttachmentLoadOp (AttachmentLoadOp op)
 {
 	// Generic load ops map directly to vulkan load ops

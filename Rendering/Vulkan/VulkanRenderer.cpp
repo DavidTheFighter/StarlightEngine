@@ -190,6 +190,8 @@ CommandBuffer VulkanRenderer::allocateCommandBuffer (CommandPool pool, CommandBu
 
 std::vector<CommandBuffer> VulkanRenderer::allocateCommandBuffers (CommandPool pool, CommandBufferLevel level, uint32_t commandBufferCount)
 {
+	DEBUG_ASSERT(commandBufferCount > 0);
+
 	VkCommandBufferAllocateInfo allocInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
 	allocInfo.commandBufferCount = commandBufferCount;
 	allocInfo.commandPool = static_cast<VulkanCommandPool*>(pool)->poolHandle;
@@ -213,18 +215,40 @@ std::vector<CommandBuffer> VulkanRenderer::allocateCommandBuffers (CommandPool p
 	return commandBuffers;
 }
 
-void VulkanRenderer::submitToQueue (QueueType queue, std::vector<CommandBuffer> cmdBuffers, Fence fence)
+void VulkanRenderer::submitToQueue (QueueType queue, const std::vector<CommandBuffer> &cmdBuffers, const std::vector<Semaphore> &waitSemaphores, const std::vector<PipelineStageFlags> &waitSemaphoreStages, const std::vector<Semaphore> &signalSemaphores, Fence fence)
 {
-	std::vector<VkCommandBuffer> vkCmdBuffers;
+	DEBUG_ASSERT(cmdBuffers.size() > 0);
+	DEBUG_ASSERT(waitSemaphores.size() == waitSemaphoreStages.size());
+
+	VkCommandBuffer vkCmdBuffers[cmdBuffers.size()];
+
+	std::vector<VkSemaphore> vulkanWaitSemaphores(waitSemaphores.size()), vulkanSignalSemaphores(signalSemaphores.size());
+	std::vector<VkPipelineStageFlags> vulkanWaitStages(waitSemaphores.size());
 
 	for (size_t i = 0; i < cmdBuffers.size(); i ++)
 	{
-		vkCmdBuffers.push_back(static_cast<VulkanCommandBuffer*>(cmdBuffers[i])->bufferHandle);
+		vkCmdBuffers[i] = (static_cast<VulkanCommandBuffer*>(cmdBuffers[i])->bufferHandle);
+	}
+
+	for (size_t i = 0; i < waitSemaphores.size(); i ++)
+	{
+		vulkanWaitSemaphores[i] = static_cast<VulkanSemaphore*>(waitSemaphores[i])->semHandle;
+		vulkanWaitStages[i] = toVkPipelineStageFlags(waitSemaphoreStages[i]);
+	}
+
+	for (size_t i = 0; i < signalSemaphores.size(); i ++)
+	{
+		vulkanSignalSemaphores[i] = static_cast<VulkanSemaphore*>(signalSemaphores[i])->semHandle;
 	}
 
 	VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
 	submitInfo.commandBufferCount = static_cast<uint32_t>(cmdBuffers.size());
-	submitInfo.pCommandBuffers = vkCmdBuffers.data();
+	submitInfo.pCommandBuffers = vkCmdBuffers;
+	submitInfo.waitSemaphoreCount = static_cast<uint32_t>(vulkanWaitSemaphores.size());
+	submitInfo.pWaitSemaphores = vulkanWaitSemaphores.data();
+	submitInfo.pWaitDstStageMask = vulkanWaitStages.data();
+	submitInfo.signalSemaphoreCount = static_cast<uint32_t>(vulkanSignalSemaphores.size());
+	submitInfo.pSignalSemaphores = vulkanSignalSemaphores.data();
 
 	VkQueue vulkanQueue;
 
@@ -246,7 +270,7 @@ void VulkanRenderer::submitToQueue (QueueType queue, std::vector<CommandBuffer> 
 			vulkanQueue = VK_NULL_HANDLE;
 	}
 
-	VK_CHECK_RESULT(vkQueueSubmit(vulkanQueue, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK_RESULT(vkQueueSubmit(vulkanQueue, 1, &submitInfo, (fence != nullptr) ? (static_cast<VulkanFence*> (fence)->fenceHandle) : (VK_NULL_HANDLE)));
 }
 
 void VulkanRenderer::waitForQueueIdle (QueueType queue)
@@ -277,6 +301,83 @@ void VulkanRenderer::waitForQueueIdle (QueueType queue)
 void VulkanRenderer::waitForDeviceIdle ()
 {
 	VK_CHECK_RESULT(vkDeviceWaitIdle(device));
+}
+
+bool VulkanRenderer::getFenceStatus (Fence fence)
+{
+	VkResult fenceStatus = vkGetFenceStatus(device, static_cast<VulkanFence*> (fence)->fenceHandle);
+
+	switch (fenceStatus)
+	{
+		case VK_SUCCESS:
+			return true;
+		case VK_NOT_READY:
+			return false;
+		default:
+			VK_CHECK_RESULT(fenceStatus);
+	}
+
+	return false;
+}
+
+void VulkanRenderer::resetFence (Fence fence)
+{
+	VK_CHECK_RESULT(vkResetFences(device, 1, &static_cast<VulkanFence*> (fence)->fenceHandle));
+}
+
+void VulkanRenderer::resetFences (const std::vector<Fence> &fences)
+{
+	DEBUG_ASSERT(fences.size() > 0);
+
+	VkFence vulkanFences[fences.size()];
+
+	for (size_t i = 0; i < fences.size(); i ++)
+	{
+		vulkanFences[i] = static_cast<VulkanFence*> (fences[i])->fenceHandle;
+	}
+
+	VK_CHECK_RESULT(vkResetFences(device, static_cast<uint32_t> (fences.size()), vulkanFences));
+}
+
+void VulkanRenderer::waitForFence (Fence fence, double timeoutInSeconds)
+{
+	uint64_t timeoutInNanoseconds = static_cast<uint64_t> (timeoutInSeconds * 1.0e9);
+
+	VkResult waitResult = vkWaitForFences(device, 1, &static_cast<VulkanFence*> (fence)->fenceHandle, VK_TRUE, timeoutInNanoseconds);
+
+	switch (waitResult)
+	{
+		case VK_SUCCESS:
+		case VK_TIMEOUT:
+			return;
+		default:
+			VK_CHECK_RESULT(waitResult);
+	}
+}
+
+void VulkanRenderer::waitForFences (const std::vector<Fence> &fences, bool waitForAll, double timeoutInSeconds)
+{
+	DEBUG_ASSERT(fences.size() > 0);
+
+	VkFence vulkanFences[fences.size()];
+
+	for (size_t i = 0; i < fences.size(); i ++)
+	{
+		vulkanFences[i] = static_cast<VulkanFence*> (fences[i])->fenceHandle;
+	}
+
+	uint64_t timeoutInNanoseconds = static_cast<uint64_t> (timeoutInSeconds * 1.0e9);
+
+	VkResult waitResult = vkWaitForFences(device, static_cast<uint32_t> (fences.size()), vulkanFences, waitForAll, timeoutInNanoseconds);
+
+	switch (waitResult)
+	{
+		case VK_SUCCESS:
+		case VK_TIMEOUT:
+			return;
+		default:
+			VK_CHECK_RESULT(waitResult);
+	}
 }
 
 void VulkanRenderer::writeDescriptorSets (const std::vector<DescriptorWriteInfo> &writes)
@@ -541,6 +642,29 @@ Pipeline VulkanRenderer::createGraphicsPipeline (const PipelineInfo &pipelineInf
 DescriptorSet VulkanRenderer::createDescriptorSet (const std::vector<DescriptorSetLayoutBinding> &layoutBindings)
 {
 	return pipelineHandler->allocateDescriptorSet(layoutBindings);
+}
+
+Fence VulkanRenderer::createFence (bool createAsSignaled)
+{
+	VulkanFence *vulkanFence = new VulkanFence();
+
+	VkFenceCreateInfo fenceCreateInfo = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+	fenceCreateInfo.flags = createAsSignaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
+
+	VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &vulkanFence->fenceHandle));
+
+	return vulkanFence;
+}
+
+Semaphore VulkanRenderer::createSemaphore ()
+{
+	VulkanSemaphore *vulkanSem = new VulkanSemaphore();
+
+	VkSemaphoreCreateInfo semCreateInfo = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+
+	VK_CHECK_RESULT(vkCreateSemaphore(device, &semCreateInfo, nullptr, &vulkanSem->semHandle));
+
+	return vulkanSem;
 }
 
 /*
@@ -886,6 +1010,26 @@ void VulkanRenderer::destroyStagingBuffer (StagingBuffer stagingBuffer)
 		vmaDestroyBuffer(memAllocator, vkBuffer->bufferHandle);
 
 	delete vkBuffer;
+}
+
+void VulkanRenderer::destroyFence (Fence fence)
+{
+	VulkanFence *vulkanFence = static_cast<VulkanFence*>(fence);
+
+	if (vulkanFence->fenceHandle != VK_NULL_HANDLE)
+		vkDestroyFence(device, vulkanFence->fenceHandle, nullptr);
+
+	delete vulkanFence;
+}
+
+void VulkanRenderer::destroySemaphore (Semaphore sem)
+{
+	VulkanSemaphore *vulkanSem = static_cast<VulkanSemaphore*>(sem);
+
+	if (vulkanSem->semHandle != VK_NULL_HANDLE)
+		vkDestroySemaphore(device, vulkanSem->semHandle, nullptr);
+
+	delete vulkanSem;
 }
 
 void VulkanRenderer::setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name)

@@ -83,7 +83,7 @@ void Renderer::endSingleTimeCommand (CommandBuffer cmdBuffer, CommandPool pool, 
 {
 	cmdBuffer->endCommands();
 
-	submitToQueue(queue, {cmdBuffer}, nullptr);
+	submitToQueue(queue, {cmdBuffer});
 	waitForQueueIdle(queue);
 
 	freeCommandBuffer(cmdBuffer);

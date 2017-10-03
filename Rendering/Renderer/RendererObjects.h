@@ -342,6 +342,11 @@ typedef struct RendererFence
 {
 } RendererFence;
 
+typedef struct RendererSemaphore
+{
+
+} RendererSemaphore;
+
 typedef RendererRenderPass *RenderPass;
 typedef RendererPipelineInputLayout *PipelineInputLayout;
 typedef RendererPipeline *Pipeline;
@@ -356,6 +361,7 @@ typedef RendererBuffer *Buffer;
 typedef RendererCommandPool *CommandPool;
 typedef RendererStagingBuffer *StagingBuffer;
 typedef RendererFence *Fence;
+typedef RendererSemaphore *Semaphore;
 
 #include <Rendering/Renderer/RendererCommandBuffer.h>
 
