@@ -70,8 +70,8 @@ class VulkanRenderer : public Renderer
 		void cmdDraw (CommandBuffer cmdBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
 		void cmdDrawIndexed (CommandBuffer cmdBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
 
-		void cmdPushConstants(CommandBuffer cmdBuffer, const PipelineInputLayout &inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data);
-		void cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, const PipelineInputLayout &inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets);
+		void cmdPushConstants(CommandBuffer cmdBuffer, PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data);
+		void cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets);
 
 		void cmdTransitionTextureLayout (CommandBuffer cmdBuffer, Texture texture, TextureLayout oldLayout, TextureLayout newLayout);
 		void cmdStageBuffer(CommandBuffer cmdBuffer, StagingBuffer stagingBuffer, Texture dstTexture);
@@ -89,7 +89,8 @@ class VulkanRenderer : public Renderer
 		RenderPass createRenderPass(std::vector<AttachmentDescription> attachments, std::vector<SubpassDescription> subpasses, std::vector<SubpassDependency> dependencies);
 		Framebuffer createFramebuffer(RenderPass renderPass, std::vector<TextureView> attachments, uint32_t width, uint32_t height, uint32_t layers);
 		ShaderModule createShaderModule (std::string file, ShaderStageFlagBits stage);
-		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, const PipelineInputLayout &inputLayout, RenderPass renderPass, uint32_t subpass);
+		PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts);
+		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass);
 		DescriptorSet createDescriptorSet(const std::vector<DescriptorSetLayoutBinding> &layoutBindings);
 
 		//DescriptorSetLayout createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &bindings);
@@ -108,6 +109,7 @@ class VulkanRenderer : public Renderer
 		void destroyCommandPool (CommandPool pool);
 		void destroyRenderPass (RenderPass renderPass);
 		void destroyFramebuffer (Framebuffer framebuffer);
+		void destroyPipelineInputLayout (PipelineInputLayout layout);
 		void destroyPipeline (Pipeline pipeline);
 		void destroyShaderModule (ShaderModule module);
 		//void destroyDescriptorSetLayout (DescriptorSetLayout layout);

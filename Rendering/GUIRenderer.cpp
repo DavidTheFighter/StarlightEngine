@@ -49,6 +49,7 @@ GUIRenderer::GUIRenderer (Renderer *engineRenderer)
 {
 	renderer = engineRenderer;
 
+	guiGraphicsPipelineInputLayout = nullptr;
 	guiGraphicsPipeline = nullptr;
 	guiRenderPass = nullptr;
 
@@ -168,15 +169,9 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 
 	renderer->cmdSetViewport(cmdBuffer, 0, {{0, 0, (float) renderWidth, (float) renderHeight}});
 
-	PipelineInputLayout pipelineInputLayout = {};
-	pipelineInputLayout.pushConstantRanges =
-	{
-		{	0, sizeof(glm::mat4) + sizeof(float), SHADER_STAGE_VERTEX_BIT}};
-	pipelineInputLayout.setLayouts.push_back({{0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}});
-
 	glm::mat4 orthoProj = glm::ortho<float>(0, renderWidth, 0, renderHeight);
 
-	renderer->cmdPushConstants(cmdBuffer, pipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &orthoProj[0][0]);
+	renderer->cmdPushConstants(cmdBuffer, guiGraphicsPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &orthoProj[0][0]);
 
 	renderer->cmdBindIndexBuffer(cmdBuffer, guiIndexStreamBuffer, 0, false);
 	renderer->cmdBindVertexBuffers(cmdBuffer, 0, {guiVertexStreamBuffer}, {0});
@@ -207,7 +202,7 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 	uint32_t drawCommandCount = cmdIndex;
 
 	DescriptorSet *currentDrawCommandTexture = nullptr;
-	renderer->cmdBindDescriptorSets(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, pipelineInputLayout, 0, {whiteTextureDescriptor});
+	renderer->cmdBindDescriptorSets(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {whiteTextureDescriptor});
 
 	for (auto drawCommandIt = drawCommands.begin(); drawCommandIt != drawCommands.end(); drawCommandIt ++)
 	{
@@ -231,18 +226,18 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 			{
 				if (cmd->texture.ptr == nullptr)
 				{
-					renderer->cmdBindDescriptorSets(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, pipelineInputLayout, 0, {whiteTextureDescriptor});
+					renderer->cmdBindDescriptorSets(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {whiteTextureDescriptor});
 				}
 				else
 				{
-					renderer->cmdBindDescriptorSets(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, pipelineInputLayout, 0, {static_cast<DescriptorSet> (cmd->texture.ptr)});
+					renderer->cmdBindDescriptorSets(cmdBuffer, PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {static_cast<DescriptorSet> (cmd->texture.ptr)});
 				}
 
 				currentDrawCommandTexture = static_cast<DescriptorSet*> (cmd->texture.ptr);
 			}
 
 			renderer->cmdSetScissor(cmdBuffer, 0, {cmdScissor});
-			renderer->cmdPushConstants(cmdBuffer, pipelineInputLayout, SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(float), &depth);
+			renderer->cmdPushConstants(cmdBuffer, guiGraphicsPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(float), &depth);
 
 			renderer->cmdDrawIndexed(cmdBuffer, cmd->elem_count, 1, offset, 0, 0);
 		}
@@ -354,6 +349,7 @@ void GUIRenderer::destroy ()
 
 	renderer->destroySampler(testSampler);
 
+	renderer->destroyPipelineInputLayout(guiGraphicsPipelineInputLayout);
 	renderer->destroyPipeline(guiGraphicsPipeline);
 	renderer->destroyRenderPass(guiRenderPass);
 
@@ -493,14 +489,8 @@ void GUIRenderer::createGraphicsPipeline ()
 	info.colorBlendInfo = colorBlend;
 	info.dynamicStateInfo = dynamicState;
 
-	PipelineInputLayout pipelineInputLayout = {};
-	pipelineInputLayout.pushConstantRanges =
-	{
-		{	0, sizeof(glm::mat4) + sizeof(float), SHADER_STAGE_VERTEX_BIT}};
-
-	pipelineInputLayout.setLayouts.push_back({{0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}});
-
-	guiGraphicsPipeline = renderer->createGraphicsPipeline(info, pipelineInputLayout, guiRenderPass, 0);
+	guiGraphicsPipelineInputLayout = renderer->createPipelineInputLayout({{	0, sizeof(glm::mat4) + sizeof(float), SHADER_STAGE_VERTEX_BIT}}, {{{0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}}});
+	guiGraphicsPipeline = renderer->createGraphicsPipeline(info, guiGraphicsPipelineInputLayout, guiRenderPass, 0);
 
 	renderer->destroyShaderModule(vertShader);
 	renderer->destroyShaderModule(fragShader);

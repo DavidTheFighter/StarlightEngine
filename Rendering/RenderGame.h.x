@@ -5,8 +5,8 @@
  *      Author: david
  */
 
-#ifndef RENDERING_RENDERGAME_H_
-#define RENDERING_RENDERGAME_H_
+#ifndef RENDERING_RENDERGAME_H_X_
+#define RENDERING_RENDERGAME_H_X_
 
 #include <common.h>
 #include <Rendering/Renderer/Renderer.h>

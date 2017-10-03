@@ -80,6 +80,7 @@ class GUIRenderer
 
 		Renderer *renderer;
 
+		PipelineInputLayout guiGraphicsPipelineInputLayout;
 		Pipeline guiGraphicsPipeline;
 
 		void createRenderPass ();

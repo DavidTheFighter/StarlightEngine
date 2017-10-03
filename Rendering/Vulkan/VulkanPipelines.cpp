@@ -17,11 +17,6 @@ VulkanPipelines::VulkanPipelines (VulkanRenderer *parentVulkanRenderer)
 
 VulkanPipelines::~VulkanPipelines ()
 {
-	for (auto pipelineLayout : pipelineLayoutCache)
-	{
-		vkDestroyPipelineLayout(renderer->device, pipelineLayout.second, nullptr);
-	}
-
 	for (auto descriptorSetLayout : descriptorSetLayoutCache)
 	{
 		vkDestroyDescriptorSetLayout(renderer->device, descriptorSetLayout.second, nullptr);
@@ -215,7 +210,7 @@ void VulkanPipelines::freeDescriptorset (DescriptorSet set)
 	delete set;
 }
 
-Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineInfo, const PipelineInputLayout &inputLayout, RenderPass renderPass, uint32_t subpass)
+Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass)
 {
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 
@@ -341,43 +336,13 @@ Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineIn
 	pipelineCreateInfo.pDynamicState = &dynamicState;
 	pipelineCreateInfo.renderPass = static_cast<VulkanRenderPass*>(renderPass)->renderPassHandle;
 	pipelineCreateInfo.subpass = subpass;
-	pipelineCreateInfo.layout = createPipelineLayout(inputLayout);
+	pipelineCreateInfo.layout = static_cast<VulkanPipelineInputLayout*>(inputLayout)->layoutHandle;
 	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCreateInfo.basePipelineIndex = -1;
 
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(renderer->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &vulkanPipeline->pipelineHandle));
 
 	return vulkanPipeline;
-}
-
-VkPipelineLayout VulkanPipelines::createPipelineLayout (const PipelineInputLayout &inputInfo)
-{
-	std::vector<VkPushConstantRange> pushConstantRanges;
-	std::vector<VkDescriptorSetLayout> setLayouts;
-
-	for (size_t i = 0; i < inputInfo.pushConstantRanges.size(); i ++)
-	{
-		const PushConstantRange &genericPushRange = inputInfo.pushConstantRanges[i];
-		VkPushConstantRange vulkanPushRange = {};
-		vulkanPushRange.stageFlags = genericPushRange.stageFlags;
-		vulkanPushRange.size = genericPushRange.size;
-		vulkanPushRange.offset = genericPushRange.offset;
-
-		pushConstantRanges.push_back(vulkanPushRange);
-	}
-
-	for (size_t i = 0; i < inputInfo.setLayouts.size(); i ++)
-	{
-		setLayouts.push_back(createDescriptorSetLayout(inputInfo.setLayouts[i]));
-	}
-
-	VkPipelineLayoutCreateInfo layoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-	layoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(inputInfo.pushConstantRanges.size());
-	layoutCreateInfo.setLayoutCount = static_cast<uint32_t>(inputInfo.setLayouts.size());
-	layoutCreateInfo.pPushConstantRanges = pushConstantRanges.data();
-	layoutCreateInfo.pSetLayouts = setLayouts.data();
-
-	return createPipelineLayout(layoutCreateInfo);
 }
 
 VkDescriptorSetLayout VulkanPipelines::createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &layoutBindings)
@@ -402,114 +367,6 @@ VkDescriptorSetLayout VulkanPipelines::createDescriptorSetLayout (const std::vec
 	setLayoutCreateInfo.pBindings = bindings.data();
 
 	return createDescriptorSetLayout(setLayoutCreateInfo);
-}
-
-/*
- * This is for comparing pipeline layout create infos to see if there's a pipeline layout object
- * available in the cache with the same data
- */
-struct pipelineLayoutCacheFind : public std::unary_function<VulkanPipelineLayoutCacheInfo, bool>
-{
-		explicit pipelineLayoutCacheFind (const VulkanPipelineLayoutCacheInfo& layoutCreateInfo)
-				: base(layoutCreateInfo)
-		{
-
-		}
-		;
-
-		bool comparePushConstantRanges (const VkPushConstantRange &range0, const VkPushConstantRange &range1)
-		{
-			return (range0.stageFlags == range1.stageFlags) && (range0.offset == range1.offset) && (range0.size == range1.size);
-		}
-
-		bool operator() (const std::pair<VulkanPipelineLayoutCacheInfo, VkPipelineLayout> &arg)
-		{
-			const VulkanPipelineLayoutCacheInfo &comp = arg.first;
-
-			if (comp.flags != base.flags)
-				return false;
-
-			if (comp.setLayouts.size() != base.setLayouts.size() || comp.pushConstantRanges.size() != base.pushConstantRanges.size())
-				return false;
-
-			// Make sure the set layouts match first (as they're slightly cheaper to compare)
-			{
-				// Make copies of each vector so we don't disturb the incoming data
-				std::vector<VkDescriptorSetLayout> compSetLayouts = std::vector<VkDescriptorSetLayout>(comp.setLayouts);
-				std::vector<VkDescriptorSetLayout> baseSetLayouts = std::vector<VkDescriptorSetLayout>(base.setLayouts);
-
-				// Use sorting to make sure we have equivalent sets
-				std::sort(compSetLayouts.begin(), compSetLayouts.end());
-				std::sort(baseSetLayouts.begin(), baseSetLayouts.end());
-
-				for (size_t i = 0; i < comp.setLayouts.size(); i ++)
-				{
-					if (compSetLayouts[i] != baseSetLayouts[i])
-						return false;
-				}
-			}
-
-			// Finally make sure the push constant ranges are equivalent
-			{
-				// Make copies of each vector so we don't disturb the incoming data
-				std::vector<VkPushConstantRange> compPushConstantRanges = std::vector<VkPushConstantRange>(comp.pushConstantRanges);
-				std::vector<VkPushConstantRange> basePushConstantRanges = std::vector<VkPushConstantRange>(base.pushConstantRanges);
-
-				size_t matchingCount = 0;
-
-				for (size_t i = 0; i < compPushConstantRanges.size(); i ++)
-				{
-					for (size_t t = 0; t < basePushConstantRanges.size(); t ++)
-					{
-						if (comparePushConstantRanges(compPushConstantRanges[i], basePushConstantRanges[t]))
-						{
-							matchingCount ++;
-							basePushConstantRanges.erase(basePushConstantRanges.begin() + t);
-
-							break;
-						}
-					}
-				}
-
-				if (matchingCount != compPushConstantRanges.size())
-					return false;
-			}
-
-			return true;
-		}
-
-		const VulkanPipelineLayoutCacheInfo& base;
-
-};
-
-/*
- * Attempts to reuse a pipeline layout object from the cache, but will make a new one if needed.
- * At least for now, I'm not going to handle automatic destroying. I'm assuming that the general nature
- * of a game (load a frick ton at startup and hopefully nothing afterwards), the extra pipeline layouts
- * won't become a problem.
- */
-VkPipelineLayout VulkanPipelines::createPipelineLayout (const VkPipelineLayoutCreateInfo &layoutInfo)
-{
-	// We have to make a copy of the create info because the pointers in the struct may not reference valid data while it's in the pool
-	VulkanPipelineLayoutCacheInfo cacheInfo = {};
-	cacheInfo.flags = layoutInfo.flags;
-	cacheInfo.setLayouts = std::vector<VkDescriptorSetLayout>(layoutInfo.pSetLayouts, layoutInfo.pSetLayouts + layoutInfo.setLayoutCount);
-	cacheInfo.pushConstantRanges = std::vector<VkPushConstantRange>(layoutInfo.pPushConstantRanges, layoutInfo.pPushConstantRanges + layoutInfo.pushConstantRangeCount);
-
-	auto it = std::find_if(pipelineLayoutCache.begin(), pipelineLayoutCache.end(), pipelineLayoutCacheFind(cacheInfo));
-
-	if (it == pipelineLayoutCache.end())
-	{
-		VkPipelineLayout pipelineLayout;
-
-		VK_CHECK_RESULT(vkCreatePipelineLayout(renderer->device, &layoutInfo, nullptr, &pipelineLayout));
-
-		pipelineLayoutCache.push_back(std::make_pair(cacheInfo, pipelineLayout));
-
-		return pipelineLayout;
-	}
-
-	return it->second;
 }
 
 /*

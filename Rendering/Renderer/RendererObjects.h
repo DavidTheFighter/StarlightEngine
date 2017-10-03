@@ -162,9 +162,8 @@ typedef struct RendererPushConstantRange
 
 typedef struct RendererPipelineInputLayout
 {
-		std::vector<PushConstantRange> pushConstantRanges;
-		std::vector<std::vector<DescriptorSetLayoutBinding> > setLayouts;
-} PipelineInputLayout;
+
+} RendererPipelineInputLayout;
 
 typedef struct RendererPipelineShaderStage
 {
@@ -351,6 +350,7 @@ typedef struct RendererFence
 } RendererFence;
 
 typedef RendererRenderPass *RenderPass;
+typedef RendererPipelineInputLayout *PipelineInputLayout;
 typedef RendererPipeline *Pipeline;
 //typedef RendererDescriptorSetLayout *DescriptorSetLayout;
 typedef RendererDescriptorSet *DescriptorSet;

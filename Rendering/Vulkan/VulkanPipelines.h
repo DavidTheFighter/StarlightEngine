@@ -54,23 +54,18 @@ class VulkanPipelines
 		VulkanPipelines (VulkanRenderer *parentVulkanRenderer);
 		virtual ~VulkanPipelines ();
 
-		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, const PipelineInputLayout &inputLayout, RenderPass renderPass, uint32_t subpass);
+		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass);
 
 		DescriptorSet allocateDescriptorSet (const std::vector<DescriptorSetLayoutBinding> &layoutBindings);
 		void freeDescriptorset (DescriptorSet set);
 
-		VkPipelineLayout createPipelineLayout (const PipelineInputLayout &inputInfo);
 		VkDescriptorSetLayout createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &layoutBindings);
 
-		VkPipelineLayout createPipelineLayout (const VkPipelineLayoutCreateInfo &layoutInfo);
 		VkDescriptorSetLayout createDescriptorSetLayout (const VkDescriptorSetLayoutCreateInfo &setLayoutInfo);
 
 	private:
 
 		VulkanRenderer *renderer;
-
-		// I'm letting the renderer backend handle creation, destruction, and reusing of pipeline layouts
-		std::vector<std::pair<VulkanPipelineLayoutCacheInfo, VkPipelineLayout> > pipelineLayoutCache;
 
 		// I'm also letting the renderer backend handle descriptor set layout caches, so the front end only gives the layout info and gets it easy
 		std::vector<std::pair<VulkanDescriptorSetLayoutCacheInfo, VkDescriptorSetLayout> > descriptorSetLayoutCache;

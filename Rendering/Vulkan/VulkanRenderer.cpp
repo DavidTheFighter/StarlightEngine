@@ -248,7 +248,7 @@ void VulkanRenderer::cmdEndRenderPass (CommandBuffer cmdBuffer)
 
 void VulkanRenderer::cmdNextSubpass (CommandBuffer cmdBuffer, SubpassContents contents)
 {
-	vkCmdNextSubpass (static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, toVkSubpassContents(contents));
+	vkCmdNextSubpass(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, toVkSubpassContents(contents));
 }
 
 void VulkanRenderer::cmdBindPipeline (CommandBuffer cmdBuffer, PipelineBindPoint point, Pipeline pipeline)
@@ -287,17 +287,13 @@ void VulkanRenderer::cmdDrawIndexed (CommandBuffer cmdBuffer, uint32_t indexCoun
 	vkCmdDrawIndexed(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
-void VulkanRenderer::cmdPushConstants (CommandBuffer cmdBuffer, const PipelineInputLayout &inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
+void VulkanRenderer::cmdPushConstants (CommandBuffer cmdBuffer, PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
 {
-	VkPipelineLayout layout = pipelineHandler->createPipelineLayout(inputLayout);
-
-	vkCmdPushConstants(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, layout, toVkShaderStageFlags(stages), offset, size, data);
+	vkCmdPushConstants(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, static_cast<VulkanPipelineInputLayout*>(inputLayout)->layoutHandle, toVkShaderStageFlags(stages), offset, size, data);
 }
 
-void VulkanRenderer::cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, const PipelineInputLayout &inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets)
+void VulkanRenderer::cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets)
 {
-	VkPipelineLayout layout = pipelineHandler->createPipelineLayout(inputLayout);
-
 	std::vector<VkDescriptorSet> vulkanSets;
 
 	for (size_t i = 0; i < sets.size(); i ++)
@@ -305,7 +301,7 @@ void VulkanRenderer::cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBin
 		vulkanSets.push_back(static_cast<VulkanDescriptorSet*>(sets[i])->setHandle);
 	}
 
-	vkCmdBindDescriptorSets(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, toVkPipelineBindPoint(point), layout, firstSet, static_cast<uint32_t>(sets.size()), vulkanSets.data(), 0, nullptr);
+	vkCmdBindDescriptorSets(static_cast<VulkanCommandBuffer*>(cmdBuffer)->bufferHandle, toVkPipelineBindPoint(point), static_cast<VulkanPipelineInputLayout*>(inputLayout)->layoutHandle, firstSet, static_cast<uint32_t>(sets.size()), vulkanSets.data(), 0, nullptr);
 }
 
 void VulkanRenderer::cmdTransitionTextureLayout (CommandBuffer cmdBuffer, Texture texture, TextureLayout oldLayout, TextureLayout newLayout)
@@ -691,7 +687,41 @@ ShaderModule VulkanRenderer::createShaderModule (std::string file, ShaderStageFl
 	return vulkanShader;
 }
 
-Pipeline VulkanRenderer::createGraphicsPipeline (const PipelineInfo &pipelineInfo, const PipelineInputLayout &inputLayout, RenderPass renderPass, uint32_t subpass)
+PipelineInputLayout VulkanRenderer::createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts)
+{
+	std::vector<VkPushConstantRange> vulkanPushConstantRanges;
+	std::vector<VkDescriptorSetLayout> vulkanSetLayouts;
+
+	for (size_t i = 0; i < pushConstantRanges.size(); i ++)
+	{
+		const PushConstantRange &genericPushRange = pushConstantRanges[i];
+		VkPushConstantRange vulkanPushRange = {};
+		vulkanPushRange.stageFlags = genericPushRange.stageFlags;
+		vulkanPushRange.size = genericPushRange.size;
+		vulkanPushRange.offset = genericPushRange.offset;
+
+		vulkanPushConstantRanges.push_back(vulkanPushRange);
+	}
+
+	for (size_t i = 0; i < setLayouts.size(); i ++)
+	{
+		vulkanSetLayouts.push_back(pipelineHandler->createDescriptorSetLayout(setLayouts[i]));
+	}
+
+	VkPipelineLayoutCreateInfo layoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+	layoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size());
+	layoutCreateInfo.setLayoutCount = static_cast<uint32_t>(setLayouts.size());
+	layoutCreateInfo.pPushConstantRanges = vulkanPushConstantRanges.data();
+	layoutCreateInfo.pSetLayouts = vulkanSetLayouts.data();
+
+	VulkanPipelineInputLayout *inputLayout = new VulkanPipelineInputLayout();
+
+	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &layoutCreateInfo, nullptr, &inputLayout->layoutHandle));
+
+	return inputLayout;
+}
+
+Pipeline VulkanRenderer::createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass)
 {
 	return pipelineHandler->createGraphicsPipeline(pipelineInfo, inputLayout, renderPass, subpass);
 }
@@ -947,6 +977,16 @@ void VulkanRenderer::destroyFramebuffer (Framebuffer framebuffer)
 		vkDestroyFramebuffer(device, vulkanFramebuffer->framebufferHandle, nullptr);
 
 	delete framebuffer;
+}
+
+void VulkanRenderer::destroyPipelineInputLayout (PipelineInputLayout layout)
+{
+	VulkanPipelineInputLayout *vulkanPipelineInputLayout = static_cast<VulkanPipelineInputLayout*>(layout);
+
+	if (vulkanPipelineInputLayout->layoutHandle != VK_NULL_HANDLE)
+		vkDestroyPipelineLayout(device, vulkanPipelineInputLayout->layoutHandle, nullptr);
+
+	delete layout;
 }
 
 void VulkanRenderer::destroyPipeline (Pipeline pipeline)

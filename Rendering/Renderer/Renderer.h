@@ -54,8 +54,8 @@ class Renderer
 		virtual void cmdDraw (CommandBuffer cmdBuffer, uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0) = 0;
 		virtual void cmdDrawIndexed (CommandBuffer cmdBuffer, uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0) = 0;
 
-		virtual void cmdPushConstants(CommandBuffer cmdBuffer, const PipelineInputLayout &inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) = 0;
-		virtual void cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, const PipelineInputLayout &inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets) = 0;
+		virtual void cmdPushConstants(CommandBuffer cmdBuffer, PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) = 0;
+		virtual void cmdBindDescriptorSets (CommandBuffer cmdBuffer, PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets) = 0;
 
 		virtual void cmdTransitionTextureLayout (CommandBuffer cmdBuffer, Texture texture, TextureLayout oldLayout, TextureLayout newLayout) = 0;
 		virtual void cmdStageBuffer (CommandBuffer cmdBuffer, StagingBuffer stagingBuffer, Texture dstTexture) = 0;
@@ -73,7 +73,8 @@ class Renderer
 		virtual RenderPass createRenderPass (std::vector<AttachmentDescription> attachments, std::vector<SubpassDescription> subpasses, std::vector<SubpassDependency> dependencies) = 0;
 		virtual Framebuffer createFramebuffer (RenderPass renderPass, std::vector<TextureView> attachments, uint32_t width, uint32_t height, uint32_t layers = 1) = 0;
 		virtual ShaderModule createShaderModule (std::string file, ShaderStageFlagBits stage) = 0;
-		virtual Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, const PipelineInputLayout &inputLayout, RenderPass renderPass, uint32_t subpass) = 0;
+		virtual PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts) = 0;
+		virtual Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass) = 0;
 		virtual DescriptorSet createDescriptorSet (const std::vector<DescriptorSetLayoutBinding> &layoutBindings) = 0;
 
 		virtual Texture createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory = false, uint32_t mipLevelCount = 1, TextureType type = TEXTURE_TYPE_2D) = 0;
@@ -94,6 +95,7 @@ class Renderer
 		virtual void destroyCommandPool (CommandPool pool) = 0;
 		virtual void destroyRenderPass (RenderPass renderPass) = 0;
 		virtual void destroyFramebuffer (Framebuffer framebuffer) = 0;
+		virtual void destroyPipelineInputLayout (PipelineInputLayout layout) = 0;
 		virtual void destroyPipeline (Pipeline pipeline) = 0;
 		virtual void destroyShaderModule (ShaderModule module) = 0;
 		virtual void destroyDescriptorSet (DescriptorSet set) = 0;
