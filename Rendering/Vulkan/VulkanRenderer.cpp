@@ -437,7 +437,7 @@ void VulkanRenderer::writeDescriptorSets (const std::vector<DescriptorWriteInfo>
 	vkUpdateDescriptorSets(device, static_cast<uint32_t>(vkWrites.size()), vkWrites.data(), 0, nullptr);
 }
 
-RenderPass VulkanRenderer::createRenderPass (std::vector<AttachmentDescription> attachments, std::vector<SubpassDescription> subpasses, std::vector<SubpassDependency> dependencies)
+RenderPass VulkanRenderer::createRenderPass (const std::vector<AttachmentDescription> &attachments, const std::vector<SubpassDescription> &subpasses, const std::vector<SubpassDependency> &dependencies)
 {
 	VulkanRenderPass *renderPass = new VulkanRenderPass();
 	renderPass->attachments = attachments;
@@ -555,7 +555,7 @@ RenderPass VulkanRenderer::createRenderPass (std::vector<AttachmentDescription> 
 	return renderPass;
 }
 
-Framebuffer VulkanRenderer::createFramebuffer (RenderPass renderPass, std::vector<TextureView> attachments, uint32_t width, uint32_t height, uint32_t layers)
+Framebuffer VulkanRenderer::createFramebuffer (RenderPass renderPass, const std::vector<TextureView> &attachments, uint32_t width, uint32_t height, uint32_t layers)
 {
 	std::vector<VkImageView> imageAttachments = {};
 
@@ -1000,7 +1000,7 @@ void VulkanRenderer::freeCommandBuffer (CommandBuffer commandBuffer)
 	freeCommandBuffers({commandBuffer});
 }
 
-void VulkanRenderer::freeCommandBuffers (std::vector<CommandBuffer> commandBuffers)
+void VulkanRenderer::freeCommandBuffers (const std::vector<CommandBuffer> &commandBuffers)
 {
 	std::map<VkCommandPool, std::vector<VkCommandBuffer> > vkCmdBuffers;
 

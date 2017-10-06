@@ -64,8 +64,8 @@ class VulkanRenderer : public Renderer
 
 		void writeDescriptorSets (const std::vector<DescriptorWriteInfo> &writes);
 
-		RenderPass createRenderPass(std::vector<AttachmentDescription> attachments, std::vector<SubpassDescription> subpasses, std::vector<SubpassDependency> dependencies);
-		Framebuffer createFramebuffer(RenderPass renderPass, std::vector<TextureView> attachments, uint32_t width, uint32_t height, uint32_t layers);
+		RenderPass createRenderPass(const std::vector<AttachmentDescription> &attachments, const std::vector<SubpassDescription> &subpasses, const std::vector<SubpassDependency> &dependencies);
+		Framebuffer createFramebuffer(RenderPass renderPass, const std::vector<TextureView> &attachments, uint32_t width, uint32_t height, uint32_t layers);
 		ShaderModule createShaderModule (std::string file, ShaderStageFlagBits stage);
 		PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts);
 		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass);
@@ -106,7 +106,7 @@ class VulkanRenderer : public Renderer
 		void destroySemaphore (Semaphore sem);
 
 		void freeCommandBuffer (CommandBuffer commandBuffer);
-		void freeCommandBuffers (std::vector<CommandBuffer> commandBuffers);
+		void freeCommandBuffers (const std::vector<CommandBuffer> &commandBuffers);
 
 		void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name);
 

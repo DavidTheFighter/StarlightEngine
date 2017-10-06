@@ -51,8 +51,8 @@ class Renderer
 
 		virtual void writeDescriptorSets (const std::vector<DescriptorWriteInfo> &writes) = 0;
 
-		virtual RenderPass createRenderPass (std::vector<AttachmentDescription> attachments, std::vector<SubpassDescription> subpasses, std::vector<SubpassDependency> dependencies) = 0;
-		virtual Framebuffer createFramebuffer (RenderPass renderPass, std::vector<TextureView> attachments, uint32_t width, uint32_t height, uint32_t layers = 1) = 0;
+		virtual RenderPass createRenderPass (const std::vector<AttachmentDescription> &attachments, const std::vector<SubpassDescription> &subpasses, const std::vector<SubpassDependency> &dependencies) = 0;
+		virtual Framebuffer createFramebuffer (RenderPass renderPass, const std::vector<TextureView> &attachments, uint32_t width, uint32_t height, uint32_t layers = 1) = 0;
 		virtual ShaderModule createShaderModule (std::string file, ShaderStageFlagBits stage) = 0;
 		virtual PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts) = 0;
 		virtual Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass) = 0;
@@ -97,9 +97,9 @@ class Renderer
 		virtual void destroySemaphore (Semaphore sem) = 0;
 
 		virtual void freeCommandBuffer (CommandBuffer commandBuffer) = 0;
-		virtual void freeCommandBuffers (std::vector<CommandBuffer> commandBuffers) = 0;
+		virtual void freeCommandBuffers (const std::vector<CommandBuffer> &commandBuffers) = 0;
 
-#if SE_DEBUG_MARKERS
+#if SE_RENDER_DEBUG_MARKERS
 		virtual void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name) = 0;
 #else
 		inline void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name) {};
