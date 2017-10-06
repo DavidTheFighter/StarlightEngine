@@ -64,6 +64,7 @@ GUIRenderer::GUIRenderer (Renderer *engineRenderer)
 	fontAtlasView = nullptr;
 	fontAtlasDescriptor = nullptr;
 
+	guiTextureDescriptorPool = nullptr;
 	whiteTexture = nullptr;
 	whiteTextureView = nullptr;
 	whiteTextureDescriptor = nullptr;
@@ -253,11 +254,14 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 	nk_clear(&ctx);
 }
 
+#include <GLFW/glfw3.h>
+
 void GUIRenderer::init ()
 {
 	testGUICommandPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
 
 	testSampler = renderer->createSampler();
+	guiTextureDescriptorPool = renderer->createDescriptorPool({{0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}}, 8);
 
 	nk_init_default(&ctx, NULL);
 	//clipboard stuff
@@ -291,7 +295,7 @@ void GUIRenderer::init ()
 
 		renderer->destroyStagingBuffer(stagingBuffer);
 
-		fontAtlasDescriptor = renderer->createDescriptorSet({{0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}});
+		fontAtlasDescriptor = renderer->allocateDescriptorSet(guiTextureDescriptorPool);
 
 		RendererDescriptorWriteInfo write0 = {};
 		write0.dstSet = fontAtlasDescriptor;
@@ -308,7 +312,7 @@ void GUIRenderer::init ()
 		whiteTexture = temp_engine->resources->loadTextureImmediate("/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/GameData/textures/test-png.png");
 		whiteTextureView = renderer->createTextureView(whiteTexture->texture);
 
-		whiteTextureDescriptor = renderer->createDescriptorSet({{0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}});
+		whiteTextureDescriptor = renderer->allocateDescriptorSet(guiTextureDescriptorPool);
 
 		RendererDescriptorWriteInfo write0 = {};
 		write0.dstSet = whiteTextureDescriptor;
@@ -319,6 +323,9 @@ void GUIRenderer::init ()
 			{	testSampler, whiteTextureView, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
 
 		renderer->writeDescriptorSets({write0});
+	}
+
+	{
 	}
 
 	nk_font_atlas_end(&atlas, nk_handle_ptr(fontAtlasDescriptor), nullptr);
@@ -339,13 +346,14 @@ void GUIRenderer::destroy ()
 
 	temp_engine->resources->returnTexture(whiteTexture);
 	renderer->destroyTextureView(whiteTextureView);
-	renderer->destroyDescriptorSet(whiteTextureDescriptor);
+	renderer->freeDescriptorSet(guiTextureDescriptorPool, whiteTextureDescriptor);
 
 	renderer->destroyTexture(fontAtlas);
 	renderer->destroyTextureView(fontAtlasView);
-	renderer->destroyDescriptorSet(fontAtlasDescriptor);
+	renderer->freeDescriptorSet(guiTextureDescriptorPool, fontAtlasDescriptor);
 
 	renderer->destroyCommandPool(testGUICommandPool);
+	renderer->destroyDescriptorPool(guiTextureDescriptorPool);
 
 	renderer->destroySampler(testSampler);
 

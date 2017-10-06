@@ -56,7 +56,10 @@ class Renderer
 		virtual ShaderModule createShaderModule (std::string file, ShaderStageFlagBits stage) = 0;
 		virtual PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts) = 0;
 		virtual Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass) = 0;
-		virtual DescriptorSet createDescriptorSet (const std::vector<DescriptorSetLayoutBinding> &layoutBindings) = 0;
+		virtual DescriptorPool createDescriptorPool (const std::vector<DescriptorSetLayoutBinding> &layoutBindings, uint32_t poolBlockAllocSize) = 0;
+
+		virtual DescriptorSet allocateDescriptorSet (DescriptorPool pool) = 0;
+		virtual std::vector<DescriptorSet> allocateDescriptorSets (DescriptorPool pool, uint32_t setCount) = 0;
 
 		virtual Fence createFence (bool createAsSignaled = false) = 0;
 		virtual Semaphore createSemaphore () = 0;
@@ -82,7 +85,8 @@ class Renderer
 		virtual void destroyPipelineInputLayout (PipelineInputLayout layout) = 0;
 		virtual void destroyPipeline (Pipeline pipeline) = 0;
 		virtual void destroyShaderModule (ShaderModule module) = 0;
-		virtual void destroyDescriptorSet (DescriptorSet set) = 0;
+		virtual void destroyDescriptorPool (DescriptorPool pool) = 0;
+		virtual void freeDescriptorSet (DescriptorPool pool, DescriptorSet set) = 0;
 		virtual void destroyTexture (Texture texture) = 0;
 		virtual void destroyTextureView (TextureView textureView) = 0;
 		virtual void destroySampler (Sampler sampler) = 0;

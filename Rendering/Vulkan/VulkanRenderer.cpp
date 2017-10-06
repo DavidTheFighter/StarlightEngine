@@ -305,7 +305,7 @@ void VulkanRenderer::waitForDeviceIdle ()
 
 bool VulkanRenderer::getFenceStatus (Fence fence)
 {
-	VkResult fenceStatus = vkGetFenceStatus(device, static_cast<VulkanFence*> (fence)->fenceHandle);
+	VkResult fenceStatus = vkGetFenceStatus(device, static_cast<VulkanFence*>(fence)->fenceHandle);
 
 	switch (fenceStatus)
 	{
@@ -314,7 +314,8 @@ bool VulkanRenderer::getFenceStatus (Fence fence)
 		case VK_NOT_READY:
 			return false;
 		default:
-			VK_CHECK_RESULT(fenceStatus);
+			VK_CHECK_RESULT(fenceStatus)
+			;
 	}
 
 	return false;
@@ -322,7 +323,7 @@ bool VulkanRenderer::getFenceStatus (Fence fence)
 
 void VulkanRenderer::resetFence (Fence fence)
 {
-	VK_CHECK_RESULT(vkResetFences(device, 1, &static_cast<VulkanFence*> (fence)->fenceHandle));
+	VK_CHECK_RESULT(vkResetFences(device, 1, &static_cast<VulkanFence*>(fence)->fenceHandle));
 }
 
 void VulkanRenderer::resetFences (const std::vector<Fence> &fences)
@@ -333,17 +334,17 @@ void VulkanRenderer::resetFences (const std::vector<Fence> &fences)
 
 	for (size_t i = 0; i < fences.size(); i ++)
 	{
-		vulkanFences[i] = static_cast<VulkanFence*> (fences[i])->fenceHandle;
+		vulkanFences[i] = static_cast<VulkanFence*>(fences[i])->fenceHandle;
 	}
 
-	VK_CHECK_RESULT(vkResetFences(device, static_cast<uint32_t> (fences.size()), vulkanFences));
+	VK_CHECK_RESULT(vkResetFences(device, static_cast<uint32_t>(fences.size()), vulkanFences));
 }
 
 void VulkanRenderer::waitForFence (Fence fence, double timeoutInSeconds)
 {
-	uint64_t timeoutInNanoseconds = static_cast<uint64_t> (timeoutInSeconds * 1.0e9);
+	uint64_t timeoutInNanoseconds = static_cast<uint64_t>(timeoutInSeconds * 1.0e9);
 
-	VkResult waitResult = vkWaitForFences(device, 1, &static_cast<VulkanFence*> (fence)->fenceHandle, VK_TRUE, timeoutInNanoseconds);
+	VkResult waitResult = vkWaitForFences(device, 1, &static_cast<VulkanFence*>(fence)->fenceHandle, VK_TRUE, timeoutInNanoseconds);
 
 	switch (waitResult)
 	{
@@ -351,7 +352,8 @@ void VulkanRenderer::waitForFence (Fence fence, double timeoutInSeconds)
 		case VK_TIMEOUT:
 			return;
 		default:
-			VK_CHECK_RESULT(waitResult);
+			VK_CHECK_RESULT(waitResult)
+			;
 	}
 }
 
@@ -363,12 +365,12 @@ void VulkanRenderer::waitForFences (const std::vector<Fence> &fences, bool waitF
 
 	for (size_t i = 0; i < fences.size(); i ++)
 	{
-		vulkanFences[i] = static_cast<VulkanFence*> (fences[i])->fenceHandle;
+		vulkanFences[i] = static_cast<VulkanFence*>(fences[i])->fenceHandle;
 	}
 
-	uint64_t timeoutInNanoseconds = static_cast<uint64_t> (timeoutInSeconds * 1.0e9);
+	uint64_t timeoutInNanoseconds = static_cast<uint64_t>(timeoutInSeconds * 1.0e9);
 
-	VkResult waitResult = vkWaitForFences(device, static_cast<uint32_t> (fences.size()), vulkanFences, waitForAll, timeoutInNanoseconds);
+	VkResult waitResult = vkWaitForFences(device, static_cast<uint32_t>(fences.size()), vulkanFences, waitForAll, timeoutInNanoseconds);
 
 	switch (waitResult)
 	{
@@ -376,7 +378,8 @@ void VulkanRenderer::waitForFences (const std::vector<Fence> &fences, bool waitF
 		case VK_TIMEOUT:
 			return;
 		default:
-			VK_CHECK_RESULT(waitResult);
+			VK_CHECK_RESULT(waitResult)
+			;
 	}
 }
 
@@ -639,9 +642,131 @@ Pipeline VulkanRenderer::createGraphicsPipeline (const PipelineInfo &pipelineInf
 	return pipelineHandler->createGraphicsPipeline(pipelineInfo, inputLayout, renderPass, subpass);
 }
 
-DescriptorSet VulkanRenderer::createDescriptorSet (const std::vector<DescriptorSetLayoutBinding> &layoutBindings)
+VulkanDescriptorPoolObject VulkanRenderer::createDescPoolObject (const std::vector<VkDescriptorPoolSize> &poolSizes, uint32_t maxSets)
 {
-	return pipelineHandler->allocateDescriptorSet(layoutBindings);
+	VkDescriptorPoolCreateInfo poolInfo = {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+	poolInfo.pPoolSizes = poolSizes.data();
+	poolInfo.maxSets = maxSets;
+
+	VulkanDescriptorPoolObject poolObject = {};
+	poolObject.usedPoolSets.reserve(maxSets);
+	poolObject.unusedPoolSets.reserve(maxSets);
+
+	VK_CHECK_RESULT(vkCreateDescriptorPool(device, &poolInfo, nullptr, &poolObject.pool));
+
+	for (uint32_t i = 0; i < maxSets; i ++)
+	{
+		poolObject.unusedPoolSets.push_back(std::make_pair((VulkanDescriptorSet*) nullptr, false));
+	}
+
+	return poolObject;
+}
+
+DescriptorPool VulkanRenderer::createDescriptorPool (const std::vector<DescriptorSetLayoutBinding> &layoutBindings, uint32_t poolBlockAllocSize)
+{
+	VulkanDescriptorPool *vulkanDescPool = new VulkanDescriptorPool();
+	vulkanDescPool->canFreeSetFromPool = false;
+	vulkanDescPool->poolBlockAllocSize = poolBlockAllocSize;
+	vulkanDescPool->layoutBindings = layoutBindings;
+
+	for (size_t i = 0; i < layoutBindings.size(); i ++)
+	{
+		VkDescriptorPoolSize poolSize = {};
+		poolSize.descriptorCount = layoutBindings[i].descriptorCount * poolBlockAllocSize;
+		poolSize.type = toVkDescriptorType(layoutBindings[i].descriptorType);
+
+		vulkanDescPool->vulkanPoolSizes.push_back(poolSize);
+	}
+
+	// Start out by creating one vulkan pool for the full pool object
+	vulkanDescPool->descriptorPools.push_back(createDescPoolObject(vulkanDescPool->vulkanPoolSizes, vulkanDescPool->poolBlockAllocSize));
+
+	return vulkanDescPool;
+}
+
+DescriptorSet VulkanRenderer::allocateDescriptorSet (DescriptorPool pool)
+{
+	return allocateDescriptorSets(pool, 1)[0];
+}
+
+bool VulkanRenderer_tryAllocFromDescriptorPoolObject (VulkanRenderer *renderer, VulkanDescriptorPool *pool, uint32_t poolObjIndex, VulkanDescriptorSet* &outSet)
+{
+	VulkanDescriptorPoolObject &poolObj = pool->descriptorPools[poolObjIndex];
+
+	if (poolObj.unusedPoolSets.size() == 0)
+		return false;
+
+	// TODO Change vulkan descriptor sets to allocate in chunks rather than invididually
+
+	bool setIsAllocated = poolObj.unusedPoolSets.back().second;
+
+	if (setIsAllocated)
+	{
+		outSet = poolObj.unusedPoolSets.back().first;
+
+		DEBUG_ASSERT(outSet != nullptr);
+
+		poolObj.usedPoolSets.push_back(poolObj.unusedPoolSets.back().first);
+		poolObj.unusedPoolSets.pop_back();
+	}
+	else
+	{
+		VulkanDescriptorSet *vulkanDescSet = new VulkanDescriptorSet();
+		vulkanDescSet->descriptorPoolObjectIndex = poolObjIndex;
+
+		VkDescriptorSetLayout descLayout = renderer->pipelineHandler->createDescriptorSetLayout(pool->layoutBindings);
+
+		VkDescriptorSetAllocateInfo descSetAllocInfo = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+		descSetAllocInfo.descriptorPool = poolObj.pool;
+		descSetAllocInfo.descriptorSetCount = 1;
+		descSetAllocInfo.pSetLayouts = &descLayout;
+
+		VK_CHECK_RESULT(vkAllocateDescriptorSets(renderer->device, &descSetAllocInfo, &vulkanDescSet->setHandle));
+
+		poolObj.usedPoolSets.push_back(vulkanDescSet);
+		poolObj.unusedPoolSets.pop_back();
+
+		outSet = vulkanDescSet;
+	}
+
+	return true;
+}
+
+std::vector<DescriptorSet> VulkanRenderer::allocateDescriptorSets (DescriptorPool pool, uint32_t setCount)
+{
+	DEBUG_ASSERT(setCount > 0);
+
+	VulkanDescriptorPool *vulkanPool = static_cast<VulkanDescriptorPool*>(pool);
+	std::vector<DescriptorSet> vulkanSets = std::vector<DescriptorSet>(setCount);
+
+	for (uint32_t i = 0; i < setCount; i ++)
+	{
+		//printf("-- %u --\n", i);
+		VulkanDescriptorSet *vulkanSet = nullptr;
+
+		// Iterate over each pool object to see if there's one we can alloc from
+		for (size_t p = 0; p < vulkanPool->descriptorPools.size(); p ++)
+		{
+			if (VulkanRenderer_tryAllocFromDescriptorPoolObject(this, vulkanPool, p, vulkanSet))
+			{
+				break;
+			}
+		}
+
+		// If the set is still nullptr, then we'll have to create a new pool to allocate from
+		if (vulkanSet == nullptr)
+		{
+			vulkanPool->descriptorPools.push_back(createDescPoolObject(vulkanPool->vulkanPoolSizes, vulkanPool->poolBlockAllocSize));
+
+			VulkanRenderer_tryAllocFromDescriptorPoolObject(this, vulkanPool, vulkanPool->descriptorPools.size() - 1, vulkanSet);
+		}
+
+		vulkanSets[i] = vulkanSet;
+	}
+
+	return vulkanSets;
 }
 
 Fence VulkanRenderer::createFence (bool createAsSignaled)
@@ -945,9 +1070,31 @@ void VulkanRenderer::destroyShaderModule (ShaderModule module)
 	delete module;
 }
 
-void VulkanRenderer::destroyDescriptorSet (DescriptorSet set)
+void VulkanRenderer::destroyDescriptorPool (DescriptorPool pool)
 {
-	pipelineHandler->freeDescriptorset(set);
+	VulkanDescriptorPool *vulkanDescPool = static_cast<VulkanDescriptorPool*>(pool);
+
+	for (size_t i = 0; i < vulkanDescPool->descriptorPools.size(); i ++)
+	{
+		vkDestroyDescriptorPool(device, vulkanDescPool->descriptorPools[i].pool, nullptr);
+	}
+
+	delete vulkanDescPool;
+}
+
+void VulkanRenderer::freeDescriptorSet (DescriptorPool pool, DescriptorSet set)
+{
+	VulkanDescriptorPool *vulkanDescPool = static_cast<VulkanDescriptorPool*> (pool);
+	VulkanDescriptorSet *vulkanDescSet = static_cast<VulkanDescriptorSet*> (set);
+
+	VulkanDescriptorPoolObject &poolObj = vulkanDescPool->descriptorPools[vulkanDescSet->descriptorPoolObjectIndex];
+	poolObj.unusedPoolSets.push_back(std::make_pair(vulkanDescSet, true));
+
+	auto it = std::find(poolObj.usedPoolSets.begin(), poolObj.usedPoolSets.end(), vulkanDescSet);
+
+	DEBUG_ASSERT(it != poolObj.usedPoolSets.end());
+
+	poolObj.usedPoolSets.erase(it);
 }
 
 /*

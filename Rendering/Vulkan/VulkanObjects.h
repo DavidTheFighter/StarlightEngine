@@ -57,16 +57,35 @@ struct VulkanPipeline : public RendererPipeline
 struct VulkanDescriptorSet : public RendererDescriptorSet
 {
 		VkDescriptorSet setHandle;
-		void *pipelineHandlerPoolPtr; // A ptr to the VulkanPipelineDescriptorAllocatorPool the set was allocated from. It's a void ptr because I'm lazy and don't wanna import the header
-		void *pipelineHandlerPoolSetPtr; // A ptr to the VulkanPipelineAllocatedDescriptorSet this set is a part of. It's a void ptr because above ^
+		uint32_t descriptorPoolObjectIndex; // The index of "VulkanDescriptorPool::descriptorPools" that this set was allocated from
+};
+
+struct VulkanDescriptorPoolObject
+{
+		VkDescriptorPool pool; // This pool object's vulkan pool handle
+
+		std::vector<std::pair<VulkanDescriptorSet*, bool> > unusedPoolSets;
+		std::vector<VulkanDescriptorSet*> usedPoolSets;
+};
+
+struct VulkanDescriptorPool : public RendererDescriptorPool
+{
+		bool canFreeSetFromPool; // If individual sets can be freed, i.e. the pool was created w/ VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+		uint32_t poolBlockAllocSize; // The .maxSets value for each pool created, should not exceed 1024 (arbitrary, but usefully arbitrary :D)
+
+		std::vector<DescriptorSetLayoutBinding> layoutBindings; // The layout bindings of each set the pool allocates
+		std::vector<VkDescriptorPoolSize> vulkanPoolSizes; // Just so that it's faster/easier to create new vulkan descriptor pool objects
+
+		// A list of all the local pool/blocks that have been created & their own allocation data
+		std::vector<VulkanDescriptorPoolObject> descriptorPools;
 };
 
 /*
-struct VulkanDescriptorSetLayout : public RendererDescriptorSetLayout
-{
-		VkDescriptorSetLayout setLayoutHandle;
-};
-*/
+ struct VulkanDescriptorSetLayout : public RendererDescriptorSetLayout
+ {
+ VkDescriptorSetLayout setLayoutHandle;
+ };
+ */
 
 struct VulkanShaderModule : public RendererShaderModule
 {

@@ -69,7 +69,10 @@ class VulkanRenderer : public Renderer
 		ShaderModule createShaderModule (std::string file, ShaderStageFlagBits stage);
 		PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts);
 		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass);
-		DescriptorSet createDescriptorSet(const std::vector<DescriptorSetLayoutBinding> &layoutBindings);
+		DescriptorPool createDescriptorPool (const std::vector<DescriptorSetLayoutBinding> &layoutBindings, uint32_t poolBlockAllocSize);
+
+		DescriptorSet allocateDescriptorSet (DescriptorPool pool);
+		std::vector<DescriptorSet> allocateDescriptorSets (DescriptorPool pool, uint32_t setCount);
 
 		Fence createFence (bool createAsSignaled);
 		Semaphore createSemaphore ();
@@ -91,7 +94,8 @@ class VulkanRenderer : public Renderer
 		void destroyPipelineInputLayout (PipelineInputLayout layout);
 		void destroyPipeline (Pipeline pipeline);
 		void destroyShaderModule (ShaderModule module);
-		void destroyDescriptorSet (DescriptorSet set);
+		void destroyDescriptorPool (DescriptorPool pool);
+		void freeDescriptorSet (DescriptorPool pool, DescriptorSet set);
 		void destroyTexture (Texture texture);
 		void destroyTextureView (TextureView textureView);
 		void destroySampler (Sampler sampler);
@@ -124,6 +128,8 @@ class VulkanRenderer : public Renderer
 		void createLogicalDevice ();
 
 		void cleanupVulkan ();
+
+		VulkanDescriptorPoolObject createDescPoolObject (const std::vector<VkDescriptorPoolSize> &poolSizes, uint32_t maxSets);
 
 		DeviceQueues findQueueFamilies (VkPhysicalDevice physDevice);
 		std::vector<const char*> getInstanceExtensions ();

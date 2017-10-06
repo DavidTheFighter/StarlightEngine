@@ -282,6 +282,11 @@ typedef struct RendererDescriptorSet
 
 } RendererDescriptorSet;
 
+typedef struct RendererDescriptorPool
+{
+
+} RendererDescriptorPool;
+
 typedef struct RendererPipeline
 {
 
@@ -351,6 +356,7 @@ typedef RendererRenderPass *RenderPass;
 typedef RendererPipelineInputLayout *PipelineInputLayout;
 typedef RendererPipeline *Pipeline;
 //typedef RendererDescriptorSetLayout *DescriptorSetLayout;
+typedef RendererDescriptorPool *DescriptorPool;
 typedef RendererDescriptorSet *DescriptorSet;
 typedef RendererShaderModule *ShaderModule;
 typedef RendererFramebuffer *Framebuffer;

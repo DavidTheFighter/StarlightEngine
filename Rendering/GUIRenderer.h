@@ -60,6 +60,7 @@ class GUIRenderer
 		TextureView fontAtlasView;
 		DescriptorSet fontAtlasDescriptor;
 
+		DescriptorPool guiTextureDescriptorPool;
 		ResourceTexture whiteTexture;
 		TextureView whiteTextureView;
 		DescriptorSet whiteTextureDescriptor;
