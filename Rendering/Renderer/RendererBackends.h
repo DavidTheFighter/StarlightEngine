@@ -11,7 +11,6 @@
 typedef enum RendererBackend
 {
 	RENDERER_BACKEND_VULKAN = 0,
-	RENDERER_BACKEND_OPENGL,
 	RENDERER_BACKEND_MAX_ENUM
 } RendererBackend;
 

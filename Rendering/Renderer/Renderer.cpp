@@ -7,7 +7,6 @@
 
 #include "Rendering/Renderer/Renderer.h"
 #include <Rendering/Vulkan/VulkanRenderer.h>
-#include <Rendering/OpenGL/OpenGLRenderer.h>
 
 Renderer::Renderer ()
 {
@@ -27,10 +26,6 @@ RendererBackend Renderer::chooseRendererBackend (const std::vector<std::string>&
 	if (std::find(launchArgs.begin(), launchArgs.end(), "-force_vulkan") != launchArgs.end())
 	{
 		return RENDERER_BACKEND_VULKAN;
-	}
-	else if (std::find(launchArgs.begin(), launchArgs.end(), "-force_opengl") != launchArgs.end())
-	{
-		return RENDERER_BACKEND_OPENGL;
 	}
 
 	// Just default to vulkan for now
@@ -53,15 +48,6 @@ Renderer* Renderer::allocateRenderer (const RendererAllocInfo& allocInfo)
 			VulkanRenderer* renderer = new VulkanRenderer(allocInfo);
 
 			return renderer;
-		}
-		case RENDERER_BACKEND_OPENGL:
-		{
-			printf("%s Allocating renderer w/ OpenGL backend\n", INFO_PREFIX);
-
-			//OpenGLRenderer* renderer = new OpenGLRenderer(allocInfo);
-
-			//return renderer;
-			return nullptr;
 		}
 		default:
 		{

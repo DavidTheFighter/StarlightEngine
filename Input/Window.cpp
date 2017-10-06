@@ -89,37 +89,6 @@ void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::strin
 		glfwSetKeyCallback(glfwWindow, glfwWindowKeyCallback);
 		glfwSetScrollCallback(glfwWindow, glfwWindowMouseScrollCallback);
 	}
-	else if (windowRendererBackend == RENDERER_BACKEND_OPENGL)
-	{
-		GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-		const GLFWvidmode* videomode = glfwGetVideoMode(monitor);
-
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-		glfwWindowHint(GLFW_FOCUSED, 1);
-		glfwWindowHint(GLFW_AUTO_ICONIFY, 0);
-		glfwWindowHint(GLFW_DECORATED, 1);
-		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-
-		int glfwWindowWidth = windowWidth == 0 ? int(videomode->width * 0.75f) : (int) windowWidth;
-		int glfwWindowHeight = windowHeight == 0 ? int(videomode->height * 0.75f) : (int) windowHeight;
-
-		glfwWindow = glfwCreateWindow(int(videomode->width * 0.75f), int(videomode->height * 0.75f), windowName.c_str(), nullptr, nullptr);
-
-		if (glfwWindow == nullptr)
-		{
-			printf("%s Failed to create a glfw window, window = nullptr\n", ERR_PREFIX);
-
-			throw std::runtime_error("glfw error - window creation");
-		}
-
-		this->windowWidth = (uint32_t) glfwWindowWidth;
-		this->windowHeight = (uint32_t) glfwWindowHeight;
-
-		glfwGetCursorPos(glfwWindow, &cursorX, &cursorY);
-	}
 }
 
 void Window::glfwWindowResizedCallback (GLFWwindow* window, int width, int height)
@@ -259,7 +228,6 @@ void Window::setTitle (std::string title)
 	switch (windowRendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_OPENGL:
 		{
 			glfwSetWindowTitle(glfwWindow, title.c_str());
 
@@ -275,7 +243,6 @@ void Window::pollEvents ()
 	switch (windowRendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_OPENGL:
 		{
 			glfwPollEvents();
 
@@ -293,7 +260,6 @@ void Window::setMouseGrabbed (bool grabbed)
 
 	switch (windowRendererBackend)
 	{
-		case RENDERER_BACKEND_OPENGL:
 		case RENDERER_BACKEND_VULKAN:
 		{
 			glfwSetCursorPos(glfwWindow, getWidth() / 2, getHeight() / 2);
@@ -364,7 +330,6 @@ bool Window::userRequestedClose ()
 	switch (windowRendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_OPENGL:
 			return glfwWindowShouldClose(glfwWindow);
 		default:
 			return true;
@@ -380,7 +345,6 @@ void* Window::getWindowObjectPtr ()
 	switch (windowRendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_OPENGL:
 			return glfwWindow;
 		default:
 			return nullptr;

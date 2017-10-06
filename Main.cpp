@@ -20,7 +20,6 @@
  * Recognized launch args:
  *
  * -force_vulkan
- * -force_opengl
  *
  * -enable_vulkan_layers
  */
@@ -60,7 +59,6 @@ int main (int argc, char *argv[])
 	switch (rendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_OPENGL:
 		{
 			glfwInit();
 
@@ -120,7 +118,6 @@ int main (int argc, char *argv[])
 	switch (rendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_OPENGL:
 		{
 			glfwTerminate();
 
