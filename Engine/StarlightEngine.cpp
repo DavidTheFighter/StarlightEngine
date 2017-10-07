@@ -77,7 +77,7 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	renderer = Renderer::allocateRenderer(renderAlloc);
 
 	renderer->initRenderer();
-	renderer->initSwapchain();
+	renderer->initSwapchain(mainWindow);
 
 	resources = new ResourceManager(renderer);
 	guiRenderer = new GUIRenderer(renderer);
@@ -108,7 +108,7 @@ void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &ev
 {
 	StarlightEngine *enginePtr = static_cast<StarlightEngine*> (usrPtr);
 
-	enginePtr->renderer->recreateSwapchain();
+	enginePtr->renderer->recreateSwapchain(enginePtr->mainWindow);
 }
 
 void StarlightEngine::handleEvents ()
@@ -171,7 +171,7 @@ void StarlightEngine::render ()
 	if (!gameStates.empty())
 		gameStates.back()->render();
 
-	renderer->presentToSwapchain();
+	renderer->presentToSwapchain(mainWindow);
 }
 
 double StarlightEngine::getTime ()

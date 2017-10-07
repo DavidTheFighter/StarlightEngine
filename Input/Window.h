@@ -29,6 +29,8 @@ class Window
 		double getCursorX();
 		double getCursorY();
 
+		std::string getTitle();
+
 		void setMouseGrabbed (bool grabbed);
 		void toggleMouseGrabbed ();
 
@@ -43,6 +45,8 @@ class Window
 		const RendererBackend &getRendererBackend();
 
 	private:
+
+		std::string windowTitle;
 
 		bool mouseGrabbed;
 

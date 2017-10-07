@@ -11,6 +11,8 @@
 #include <common.h>
 #include <Rendering/Vulkan/vulkan_common.h>
 
+class Window;
+
 typedef struct SwapchainSupportDetails
 {
 		VkSurfaceCapabilitiesKHR capabilities;
@@ -18,36 +20,14 @@ typedef struct SwapchainSupportDetails
 		std::vector<VkPresentModeKHR> presentModes;
 } SwapchainSupportDetails;
 
-class VulkanRenderer;
-
-class VulkanSwapchain
+typedef struct WindowSwapchain
 {
-	public:
-
+		Window *window;
 		VkSwapchainKHR swapchain;
-
-		VkFormat swapchainImageFormat;
+		VkSurfaceKHR surface;
 		VkExtent2D swapchainExtent;
-
 		SwapchainSupportDetails swapchainDetails;
-
-		VulkanSwapchain (VulkanRenderer* vulkanRendererParent);
-		virtual ~VulkanSwapchain ();
-
-		void initSwapchain();
-		void presentToSwapchain();
-
-		void createSwapchain();
-		void destroySwapchain();
-		void recreateSwapchain();
-
-		void setSwapchainSourceImage(VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout);
-
-		SwapchainSupportDetails querySwapchainSupport (VkPhysicalDevice device, VkSurfaceKHR surface);
-
-	private:
-
-		VkCommandPool swapchainCommandPool;
+		VkFormat swapchainImageFormat;
 
 		VkSemaphore swapchainNextImageAvailableSemaphore;
 		VkSemaphore swapchainDoneRenderingSemaphore;
@@ -57,29 +37,65 @@ class VulkanSwapchain
 		std::vector<VkFramebuffer> swapchainFramebuffers;
 		std::vector<VkCommandBuffer> swapchainCommandBuffers;
 
+		VkDescriptorPool swapchainDescriptorPool;
+		VkDescriptorSet swapchainDescriptorSet;
+
+		VkRenderPass swapchainRenderPass;
+		VkPipeline swapchainPipeline;
+};
+
+class VulkanRenderer;
+
+class VulkanSwapchain
+{
+	public:
+
+		Window *mainWindow;
+		std::vector<Window*> extraWindows;
+
+		std::map<Window*, WindowSwapchain> swapchains;
+
+		VulkanSwapchain (VulkanRenderer* vulkanRendererParent);
+		virtual ~VulkanSwapchain ();
+
+		void init();
+		void initSwapchain(Window *wnd);
+		void presentToSwapchain(Window *wnd);
+
+		void createSwapchain(Window *wnd);
+		void destroySwapchain(Window *wnd);
+		void recreateSwapchain(Window *wnd);
+
+		void setSwapchainSourceImage(Window *wnd, VkImageView imageView, VkSampler sampler, VkImageLayout imageLayout, bool rewriteCommandBuffers = true);
+
+		SwapchainSupportDetails querySwapchainSupport (VkPhysicalDevice device, VkSurfaceKHR surface);
+
+	private:
+
+		VkCommandPool swapchainCommandPool;
+
 		VkImage swapchainDummySourceImage;
 		VkImageView swapchainDummySourceImageView;
 		VkSampler swapchainDummySampler;
 
-		VkDescriptorPool swapchainDescriptorPool;
 		VkDescriptorSetLayout swapchainDescriptorLayout;
-		VkDescriptorSet swapchainDescriptorSet;
 
 		VkShaderModule swapchainVertShader;
 		VkShaderModule swapchainFragShader;
 
-		VkRenderPass swapchainRenderPass;
 		VkPipelineLayout swapchainPipelineLayout;
-		VkPipeline swapchainPipeline;
 
 		VulkanRenderer* renderer;
 
-		void createDescriptors();
-		void createRenderPass();
-		void createGraphicsPipeline();
-		void createFramebuffers();
-		void createSyncPrimitives();
-		void prerecordCommandBuffers();
+		void createDescriptors(WindowSwapchain &swapchain);
+		void createFramebuffers(WindowSwapchain &swapchain);
+		void createSyncPrimitives(WindowSwapchain &swapchain);
+		void prerecordCommandBuffers(WindowSwapchain &swapchain);
+
+		void createRenderPass(WindowSwapchain &swapchain);
+		void createGraphicsPipeline(WindowSwapchain &swapchain);
+
+		void createDummySourceImage ();
 
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat (const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR chooseSwapPresentMode (const std::vector<VkPresentModeKHR> availablePresentModes);

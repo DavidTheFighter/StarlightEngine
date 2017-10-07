@@ -123,10 +123,10 @@ void GameStateTitleScreen::createTitleScreenRenderTargets ()
 	titleScreenRTView = engine->renderer->createTextureView(titleScreenRT);
 	titleScreenRTDepthView = engine->renderer->createTextureView(titleScreenRTDepth);
 
-	titleScreenFramebufferSize = {(uint32_t) titleScreenExtent.x, (uint32_t) titleScreenExtent.y};
+	titleScreenFramebufferSize = {(int32_t) titleScreenExtent.x, (int32_t) titleScreenExtent.y};
 	titleScreenFramebuffer = engine->renderer->createFramebuffer(engine->guiRenderer->guiRenderPass, {titleScreenRTView, titleScreenRTDepthView}, (uint32_t) titleScreenExtent.x, (uint32_t) titleScreenExtent.y, 1);
 
-	engine->renderer->setSwapchainTexture(titleScreenRTView, titleScreenSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	engine->renderer->setSwapchainTexture(engine->mainWindow, titleScreenRTView, titleScreenSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void GameStateTitleScreen::destroyTitleScreenRenderTargets ()

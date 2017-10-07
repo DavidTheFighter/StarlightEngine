@@ -111,10 +111,10 @@ class Renderer
 		 * you should just notify the renderer that the window was resized. That's is the preferred way to
 		 * do it.
 		 */
-		virtual void initSwapchain () = 0;
-		virtual void presentToSwapchain () = 0;
-		virtual void recreateSwapchain () = 0;
-		virtual void setSwapchainTexture (TextureView texView, Sampler sampler, TextureLayout layout) = 0;
+		virtual void initSwapchain (Window *wnd) = 0;
+		virtual void presentToSwapchain (Window *wnd) = 0;
+		virtual void recreateSwapchain (Window *wnd) = 0;
+		virtual void setSwapchainTexture (Window *wnd, TextureView texView, Sampler sampler, TextureLayout layout) = 0;
 
 		static RendererBackend chooseRendererBackend (const std::vector<std::string>& launchArgs);
 		static Renderer* allocateRenderer (const RendererAllocInfo& allocInfo);

@@ -33,12 +33,10 @@ class VulkanRenderer : public Renderer
 		VkPhysicalDeviceFeatures deviceFeatures;
 		VkPhysicalDeviceProperties deviceProps;
 
-		VkSurfaceKHR surface;
-
 		VmaAllocator memAllocator;
 		shaderc::Compiler *defaultCompiler;
 
-		VulkanSwapchain *swapchain;
+		VulkanSwapchain *swapchains;
 		VulkanPipelines *pipelineHandler; // Does all the pipeline handling (creation, caching, etc)
 
 		VulkanRenderer (const RendererAllocInfo& allocInfo);
@@ -110,12 +108,14 @@ class VulkanRenderer : public Renderer
 
 		void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name);
 
-		void initSwapchain ();
-		void presentToSwapchain ();
-		void recreateSwapchain ();
-		void setSwapchainTexture (TextureView texView, Sampler sampler, TextureLayout layout);
+		void initSwapchain (Window *wnd);
+		void presentToSwapchain (Window *wnd);
+		void recreateSwapchain (Window *wnd);
+		void setSwapchainTexture (Window *wnd, TextureView texView, Sampler sampler, TextureLayout layout);
 
 		bool areValidationLayersEnabled ();
+
+		bool checkExtraSurfacePresentSupport(VkSurfaceKHR surface);
 
 	private:
 

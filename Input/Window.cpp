@@ -61,8 +61,6 @@ void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::strin
 			glfwWindowHeight = (int) (float(glfwWindowWidth) * (9 / 21.0f));
 		}
 
-		printf("aspect ratio - %f\n", glfwWindowWidth / float(glfwWindowHeight));
-
 		glfwWindow = glfwCreateWindow(glfwWindowWidth, glfwWindowHeight, windowName.c_str(), nullptr, nullptr);
 
 		if (glfwWindow == nullptr)
@@ -89,6 +87,8 @@ void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::strin
 		glfwSetKeyCallback(glfwWindow, glfwWindowKeyCallback);
 		glfwSetScrollCallback(glfwWindow, glfwWindowMouseScrollCallback);
 	}
+
+	windowTitle = windowName;
 }
 
 void Window::glfwWindowResizedCallback (GLFWwindow* window, int width, int height)
@@ -236,6 +236,8 @@ void Window::setTitle (std::string title)
 		default:
 			break;
 	}
+
+	windowTitle = title;
 }
 
 void Window::pollEvents ()
@@ -323,6 +325,11 @@ double Window::getCursorX ()
 double Window::getCursorY ()
 {
 	return cursorY;
+}
+
+std::string Window::getTitle()
+{
+	return windowTitle;
 }
 
 bool Window::userRequestedClose ()

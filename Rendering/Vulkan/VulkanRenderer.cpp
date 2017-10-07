@@ -103,11 +103,8 @@ void VulkanRenderer::initRenderer ()
 		VK_CHECK_RESULT(CreateDebugReportCallbackEXT(instance, &createInfo, nullptr, &dbgCallback));
 	}
 
-	// Note the surface is created here because choosePhysicalDevice() needs to query swapchain support
-	VK_CHECK_RESULT(glfwCreateWindowSurface(instance, static_cast<GLFWwindow*>(onAllocInfo.mainWindow->getWindowObjectPtr()), nullptr, &surface));
-
 	// Note the swapchain renderer is initialized here because choosePhysicalDevices() relies on querying swapchain support
-	swapchain = new VulkanSwapchain(this);
+	swapchains = new VulkanSwapchain(this);
 	pipelineHandler = new VulkanPipelines(this);
 
 	choosePhysicalDevice();
@@ -120,17 +117,18 @@ void VulkanRenderer::initRenderer ()
 	VK_CHECK_RESULT(vmaCreateAllocator(&allocCreateInfo, &memAllocator));
 
 	defaultCompiler = new shaderc::Compiler();
+
+	swapchains->init();
 }
 
 void VulkanRenderer::cleanupVulkan ()
 {
-	delete swapchain;
+	delete swapchains;
 	delete pipelineHandler;
 
 	vmaDestroyAllocator(memAllocator);
 	vkDestroyDevice(device, nullptr);
 
-	vkDestroySurfaceKHR(instance, surface, nullptr);
 	DestroyDebugReportCallbackEXT(instance, dbgCallback, nullptr);
 
 	vkDestroyInstance(instance, nullptr);
@@ -1242,24 +1240,24 @@ void VulkanRenderer::setObjectDebugName (void *obj, RendererObjectType objType, 
 #endif
 }
 
-void VulkanRenderer::initSwapchain ()
+void VulkanRenderer::initSwapchain (Window *wnd)
 {
-	swapchain->initSwapchain();
+	swapchains->initSwapchain(wnd);
 }
 
-void VulkanRenderer::presentToSwapchain ()
+void VulkanRenderer::presentToSwapchain (Window *wnd)
 {
-	swapchain->presentToSwapchain();
+	swapchains->presentToSwapchain(wnd);
 }
 
-void VulkanRenderer::recreateSwapchain ()
+void VulkanRenderer::recreateSwapchain (Window *wnd)
 {
-	swapchain->recreateSwapchain();
+	swapchains->recreateSwapchain(wnd);
 }
 
-void VulkanRenderer::setSwapchainTexture (TextureView texView, Sampler sampler, TextureLayout layout)
+void VulkanRenderer::setSwapchainTexture (Window *wnd, TextureView texView, Sampler sampler, TextureLayout layout)
 {
-	swapchain->setSwapchainSourceImage(static_cast<VulkanTextureView*>(texView)->imageView, static_cast<VulkanSampler*>(sampler)->samplerHandle, toVkImageLayout(layout));
+	swapchains->setSwapchainSourceImage(wnd, static_cast<VulkanTextureView*>(texView)->imageView, static_cast<VulkanSampler*>(sampler)->samplerHandle, toVkImageLayout(layout));
 }
 
 bool VulkanRenderer::areValidationLayersEnabled ()
@@ -1373,7 +1371,7 @@ void VulkanRenderer::choosePhysicalDevice ()
 		if (!queues.isComplete() || !extensionsSupported)
 			continue;
 
-		SwapchainSupportDetails swapChainDetails = swapchain->querySwapchainSupport(physDevice, surface);
+		SwapchainSupportDetails swapChainDetails = swapchains->querySwapchainSupport(physDevice, swapchains->swapchains[onAllocInfo.mainWindow].surface);
 
 		if (swapChainDetails.formats.empty() || swapChainDetails.presentModes.empty())
 			continue;
@@ -1423,13 +1421,21 @@ void VulkanRenderer::choosePhysicalDevice ()
 	}
 }
 
+bool VulkanRenderer::checkExtraSurfacePresentSupport(VkSurfaceKHR surface)
+{
+	VkBool32 presentSupport = false;
+	vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, deviceQueueInfo.presentFamily, surface, &presentSupport);
+
+	return presentSupport;
+}
+
 /*
  * Tries the find the optimal queue families & queues for a device and it's vendor. In general
  * it's best not to use more than one queue for a certain task, aka don't use 5 graphics queues
  * and 3 compute queues, because a game engine doesn't really benefit. Also, the main vendors (AMD, Nvidia, Intel)
  * tend to use the same queue family layout for each card, and the architectures for each card from each
  * vendor are usually similar. So, I just stick with some general rules for each vendor. Note that any
- * vendor besides Nvidia, AMD, or Intel I'm just gonna default to Intel.
+ * vendor besides Nvidia, AMD, or Intel I'm just gonna default to Intel's config.
  *
  *
  * On AMD 		- 1 general/graphics queue, 1 compute queue, 1 transfer queue
@@ -1469,7 +1475,7 @@ DeviceQueues VulkanRenderer::findQueueFamilies (VkPhysicalDevice physDevice)
 		const auto& family = queueFamilies[i];
 
 		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(physDevice, i, surface, &presentSupport);
+		vkGetPhysicalDeviceSurfaceSupportKHR(physDevice, i, swapchains->swapchains[onAllocInfo.mainWindow].surface, &presentSupport);
 
 		printf("%s \tQueue family %i, w/ %u queues. Graphics: %i, Compute: %i, Transfer: %i, Present: %i\n", INFO_PREFIX, i, family.queueCount, family.queueFlags & VK_QUEUE_GRAPHICS_BIT ? 1 : 0, family.queueFlags & VK_QUEUE_COMPUTE_BIT ? 1 : 0, family.queueFlags & VK_QUEUE_TRANSFER_BIT ? 1 : 0,
 				presentSupport);
@@ -1490,7 +1496,7 @@ DeviceQueues VulkanRenderer::findQueueFamilies (VkPhysicalDevice physDevice)
 		}
 
 		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(physDevice, i, surface, &presentSupport);
+		vkGetPhysicalDeviceSurfaceSupportKHR(physDevice, i, swapchains->swapchains[onAllocInfo.mainWindow].surface, &presentSupport);
 
 		if (families.presentFamily == -1)
 		{
