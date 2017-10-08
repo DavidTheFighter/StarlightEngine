@@ -31,13 +31,6 @@ typedef struct TextureSubresourceRange
 		uint32_t layerCount;
 } TextureSubresourceRange;
 
-typedef struct RendererCommandPool
-{
-		QueueType queue;
-		CommandPoolFlags flags;
-
-} RendererCommandPool;
-
 typedef struct RendererStagingBuffer
 {
 } RendererStagingBuffer;
@@ -282,11 +275,6 @@ typedef struct RendererDescriptorSet
 
 } RendererDescriptorSet;
 
-typedef struct RendererDescriptorPool
-{
-
-} RendererDescriptorPool;
-
 typedef struct RendererPipeline
 {
 
@@ -356,7 +344,6 @@ typedef RendererRenderPass *RenderPass;
 typedef RendererPipelineInputLayout *PipelineInputLayout;
 typedef RendererPipeline *Pipeline;
 //typedef RendererDescriptorSetLayout *DescriptorSetLayout;
-typedef RendererDescriptorPool *DescriptorPool;
 typedef RendererDescriptorSet *DescriptorSet;
 typedef RendererShaderModule *ShaderModule;
 typedef RendererFramebuffer *Framebuffer;
@@ -364,11 +351,13 @@ typedef RendererTexture *Texture;
 typedef RendererTextureView *TextureView;
 typedef RendererSampler *Sampler;
 typedef RendererBuffer *Buffer;
-typedef RendererCommandPool *CommandPool;
+//typedef RendererCommandPool *CommandPool;
 typedef RendererStagingBuffer *StagingBuffer;
 typedef RendererFence *Fence;
 typedef RendererSemaphore *Semaphore;
 
+#include <Rendering/Renderer/RendererCommandPool.h>
 #include <Rendering/Renderer/RendererCommandBuffer.h>
+#include <Rendering/Renderer/RendererDescriptorPool.h>
 
 #endif /* RENDERING_RENDERER_RENDEREROBJECTS_H_ */

@@ -168,49 +168,11 @@ CommandPool VulkanRenderer::createCommandPool (QueueType queue, CommandPoolFlags
 	VulkanCommandPool *vkCmdPool = new VulkanCommandPool();
 	vkCmdPool->queue = queue;
 	vkCmdPool->flags = flags;
+	vkCmdPool->device = device;
 
 	VK_CHECK_RESULT(vkCreateCommandPool(device, &poolCreateInfo, nullptr, &vkCmdPool->poolHandle));
 
 	return vkCmdPool;
-}
-
-void VulkanRenderer::resetCommandPool (CommandPool pool, bool releaseResources)
-{
-	VulkanCommandPool *vkCmdPool = static_cast<VulkanCommandPool*>(pool);
-
-	VK_CHECK_RESULT(vkResetCommandPool(device, vkCmdPool->poolHandle, releaseResources ? VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT : 0))
-}
-
-CommandBuffer VulkanRenderer::allocateCommandBuffer (CommandPool pool, CommandBufferLevel level)
-{
-	return allocateCommandBuffers(pool, level, 1)[0];
-}
-
-std::vector<CommandBuffer> VulkanRenderer::allocateCommandBuffers (CommandPool pool, CommandBufferLevel level, uint32_t commandBufferCount)
-{
-	DEBUG_ASSERT(commandBufferCount > 0);
-
-	VkCommandBufferAllocateInfo allocInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-	allocInfo.commandBufferCount = commandBufferCount;
-	allocInfo.commandPool = static_cast<VulkanCommandPool*>(pool)->poolHandle;
-	allocInfo.level = toVkCommandBufferLevel(level);
-
-	std::vector<VkCommandBuffer> vkCommandBuffers(commandBufferCount);
-	VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &allocInfo, vkCommandBuffers.data()));
-
-	std::vector<CommandBuffer> commandBuffers;
-
-	for (uint32_t i = 0; i < commandBufferCount; i ++)
-	{
-		VulkanCommandBuffer* vkCmdBuffer = new VulkanCommandBuffer();
-		vkCmdBuffer->level = level;
-		vkCmdBuffer->pool = pool;
-		vkCmdBuffer->bufferHandle = vkCommandBuffers[i];
-
-		commandBuffers.push_back(vkCmdBuffer);
-	}
-
-	return commandBuffers;
 }
 
 void VulkanRenderer::submitToQueue (QueueType queue, const std::vector<CommandBuffer> &cmdBuffers, const std::vector<Semaphore> &waitSemaphores, const std::vector<PipelineStageFlags> &waitSemaphoreStages, const std::vector<Semaphore> &signalSemaphores, Fence fence)
@@ -668,6 +630,7 @@ DescriptorPool VulkanRenderer::createDescriptorPool (const std::vector<Descripto
 	vulkanDescPool->canFreeSetFromPool = false;
 	vulkanDescPool->poolBlockAllocSize = poolBlockAllocSize;
 	vulkanDescPool->layoutBindings = layoutBindings;
+	vulkanDescPool->renderer = this;
 
 	for (size_t i = 0; i < layoutBindings.size(); i ++)
 	{
@@ -682,89 +645,6 @@ DescriptorPool VulkanRenderer::createDescriptorPool (const std::vector<Descripto
 	vulkanDescPool->descriptorPools.push_back(createDescPoolObject(vulkanDescPool->vulkanPoolSizes, vulkanDescPool->poolBlockAllocSize));
 
 	return vulkanDescPool;
-}
-
-DescriptorSet VulkanRenderer::allocateDescriptorSet (DescriptorPool pool)
-{
-	return allocateDescriptorSets(pool, 1)[0];
-}
-
-bool VulkanRenderer_tryAllocFromDescriptorPoolObject (VulkanRenderer *renderer, VulkanDescriptorPool *pool, uint32_t poolObjIndex, VulkanDescriptorSet* &outSet)
-{
-	VulkanDescriptorPoolObject &poolObj = pool->descriptorPools[poolObjIndex];
-
-	if (poolObj.unusedPoolSets.size() == 0)
-		return false;
-
-	// TODO Change vulkan descriptor sets to allocate in chunks rather than invididually
-
-	bool setIsAllocated = poolObj.unusedPoolSets.back().second;
-
-	if (setIsAllocated)
-	{
-		outSet = poolObj.unusedPoolSets.back().first;
-
-		DEBUG_ASSERT(outSet != nullptr);
-
-		poolObj.usedPoolSets.push_back(poolObj.unusedPoolSets.back().first);
-		poolObj.unusedPoolSets.pop_back();
-	}
-	else
-	{
-		VulkanDescriptorSet *vulkanDescSet = new VulkanDescriptorSet();
-		vulkanDescSet->descriptorPoolObjectIndex = poolObjIndex;
-
-		VkDescriptorSetLayout descLayout = renderer->pipelineHandler->createDescriptorSetLayout(pool->layoutBindings);
-
-		VkDescriptorSetAllocateInfo descSetAllocInfo = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-		descSetAllocInfo.descriptorPool = poolObj.pool;
-		descSetAllocInfo.descriptorSetCount = 1;
-		descSetAllocInfo.pSetLayouts = &descLayout;
-
-		VK_CHECK_RESULT(vkAllocateDescriptorSets(renderer->device, &descSetAllocInfo, &vulkanDescSet->setHandle));
-
-		poolObj.usedPoolSets.push_back(vulkanDescSet);
-		poolObj.unusedPoolSets.pop_back();
-
-		outSet = vulkanDescSet;
-	}
-
-	return true;
-}
-
-std::vector<DescriptorSet> VulkanRenderer::allocateDescriptorSets (DescriptorPool pool, uint32_t setCount)
-{
-	DEBUG_ASSERT(setCount > 0);
-
-	VulkanDescriptorPool *vulkanPool = static_cast<VulkanDescriptorPool*>(pool);
-	std::vector<DescriptorSet> vulkanSets = std::vector<DescriptorSet>(setCount);
-
-	for (uint32_t i = 0; i < setCount; i ++)
-	{
-		//printf("-- %u --\n", i);
-		VulkanDescriptorSet *vulkanSet = nullptr;
-
-		// Iterate over each pool object to see if there's one we can alloc from
-		for (size_t p = 0; p < vulkanPool->descriptorPools.size(); p ++)
-		{
-			if (VulkanRenderer_tryAllocFromDescriptorPoolObject(this, vulkanPool, p, vulkanSet))
-			{
-				break;
-			}
-		}
-
-		// If the set is still nullptr, then we'll have to create a new pool to allocate from
-		if (vulkanSet == nullptr)
-		{
-			vulkanPool->descriptorPools.push_back(createDescPoolObject(vulkanPool->vulkanPoolSizes, vulkanPool->poolBlockAllocSize));
-
-			VulkanRenderer_tryAllocFromDescriptorPoolObject(this, vulkanPool, vulkanPool->descriptorPools.size() - 1, vulkanSet);
-		}
-
-		vulkanSets[i] = vulkanSet;
-	}
-
-	return vulkanSets;
 }
 
 Fence VulkanRenderer::createFence (bool createAsSignaled)
@@ -993,31 +873,6 @@ void VulkanRenderer::destroyCommandPool (CommandPool pool)
 	delete pool;
 }
 
-void VulkanRenderer::freeCommandBuffer (CommandBuffer commandBuffer)
-{
-	freeCommandBuffers({commandBuffer});
-}
-
-void VulkanRenderer::freeCommandBuffers (const std::vector<CommandBuffer> &commandBuffers)
-{
-	std::map<VkCommandPool, std::vector<VkCommandBuffer> > vkCmdBuffers;
-
-	for (size_t i = 0; i < commandBuffers.size(); i ++)
-	{
-		VulkanCommandBuffer* cmdBuffer = static_cast<VulkanCommandBuffer*>(commandBuffers[i]);
-
-		vkCmdBuffers[static_cast<VulkanCommandPool*>(cmdBuffer->pool)->poolHandle].push_back(cmdBuffer->bufferHandle);
-
-		// We can delete these here because the rest of the function only relies on the vulkan handles
-		delete commandBuffers[i];
-	}
-
-	for (auto it = vkCmdBuffers.begin(); it != vkCmdBuffers.end(); it ++)
-	{
-		vkFreeCommandBuffers(device, it->first, static_cast<uint32_t>(it->second.size()), it->second.data());
-	}
-}
-
 void VulkanRenderer::destroyRenderPass (RenderPass renderPass)
 {
 	VulkanRenderPass *vkRenderPass = static_cast<VulkanRenderPass*>(renderPass);
@@ -1078,21 +933,6 @@ void VulkanRenderer::destroyDescriptorPool (DescriptorPool pool)
 	}
 
 	delete vulkanDescPool;
-}
-
-void VulkanRenderer::freeDescriptorSet (DescriptorPool pool, DescriptorSet set)
-{
-	VulkanDescriptorPool *vulkanDescPool = static_cast<VulkanDescriptorPool*> (pool);
-	VulkanDescriptorSet *vulkanDescSet = static_cast<VulkanDescriptorSet*> (set);
-
-	VulkanDescriptorPoolObject &poolObj = vulkanDescPool->descriptorPools[vulkanDescSet->descriptorPoolObjectIndex];
-	poolObj.unusedPoolSets.push_back(std::make_pair(vulkanDescSet, true));
-
-	auto it = std::find(poolObj.usedPoolSets.begin(), poolObj.usedPoolSets.end(), vulkanDescSet);
-
-	DEBUG_ASSERT(it != poolObj.usedPoolSets.end());
-
-	poolObj.usedPoolSets.erase(it);
 }
 
 /*

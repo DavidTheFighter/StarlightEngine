@@ -21,18 +21,37 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * RendererCommandBuffer.cpp
+ * VulkanCommandPool.h
  * 
- * Created on: Oct 2, 2017
+ * Created on: Oct 7, 2017
  *     Author: david
  */
 
-#include "Rendering/Renderer/RendererCommandBuffer.h"
+#ifndef RENDERING_VULKAN_VULKANCOMMANDPOOL_H_
+#define RENDERING_VULKAN_VULKANCOMMANDPOOL_H_
 
-#include <Rendering/Renderer/Renderer.h>
+#include <common.h>
+#include <Rendering/Vulkan/vulkan_common.h>
+#include <Rendering/Renderer/RendererEnums.h>
+#include <Rendering/Renderer/RendererObjects.h>
 
-RendererCommandBuffer::~RendererCommandBuffer ()
+class VulkanCommandPool : public RendererCommandPool
 {
-	
-}
+	public:
+		VkCommandPool poolHandle;
+		VkDevice device;
 
+		virtual ~VulkanCommandPool ();
+
+		RendererCommandBuffer *allocateCommandBuffer (CommandBufferLevel level);
+		std::vector<RendererCommandBuffer*> allocateCommandBuffers (CommandBufferLevel level, uint32_t commandBufferCount);
+
+		void freeCommandBuffer (RendererCommandBuffer *commandBuffer);
+		void freeCommandBuffers (const std::vector<RendererCommandBuffer*> &commandBuffers);
+
+		void resetCommandPool (bool releaseResources);
+
+	private:
+};
+
+#endif /* RENDERING_VULKAN_VULKANCOMMANDPOOL_H_ */

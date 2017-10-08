@@ -225,3 +225,8 @@ void StarlightEngine::quit ()
 {
 	engineIsRunning = false;
 }
+
+GameState::~GameState()
+{
+
+}

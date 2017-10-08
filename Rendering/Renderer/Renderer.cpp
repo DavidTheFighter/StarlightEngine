@@ -58,7 +58,7 @@ Renderer* Renderer::allocateRenderer (const RendererAllocInfo& allocInfo)
 
 CommandBuffer Renderer::beginSingleTimeCommand (CommandPool pool)
 {
-	CommandBuffer cmdBuffer = allocateCommandBuffer(pool, COMMAND_BUFFER_LEVEL_PRIMARY);
+	CommandBuffer cmdBuffer = pool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
 
 	cmdBuffer->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
@@ -72,5 +72,20 @@ void Renderer::endSingleTimeCommand (CommandBuffer cmdBuffer, CommandPool pool, 
 	submitToQueue(queue, {cmdBuffer});
 	waitForQueueIdle(queue);
 
-	freeCommandBuffer(cmdBuffer);
+	pool->freeCommandBuffer(cmdBuffer);
+}
+
+RendererCommandPool::~RendererCommandPool()
+{
+
+}
+
+RendererCommandBuffer::~RendererCommandBuffer()
+{
+
+}
+
+RendererDescriptorPool::~RendererDescriptorPool()
+{
+
 }

@@ -34,10 +34,6 @@ class Renderer
 		virtual void initRenderer () = 0;
 
 		virtual CommandPool createCommandPool (QueueType queue, CommandPoolFlags flags) = 0;
-		virtual void resetCommandPool (CommandPool pool, bool releaseResources = false) = 0;
-
-		virtual CommandBuffer allocateCommandBuffer (CommandPool pool, CommandBufferLevel level = COMMAND_BUFFER_LEVEL_PRIMARY) = 0;
-		virtual std::vector<CommandBuffer> allocateCommandBuffers (CommandPool pool, CommandBufferLevel level, uint32_t commandBufferCount) = 0;
 
 		virtual void submitToQueue (QueueType queue, const std::vector<CommandBuffer> &cmdBuffers, const std::vector<Semaphore> &waitSemaphores = {}, const std::vector<PipelineStageFlags> &waitSemaphoreStages = {}, const std::vector<Semaphore> &signalSemaphores = {}, Fence fence = nullptr) = 0;
 		virtual void waitForQueueIdle (QueueType queue) = 0;
@@ -57,9 +53,6 @@ class Renderer
 		virtual PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts) = 0;
 		virtual Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass) = 0;
 		virtual DescriptorPool createDescriptorPool (const std::vector<DescriptorSetLayoutBinding> &layoutBindings, uint32_t poolBlockAllocSize) = 0;
-
-		virtual DescriptorSet allocateDescriptorSet (DescriptorPool pool) = 0;
-		virtual std::vector<DescriptorSet> allocateDescriptorSets (DescriptorPool pool, uint32_t setCount) = 0;
 
 		virtual Fence createFence (bool createAsSignaled = false) = 0;
 		virtual Semaphore createSemaphore () = 0;
@@ -86,7 +79,6 @@ class Renderer
 		virtual void destroyPipeline (Pipeline pipeline) = 0;
 		virtual void destroyShaderModule (ShaderModule module) = 0;
 		virtual void destroyDescriptorPool (DescriptorPool pool) = 0;
-		virtual void freeDescriptorSet (DescriptorPool pool, DescriptorSet set) = 0;
 		virtual void destroyTexture (Texture texture) = 0;
 		virtual void destroyTextureView (TextureView textureView) = 0;
 		virtual void destroySampler (Sampler sampler) = 0;
@@ -95,9 +87,6 @@ class Renderer
 
 		virtual void destroyFence (Fence fence) = 0;
 		virtual void destroySemaphore (Semaphore sem) = 0;
-
-		virtual void freeCommandBuffer (CommandBuffer commandBuffer) = 0;
-		virtual void freeCommandBuffers (const std::vector<CommandBuffer> &commandBuffers) = 0;
 
 #if SE_RENDER_DEBUG_MARKERS
 		virtual void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name) = 0;

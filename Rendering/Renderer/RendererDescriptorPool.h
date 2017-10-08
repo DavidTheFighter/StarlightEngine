@@ -21,36 +21,34 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * GameState.h
+ * RendererDescriptorPool.h
  * 
- * Created on: Sep 30, 2017
+ * Created on: Oct 7, 2017
  *     Author: david
  */
 
-#ifndef ENGINE_GAMESTATE_H_
-#define ENGINE_GAMESTATE_H_
+#ifndef RENDERING_RENDERER_RENDERERDESCRIPTORPOOL_H_
+#define RENDERING_RENDERER_RENDERERDESCRIPTORPOOL_H_
 
 #include <common.h>
+#include <Rendering/Renderer/RendererEnums.h>
+#include <Rendering/Renderer/RendererObjects.h>
 
-class StarlightEngine;
+class RendererDescriptorSet;
 
-class GameState
+class RendererDescriptorPool
 {
 	public:
 
-		virtual ~GameState();
+		virtual ~RendererDescriptorPool();
 
-		StarlightEngine *engine;
+		virtual RendererDescriptorSet *allocateDescriptorSet () = 0;
+		virtual std::vector<RendererDescriptorSet*> allocateDescriptorSets (uint32_t setCount) = 0;
 
-		virtual void init () = 0;
-		virtual void destroy () = 0;
-
-		virtual void pause () = 0;
-		virtual void resume () = 0;
-
-		virtual void handleEvents () = 0;
-		virtual void update () = 0;
-		virtual void render () = 0;
+		virtual void freeDescriptorSet (RendererDescriptorSet *set) = 0;
+		virtual void freeDescriptorSets (const std::vector<RendererDescriptorSet*> sets) = 0;
 };
 
-#endif /* ENGINE_GAMESTATE_H_ */
+typedef RendererDescriptorPool *DescriptorPool;
+
+#endif /* RENDERING_RENDERER_RENDERERDESCRIPTORPOOL_H_ */

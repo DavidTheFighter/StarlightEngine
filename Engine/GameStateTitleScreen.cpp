@@ -88,9 +88,9 @@ void GameStateTitleScreen::update ()
 void GameStateTitleScreen::render ()
 {
 	if (titleScreenGUICommandBuffer != nullptr)
-		engine->renderer->freeCommandBuffer(titleScreenGUICommandBuffer);
+		titleScreenCommandPool->freeCommandBuffer(titleScreenGUICommandBuffer);
 
-	titleScreenGUICommandBuffer = engine->renderer->allocateCommandBuffer(titleScreenCommandPool);
+	titleScreenGUICommandBuffer = titleScreenCommandPool->allocateCommandBuffer();
 
 	titleScreenGUICommandBuffer->beginCommands(0);
 

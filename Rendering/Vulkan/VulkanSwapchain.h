@@ -42,7 +42,7 @@ typedef struct WindowSwapchain
 
 		VkRenderPass swapchainRenderPass;
 		VkPipeline swapchainPipeline;
-};
+} WindowSwapchain;
 
 class VulkanRenderer;
 

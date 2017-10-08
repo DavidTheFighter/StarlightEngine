@@ -21,36 +21,39 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * GameState.h
+ * RendererCommandPool.h
  * 
- * Created on: Sep 30, 2017
+ * Created on: Oct 7, 2017
  *     Author: david
  */
 
-#ifndef ENGINE_GAMESTATE_H_
-#define ENGINE_GAMESTATE_H_
+#ifndef RENDERING_RENDERER_RENDERERCOMMANDPOOL_H_
+#define RENDERING_RENDERER_RENDERERCOMMANDPOOL_H_
 
 #include <common.h>
+#include <Rendering/Renderer/RendererEnums.h>
+#include <Rendering/Renderer/RendererObjects.h>
 
-class StarlightEngine;
+class RendererCommandBuffer;
 
-class GameState
+class RendererCommandPool
 {
 	public:
 
-		virtual ~GameState();
+		virtual ~RendererCommandPool();
 
-		StarlightEngine *engine;
+		QueueType queue;
+		CommandPoolFlags flags;
 
-		virtual void init () = 0;
-		virtual void destroy () = 0;
+		virtual RendererCommandBuffer *allocateCommandBuffer (CommandBufferLevel level = COMMAND_BUFFER_LEVEL_PRIMARY) = 0;
+		virtual std::vector<RendererCommandBuffer*> allocateCommandBuffers (CommandBufferLevel level, uint32_t commandBufferCount) = 0;
 
-		virtual void pause () = 0;
-		virtual void resume () = 0;
+		virtual void freeCommandBuffer (RendererCommandBuffer *commandBuffer) = 0;
+		virtual void freeCommandBuffers (const std::vector<RendererCommandBuffer*> &commandBuffers) = 0;
 
-		virtual void handleEvents () = 0;
-		virtual void update () = 0;
-		virtual void render () = 0;
+		virtual void resetCommandPool (bool releaseResources = false) = 0;
 };
 
-#endif /* ENGINE_GAMESTATE_H_ */
+typedef RendererCommandPool *CommandPool;
+
+#endif /* RENDERING_RENDERER_RENDERERCOMMANDPOOL_H_ */

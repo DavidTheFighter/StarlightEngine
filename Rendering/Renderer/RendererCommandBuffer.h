@@ -40,10 +40,9 @@ class RendererCommandBuffer
 {
 	public:
 
-		CommandBufferLevel level;
-		RendererCommandPool *pool;
+		virtual ~RendererCommandBuffer();
 
-		virtual ~RendererCommandBuffer ();
+		CommandBufferLevel level;
 
 		virtual void beginCommands (CommandBufferUsageFlags flags) = 0;
 		virtual void endCommands () = 0;

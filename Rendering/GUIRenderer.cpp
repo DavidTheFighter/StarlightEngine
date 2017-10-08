@@ -295,7 +295,7 @@ void GUIRenderer::init ()
 
 		renderer->destroyStagingBuffer(stagingBuffer);
 
-		fontAtlasDescriptor = renderer->allocateDescriptorSet(guiTextureDescriptorPool);
+		fontAtlasDescriptor = guiTextureDescriptorPool->allocateDescriptorSet();
 
 		RendererDescriptorWriteInfo write0 = {};
 		write0.dstSet = fontAtlasDescriptor;
@@ -312,7 +312,7 @@ void GUIRenderer::init ()
 		whiteTexture = temp_engine->resources->loadTextureImmediate("/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/GameData/textures/test-png.png");
 		whiteTextureView = renderer->createTextureView(whiteTexture->texture);
 
-		whiteTextureDescriptor = renderer->allocateDescriptorSet(guiTextureDescriptorPool);
+		whiteTextureDescriptor = guiTextureDescriptorPool->allocateDescriptorSet();
 
 		RendererDescriptorWriteInfo write0 = {};
 		write0.dstSet = whiteTextureDescriptor;
@@ -346,11 +346,11 @@ void GUIRenderer::destroy ()
 
 	temp_engine->resources->returnTexture(whiteTexture);
 	renderer->destroyTextureView(whiteTextureView);
-	renderer->freeDescriptorSet(guiTextureDescriptorPool, whiteTextureDescriptor);
+	//guiTextureDescriptorPool->freeDescriptorSet(whiteTextureDescriptor);
 
 	renderer->destroyTexture(fontAtlas);
 	renderer->destroyTextureView(fontAtlasView);
-	renderer->freeDescriptorSet(guiTextureDescriptorPool, fontAtlasDescriptor);
+	//guiTextureDescriptorPool->freeDescriptorSet(fontAtlasDescriptor);
 
 	renderer->destroyCommandPool(testGUICommandPool);
 	renderer->destroyDescriptorPool(guiTextureDescriptorPool);

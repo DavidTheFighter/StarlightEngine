@@ -45,10 +45,6 @@ class VulkanRenderer : public Renderer
 		void initRenderer ();
 
 		CommandPool createCommandPool (QueueType queue, CommandPoolFlags flags);
-		void resetCommandPool (CommandPool pool, bool releaseResources);
-
-		CommandBuffer allocateCommandBuffer (CommandPool pool, CommandBufferLevel level);
-		std::vector<CommandBuffer> allocateCommandBuffers (CommandPool pool, CommandBufferLevel level, uint32_t commandBufferCount);
 
 		void submitToQueue (QueueType queue, const std::vector<CommandBuffer> &cmdBuffers, const std::vector<Semaphore> &waitSemaphores, const std::vector<PipelineStageFlags> &waitSemaphoreStages, const std::vector<Semaphore> &signalSemaphores, Fence fence);
 		void waitForQueueIdle (QueueType queue);
@@ -68,9 +64,6 @@ class VulkanRenderer : public Renderer
 		PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts);
 		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass);
 		DescriptorPool createDescriptorPool (const std::vector<DescriptorSetLayoutBinding> &layoutBindings, uint32_t poolBlockAllocSize);
-
-		DescriptorSet allocateDescriptorSet (DescriptorPool pool);
-		std::vector<DescriptorSet> allocateDescriptorSets (DescriptorPool pool, uint32_t setCount);
 
 		Fence createFence (bool createAsSignaled);
 		Semaphore createSemaphore ();
@@ -93,7 +86,6 @@ class VulkanRenderer : public Renderer
 		void destroyPipeline (Pipeline pipeline);
 		void destroyShaderModule (ShaderModule module);
 		void destroyDescriptorPool (DescriptorPool pool);
-		void freeDescriptorSet (DescriptorPool pool, DescriptorSet set);
 		void destroyTexture (Texture texture);
 		void destroyTextureView (TextureView textureView);
 		void destroySampler (Sampler sampler);
@@ -102,9 +94,6 @@ class VulkanRenderer : public Renderer
 
 		void destroyFence (Fence fence);
 		void destroySemaphore (Semaphore sem);
-
-		void freeCommandBuffer (CommandBuffer commandBuffer);
-		void freeCommandBuffers (const std::vector<CommandBuffer> &commandBuffers);
 
 		void setObjectDebugName (void *obj, RendererObjectType objType, const std::string &name);
 
@@ -117,6 +106,8 @@ class VulkanRenderer : public Renderer
 
 		bool checkExtraSurfacePresentSupport(VkSurfaceKHR surface);
 
+		VulkanDescriptorPoolObject createDescPoolObject (const std::vector<VkDescriptorPoolSize> &poolSizes, uint32_t maxSets);
+
 	private:
 
 
@@ -128,8 +119,6 @@ class VulkanRenderer : public Renderer
 		void createLogicalDevice ();
 
 		void cleanupVulkan ();
-
-		VulkanDescriptorPoolObject createDescPoolObject (const std::vector<VkDescriptorPoolSize> &poolSizes, uint32_t maxSets);
 
 		DeviceQueues findQueueFamilies (VkPhysicalDevice physDevice);
 		std::vector<const char*> getInstanceExtensions ();
