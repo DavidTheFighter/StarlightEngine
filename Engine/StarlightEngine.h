@@ -67,6 +67,7 @@ class StarlightEngine
 		void quit ();
 
 		double getTime();
+		std::string getWorkingDir();
 
 		static void windowResizeEventCallback (const EventWindowResizeData &eventData, void *usrPtr);
 
@@ -74,6 +75,8 @@ class StarlightEngine
 
 		std::vector<std::string> launchArgs;
 		std::vector<GameState*> gameStates;
+
+		std::string workingDir;
 
 		double lastUpdateTime;
 

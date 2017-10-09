@@ -274,7 +274,7 @@ void GUIRenderer::init ()
     struct nk_font_config cfg = nk_font_config(512);
     cfg.oversample_h = 4;
     cfg.oversample_v = 4;
-	nk_font *font_clean = nk_font_atlas_add_from_file(&atlas, std::string("/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/GameData/fonts/Cousine-Regular.ttf").c_str(), 18, &cfg);
+	nk_font *font_clean = nk_font_atlas_add_from_file(&atlas, std::string(temp_engine->getWorkingDir() + "GameData/fonts/Cousine-Regular.ttf").c_str(), 18, &cfg);
 
 	int atlasWidth, atlasHeight;
 	const void *imageData = nk_font_atlas_bake(&atlas, &atlasWidth, &atlasHeight, NK_FONT_ATLAS_RGBA32);
@@ -309,7 +309,7 @@ void GUIRenderer::init ()
 	}
 
 	{
-		whiteTexture = temp_engine->resources->loadTextureImmediate("/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/GameData/textures/test-png.png");
+		whiteTexture = temp_engine->resources->loadTextureImmediate(temp_engine->getWorkingDir() + "GameData/textures/test-png.png");
 		whiteTextureView = renderer->createTextureView(whiteTexture->texture);
 
 		whiteTextureDescriptor = guiTextureDescriptorPool->allocateDescriptorSet();
@@ -396,8 +396,8 @@ void GUIRenderer::createRenderPass ()
 
 void GUIRenderer::createGraphicsPipeline ()
 {
-	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = renderer->createShaderModule(temp_engine->getWorkingDir() + "GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_VERTEX_BIT);
+	ShaderModule fragShader = renderer->createShaderModule(temp_engine->getWorkingDir() + "GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_FRAGMENT_BIT);
 
 	VertexInputBinding bindingDesc;
 	bindingDesc.binding = 0;

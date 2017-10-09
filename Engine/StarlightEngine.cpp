@@ -64,6 +64,8 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 {
 	engineIsRunning = true;
 
+	workingDir = "";
+
 	EventHandler::instance()->registerObserver(EVENT_WINDOW_RESIZE, windowResizeEventCallback, this);
 
 	mainWindow = new Window(rendererBackendType);
@@ -75,11 +77,11 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	renderAlloc.mainWindow = mainWindow;
 
 	renderer = Renderer::allocateRenderer(renderAlloc);
-
+	renderer->workingDir = workingDir;
 	renderer->initRenderer();
 	renderer->initSwapchain(mainWindow);
 
-	resources = new ResourceManager(renderer);
+	resources = new ResourceManager(renderer, workingDir);
 	guiRenderer = new GUIRenderer(renderer);
 	guiRenderer->temp_engine = this;
 
@@ -134,8 +136,11 @@ void StarlightEngine::update ()
 
 		if (getTime() - lastUpdateTime < frameTimeTarget)
 		{
+#ifdef __linux__
 			usleep(uint32_t(std::max<double>(frameTimeTarget - (getTime() - lastUpdateTime) - 0.001, 0) * 1000000.0));
-
+#elif defined(__WIN32)
+		Sleep(DWORD(std::max<double>(frameTimeTarget - (getTime() - lastUpdateTime) - 0.001, 0) * 1000.0));
+#endif
 			while (getTime() - lastUpdateTime < frameTimeTarget)
 			{
 				// Busy wait for the rest of the time
@@ -177,6 +182,11 @@ void StarlightEngine::render ()
 double StarlightEngine::getTime ()
 {
 	return glfwGetTime();
+}
+
+std::string StarlightEngine::getWorkingDir()
+{
+	return workingDir;
 }
 
 void StarlightEngine::changeState (GameState *state)

@@ -34,12 +34,20 @@
 
 #ifdef __linux__
 #include <unistd.h>
+#elif defined(__WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #endif
 
 #define GLFW_DOUBLE_PRESS 3
 
 #include <lodepng.h>
+
+#ifdef _WIN32
+#include <shaderc/shaderc.hpp>
+#elif defined(__linux__)
 #include <libshaderc/shaderc.hpp>
+#endif
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -66,6 +74,10 @@
 #define COMPILER_BARRIER() asm volatile("" ::: "memory")
 
 #define DEBUG_ASSERT(x) if (!(x)) { printf("%s Assertion failed @ file %s, line %i\n", ERR_PREFIX, __FILE__, __LINE__); throw std::runtime_error("failed assertion"); }
+
+#ifndef M_PI
+#define M_PI 3.1415926
+#endif
 
 /*
  * For some reasons, simple POD structs are faster than glm's vecs, so I'm
@@ -133,10 +145,12 @@ inline std::vector<std::string> split (const std::string &s, char delim)
 
 inline std::vector<char> readFile (const std::string& filename)
 {
-	std::ifstream file("/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/" + filename, std::ios::ate | std::ios::binary);
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
 	if (!file.is_open())
 	{
+		printf("%s Failed to open file: %s\n", ERR_PREFIX, filename.c_str());
+
 		throw std::runtime_error("failed to open file!");
 	}
 

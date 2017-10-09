@@ -68,8 +68,11 @@ void VulkanSwapchain::init ()
 {
 	const std::string tempSwapchainShaderFile = "GameData/shaders/vulkan/temp-swapchain.glsl";
 
-	swapchainVertShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, tempSwapchainShaderFile, VK_SHADER_STAGE_VERTEX_BIT));
-	swapchainFragShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, tempSwapchainShaderFile, VK_SHADER_STAGE_FRAGMENT_BIT));
+	swapchainVertShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, renderer->workingDir + tempSwapchainShaderFile, VK_SHADER_STAGE_VERTEX_BIT));
+	swapchainFragShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, renderer->workingDir + tempSwapchainShaderFile, VK_SHADER_STAGE_FRAGMENT_BIT));
+
+	//swapchainVertShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::loadSpv("GameData/shaders/vulkan/temp-swapchain.vert.spv"));
+	//swapchainFragShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::loadSpv("GameData/shaders/vulkan/temp-swapchain.frag.spv"));
 
 	debugMarkerSetName(renderer->device, swapchainVertShader, VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT, ".../vulkan/temp-swapchain.glsl");
 	debugMarkerSetName(renderer->device, swapchainFragShader, VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT, ".../vulkan/temp-swapchain.glsl");
@@ -802,13 +805,13 @@ VkSurfaceFormatKHR VulkanSwapchain::chooseSwapSurfaceFormat (const std::vector<V
 
 VkPresentModeKHR VulkanSwapchain::chooseSwapPresentMode (const std::vector<VkPresentModeKHR> availablePresentModes)
 {
+	return VK_PRESENT_MODE_FIFO_KHR;
 	VkPresentModeKHR bestMode = VK_PRESENT_MODE_FIFO_KHR;
 
 	for (const auto& availablePresentMode : availablePresentModes)
 	{
 		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
 		{
-			printf("Mailbox\n");
 			return VK_PRESENT_MODE_MAILBOX_KHR;
 		}
 		else if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)

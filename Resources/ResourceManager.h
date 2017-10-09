@@ -46,7 +46,7 @@ struct RendererCommandPool;
 class ResourceManager
 {
 	public:
-		ResourceManager (Renderer *rendererInstance);
+		ResourceManager (Renderer *rendererInstance, const std::string &gameWorkingDirectory);
 		virtual ~ResourceManager ();
 
 		ResourceMesh loadMeshImmediate (const std::string &file, const std::string &mesh);
@@ -58,6 +58,8 @@ class ResourceManager
 		static std::vector<char> getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData = true);
 
 	private:
+
+		std::string workingDir;
 
 		Renderer *renderer;
 		RendererCommandPool *mainThreadTransferCommandPool;

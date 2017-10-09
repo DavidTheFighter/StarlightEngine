@@ -25,6 +25,9 @@ typedef struct RendererAllocInfo
 class Renderer
 {
 	public:
+
+		std::string workingDir;
+
 		Renderer ();
 		virtual ~Renderer ();
 
