@@ -30,11 +30,14 @@
 #ifndef RENDERING_D3D11_D3D11RENDERER_H_
 #define RENDERING_D3D11_D3D11RENDERER_H_
 
+#ifdef _WIN32
+
 #include <common.h>
 #include <Rendering/D3D11/d3d11_common.h>
 
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/D3D11/D3D11Objects.h>
+#include <Rendering/D3D11/D3D11Enums.h>
 
 class D3D11Renderer : public Renderer
 {
@@ -115,5 +118,7 @@ class D3D11Renderer : public Renderer
 		ID3D11DeviceContext *deviceContext;
 		ID3D11RenderTargetView *swapchainRTV;
 };
+
+#endif
 
 #endif /* RENDERING_D3D11_D3D11RENDERER_H_ */

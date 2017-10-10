@@ -335,8 +335,8 @@ void GUIRenderer::init ()
 	createRenderPass();
 	createGraphicsPipeline();
 
-	guiVertexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_VERTEX_BUFFER_BIT, MEMORY_USAGE_CPU_ONLY, false);
-	guiIndexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_INDEX_BUFFER_BIT, MEMORY_USAGE_CPU_ONLY, false);
+	guiVertexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_VERTEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, false);
+	guiIndexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_INDEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, false);
 }
 
 void GUIRenderer::destroy ()

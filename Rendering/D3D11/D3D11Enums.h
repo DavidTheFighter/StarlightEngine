@@ -21,34 +21,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * D3D11Objects.h
+ * D3D11Enums.h
  * 
  * Created on: Oct 9, 2017
  *     Author: David
  */
 
-#ifndef RENDERING_D3D11_D3D11OBJECTS_H_
-#define RENDERING_D3D11_D3D11OBJECTS_H_
-
-#include <common.h>
-#include <Rendering/D3D11/d3d11_common.h>
+#ifndef RENDERING_D3D11_D3D11ENUMS_H_
+#define RENDERING_D3D11_D3D11ENUMS_H_
 
 #ifdef _WIN32
 
-struct D3D11Buffer : public RendererBuffer
+inline UINT toD3D11BindFlags (BufferUsageFlags flags)
 {
-		ID3D11Buffer *bufferHandle;
-};
+	UINT d3dFlags = 0;
+	d3dFlags |= (flags & BUFFER_USAGE_VERTEX_BUFFER_BIT) ? D3D11_BIND_VERTEX_BUFFER : 0;
+	d3dFlags |= (flags & BUFFER_USAGE_INDEX_BUFFER_BIT) ? D3D11_BIND_INDEX_BUFFER : 0;
+	d3dFlags |= (flags & BUFFER_USAGE_UNIFORM_BUFFER_BIT) ? D3D11_BIND_CONSTANT_BUFFER : 0;
 
-struct D3D11DescriptorSet : public RendererDescriptorSet
-{
-
-};
-
-#include <Rendering/D3D11/D3D11CommandPool.h>
-#include <Rendering/D3D11/D3D11CommandBuffer.h>
-#include <Rendering/D3D11/D3D11DescriptorPool.h>
+	return d3dFlags;
+}
 
 #endif
 
-#endif /* RENDERING_D3D11_D3D11OBJECTS_H_ */
+#endif /* RENDERING_D3D11_D3D11ENUMS_H_ */

@@ -30,6 +30,8 @@
 #ifndef RENDERING_D3D11_D3D11_COMMON_H_
 #define RENDERING_D3D11_D3D11_COMMON_H_
 
+#ifdef _WIN32
+
 #include <GLFW/glfw3.h>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -58,14 +60,16 @@ inline std::string getHRESULTString (HRESULT hr)
 	}
 }
 
-#define CHECK_HRESULT(x)																																	\
-{																																							\
-	HRESULT check_hresult_var_hr = (x);																														\
-	if (check_hresult_var_hr != S_OK)																														\
-	{																																						\
-		printf("%s HRESULT is \"%s\", in file \"%s\", at line %i\n", ERR_PREFIX, getHRESULTString(check_hresult_var_hr).c_str(), __FILE__, __LINE__);		\
-		throw std::runtime_error("d3d11 error");																											\
-	}																																						\
+#define CHECK_HRESULT(x)																																								\
+{																																														\
+	HRESULT check_hresult_var_hr = (x);																																					\
+	if (check_hresult_var_hr != S_OK)																																					\
+	{																																													\
+		printf("%s HRESULT is \"%s\", in file \"%s\", at line %i, function: %s(..)\n", ERR_PREFIX, getHRESULTString(check_hresult_var_hr).c_str(), __FILE__, __LINE__, __FUNCTION__);		\
+		throw std::runtime_error("d3d11 error");																																		\
+	}																																													\
 }
+
+#endif
 
 #endif /* RENDERING_D3D11_D3D11_COMMON_H_ */

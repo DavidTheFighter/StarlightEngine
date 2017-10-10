@@ -27,6 +27,7 @@
  *     Author: David
  */
 
+#ifdef _WIN32
 #include "Rendering/D3D11/D3D11Renderer.h"
 
 #include <Input/Window.h>
@@ -167,6 +168,35 @@ Sampler D3D11Renderer::createSampler (SamplerAddressMode addressMode, SamplerFil
 
 Buffer D3D11Renderer::createBuffer (size_t size, BufferUsageFlags usage, MemoryUsage memUsage, bool ownMemory)
 {
+	D3D11Buffer *buffer = new D3D11Buffer();
+
+	D3D11_BUFFER_DESC bufferDesc = {};
+	bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	bufferDesc.ByteWidth = static_cast<UINT> (size);
+	bufferDesc.BindFlags = toD3D11BindFlags(usage);
+	bufferDesc.CPUAccessFlags = 0;
+	bufferDesc.MiscFlags = 0;
+
+	switch (memUsage)
+	{
+		case MEMORY_USAGE_CPU_ONLY:
+			bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+			bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+			break;
+		case MEMORY_USAGE_CPU_TO_GPU:
+			bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+			bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+			break;
+		default:
+			break;
+	}
+
+	D3D11_SUBRESOURCE_DATA subresourceData = {};
+	subresourceData.pSysMem = NULL;
+
+	CHECK_HRESULT(device->CreateBuffer(&bufferDesc, &subresourceData, &buffer->bufferHandle));
+
+	return buffer;
 }
 
 void D3D11Renderer::mapBuffer (Buffer buffer, size_t dataSize, const void* data)
@@ -340,3 +370,5 @@ void D3D11Renderer::recreateSwapchain (Window* wnd)
 void D3D11Renderer::setSwapchainTexture (Window* wnd, TextureView texView, Sampler sampler, TextureLayout layout)
 {
 }
+
+#endif

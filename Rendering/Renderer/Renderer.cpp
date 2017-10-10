@@ -30,7 +30,9 @@ RendererBackend Renderer::chooseRendererBackend (const std::vector<std::string>&
 	}
 	else if (std::find(launchArgs.end(), launchArgs.end(), "-force_d3d11") != launchArgs.end())
 	{
+#ifdef _WIN32
 		return RENDERER_BACKEND_D3D11;
+#endif
 	}
 
 #ifdef __linux__
@@ -54,6 +56,7 @@ Renderer* Renderer::allocateRenderer (const RendererAllocInfo& allocInfo)
 
 			return renderer;
 		}
+#ifdef _WIN32
 		case RENDERER_BACKEND_D3D11:
 		{
 			printf("%s Allocating renderer w/ D3D11 backend\n", INFO_PREFIX);
@@ -62,6 +65,7 @@ Renderer* Renderer::allocateRenderer (const RendererAllocInfo& allocInfo)
 
 			return renderer;
 		}
+#endif
 		default:
 		{
 			return nullptr;
