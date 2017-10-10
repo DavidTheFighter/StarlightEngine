@@ -66,10 +66,10 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 
 	workingDir = "";
 
-	EventHandler::instance()->registerObserver(EVENT_WINDOW_RESIZE, windowResizeEventCallback, this);
-
 	mainWindow = new Window(rendererBackendType);
 	mainWindow->initWindow(0, 0, APP_NAME);
+
+	EventHandler::instance()->registerObserver(EVENT_WINDOW_RESIZE, windowResizeEventCallback, this);
 
 	RendererAllocInfo renderAlloc = {};
 	renderAlloc.backend = rendererBackendType;
@@ -79,7 +79,6 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	renderer = Renderer::allocateRenderer(renderAlloc);
 	renderer->workingDir = workingDir;
 	renderer->initRenderer();
-	renderer->initSwapchain(mainWindow);
 
 	resources = new ResourceManager(renderer, workingDir);
 	guiRenderer = new GUIRenderer(renderer);
@@ -108,7 +107,7 @@ void StarlightEngine::destroy ()
 
 void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &eventData, void *usrPtr)
 {
-	StarlightEngine *enginePtr = static_cast<StarlightEngine*> (usrPtr);
+	StarlightEngine *enginePtr = static_cast<StarlightEngine*>(usrPtr);
 
 	enginePtr->renderer->recreateSwapchain(enginePtr->mainWindow);
 }
@@ -139,7 +138,7 @@ void StarlightEngine::update ()
 #ifdef __linux__
 			usleep(uint32_t(std::max<double>(frameTimeTarget - (getTime() - lastUpdateTime) - 0.001, 0) * 1000000.0));
 #elif defined(__WIN32)
-		Sleep(DWORD(std::max<double>(frameTimeTarget - (getTime() - lastUpdateTime) - 0.001, 0) * 1000.0));
+			Sleep(DWORD(std::max<double>(frameTimeTarget - (getTime() - lastUpdateTime) - 0.001, 0) * 1000.0));
 #endif
 			while (getTime() - lastUpdateTime < frameTimeTarget)
 			{
@@ -184,7 +183,7 @@ double StarlightEngine::getTime ()
 	return glfwGetTime();
 }
 
-std::string StarlightEngine::getWorkingDir()
+std::string StarlightEngine::getWorkingDir ()
 {
 	return workingDir;
 }
@@ -236,7 +235,7 @@ void StarlightEngine::quit ()
 	engineIsRunning = false;
 }
 
-GameState::~GameState()
+GameState::~GameState ()
 {
 
 }

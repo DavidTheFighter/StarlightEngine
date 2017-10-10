@@ -7,6 +7,7 @@
 
 #include "Rendering/Renderer/Renderer.h"
 #include <Rendering/Vulkan/VulkanRenderer.h>
+#include <Rendering/D3D11/D3D11Renderer.h>
 
 Renderer::Renderer ()
 {
@@ -27,12 +28,16 @@ RendererBackend Renderer::chooseRendererBackend (const std::vector<std::string>&
 	{
 		return RENDERER_BACKEND_VULKAN;
 	}
-
-	// Just default to vulkan for now
-	if (true)
+	else if (std::find(launchArgs.end(), launchArgs.end(), "-force_d3d11") != launchArgs.end())
 	{
-		return RENDERER_BACKEND_VULKAN;
+		return RENDERER_BACKEND_D3D11;
 	}
+
+#ifdef __linux__
+	return RENDERER_BACKEND_VULKAN;
+#elif defined(_WIN32)
+	return RENDERER_BACKEND_D3D11;
+#endif
 
 	return RENDERER_BACKEND_MAX_ENUM;
 }
@@ -45,7 +50,15 @@ Renderer* Renderer::allocateRenderer (const RendererAllocInfo& allocInfo)
 		{
 			printf("%s Allocating renderer w/ Vulkan backend\n", INFO_PREFIX);
 
-			VulkanRenderer* renderer = new VulkanRenderer(allocInfo);
+			VulkanRenderer *renderer = new VulkanRenderer(allocInfo);
+
+			return renderer;
+		}
+		case RENDERER_BACKEND_D3D11:
+		{
+			printf("%s Allocating renderer w/ D3D11 backend\n", INFO_PREFIX);
+
+			D3D11Renderer *renderer = new D3D11Renderer(allocInfo);
 
 			return renderer;
 		}

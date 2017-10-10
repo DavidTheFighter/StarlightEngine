@@ -50,7 +50,7 @@ int main (int argc, char *argv[])
 	}
 
 	launchArgs.push_back("-enable_vulkan_layers");
-	launchArgs.push_back("-force_vulkan");
+	//launchArgs.push_back("-force_vulkan");
 
 	printEnvironment(launchArgs);
 
@@ -59,6 +59,7 @@ int main (int argc, char *argv[])
 	switch (rendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
+		case RENDERER_BACKEND_D3D11:
 		{
 			glfwInit();
 
@@ -118,6 +119,7 @@ int main (int argc, char *argv[])
 	switch (rendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
+		case RENDERER_BACKEND_D3D11:
 		{
 			glfwTerminate();
 

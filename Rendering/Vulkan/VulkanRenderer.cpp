@@ -119,6 +119,7 @@ void VulkanRenderer::initRenderer ()
 	defaultCompiler = new shaderc::Compiler();
 
 	swapchains->init();
+	initSwapchain(onAllocInfo.mainWindow);
 }
 
 void VulkanRenderer::cleanupVulkan ()
