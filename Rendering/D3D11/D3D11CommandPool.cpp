@@ -27,6 +27,7 @@
  *     Author: David
  */
 
+#ifdef _WIN32
 #include "Rendering/D3D11/D3D11CommandPool.h"
 
 #include <Rendering/D3D11/D3D11CommandBuffer.h>
@@ -72,3 +73,4 @@ void D3D11CommandPool::resetCommandPool (bool releaseResources)
 {
 
 }
+#endif

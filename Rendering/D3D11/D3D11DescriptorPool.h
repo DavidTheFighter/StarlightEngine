@@ -27,6 +27,7 @@
  *     Author: David
  */
 
+#ifdef _WIN32
 #ifndef RENDERING_D3D11_D3D11DESCRIPTORPOOL_H_
 #define RENDERING_D3D11_D3D11DESCRIPTORPOOL_H_
 
@@ -49,3 +50,4 @@ class D3D11DescriptorPool : public RendererDescriptorPool
 };
 
 #endif /* RENDERING_D3D11_D3D11DESCRIPTORPOOL_H_ */
+#endif

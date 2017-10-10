@@ -27,6 +27,7 @@
  *     Author: David
  */
 
+#ifdef _WIN32
 #ifndef RENDERING_D3D11_D3D11COMMANDBUFFER_H_
 #define RENDERING_D3D11_D3D11COMMANDBUFFER_H_
 
@@ -72,3 +73,4 @@ class D3D11CommandBuffer : public RendererCommandBuffer
 };
 
 #endif /* RENDERING_D3D11_D3D11COMMANDBUFFER_H_ */
+#endif
