@@ -34,6 +34,7 @@
 
 #include <Engine/StarlightEngine.h>
 #include <Engine/GameStateTitleScreen.h>
+#include <Engine/GameStateInWorld.h>
 
 void printEnvironment (std::vector<std::string> launchArgs);
 
@@ -78,31 +79,18 @@ int main (int argc, char *argv[])
 
 	// Startup the game with the title screen
 	GameStateTitleScreen *titleScreen = new GameStateTitleScreen(gameEngine);
+	GameStateInWorld *inWorld = new GameStateInWorld(gameEngine);
 
-	gameEngine->changeState(titleScreen);
+	//gameEngine->changeState(titleScreen);
+	gameEngine->changeState(inWorld);
 
 	printf("%s Completed startup\n", INFO_PREFIX);
 
 	do
 	{
-		/*
-		 if (true)
-		 {
-		 if (glfwGetTime() - lastTime < frameTimeTarget)
-		 {
-		 usleep(uint32_t(std::max<double>(frameTimeTarget - (glfwGetTime() - lastTime) - 0.001, 0) * 1000000.0));
-
-		 while (glfwGetTime() - lastTime < frameTimeTarget)
-		 {
-		 // Busy wait for the rest of the time
-		 }
-		 }
-		 }
-		 */
-
+		gameEngine->handleEvents();
 		gameEngine->update();
 		gameEngine->render();
-		gameEngine->handleEvents();
 	}
 	while (gameEngine->isRunning());
 
@@ -110,6 +98,7 @@ int main (int argc, char *argv[])
 
 	gameEngine->destroy();
 
+	delete inWorld;
 	delete titleScreen;
 	delete gameEngine;
 

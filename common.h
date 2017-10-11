@@ -115,6 +115,21 @@ typedef struct simple_integer_vector_4
 		int32_t x, y, z, w;
 } sivec4;
 
+typedef struct simple_unsigned_integer_vector_2
+{
+		uint32_t x, y;
+} suvec2;
+
+typedef struct simple_unsigned_integer_vector_3
+{
+		uint32_t x, y, z;
+} suvec3;
+
+typedef struct simple_unsigned_integer_vector_4
+{
+		uint32_t x, y, z, w;
+} suvec4;
+
 template<typename T0>
 inline std::string toString (T0 arg)
 {

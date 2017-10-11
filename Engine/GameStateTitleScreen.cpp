@@ -48,17 +48,17 @@ GameStateTitleScreen::GameStateTitleScreen (StarlightEngine *enginePtr)
 	titleScreenSampler = nullptr;
 
 	titleScreenFramebuffer = nullptr;
-
-	EventHandler::instance()->registerObserver(EVENT_WINDOW_RESIZE, gameWindowResizedCallback, this);
 }
 
 GameStateTitleScreen::~GameStateTitleScreen ()
 {
-	EventHandler::instance()->removeObserver(EVENT_WINDOW_RESIZE, gameWindowResizedCallback, this);
+
 }
 
 void GameStateTitleScreen::init ()
 {
+	EventHandler::instance()->registerObserver(EVENT_WINDOW_RESIZE, gameWindowResizedCallback, this);
+
 	titleScreenCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
 
 	titleScreenSampler = engine->renderer->createSampler();
@@ -73,6 +73,8 @@ void GameStateTitleScreen::destroy ()
 	engine->renderer->destroySampler(titleScreenSampler);
 
 	engine->renderer->destroyCommandPool(titleScreenCommandPool);
+
+	EventHandler::instance()->removeObserver(EVENT_WINDOW_RESIZE, gameWindowResizedCallback, this);
 }
 
 void GameStateTitleScreen::handleEvents ()
