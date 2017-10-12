@@ -112,15 +112,15 @@ void Window::glfwWindowCursorMoveCallback (GLFWwindow* window, double newCursorX
 {
 	Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
 
-	windowInstance->cursorX = newCursorX;
-	windowInstance->cursorY = newCursorY;
-
 	EventCursorMoveData eventData = {};
 	eventData.window = windowInstance;
 	eventData.cursorX = newCursorX;
 	eventData.cursorY = newCursorY;
 	eventData.oldCursorX = windowInstance->cursorX;
 	eventData.oldCursorY = windowInstance->cursorY;
+
+	windowInstance->cursorX = newCursorX;
+	windowInstance->cursorY = newCursorY;
 
 	EventHandler::instance()->triggerEvent(EVENT_CURSOR_MOVE, eventData);
 }

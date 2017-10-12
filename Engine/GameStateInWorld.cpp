@@ -68,7 +68,8 @@ void GameStateInWorld::init ()
 	presentSampler = engine->renderer->createSampler();
 
 	Level *testLevel = new Level();
-	*testLevel = {};
+	*testLevel =
+	{};
 
 	world->setActiveLevel(testLevel);
 }
@@ -115,7 +116,7 @@ void GameStateInWorld::update ()
 
 void GameStateInWorld::render ()
 {
-
+	worldRenderer->render();
 }
 
 void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, void *usrPtr)

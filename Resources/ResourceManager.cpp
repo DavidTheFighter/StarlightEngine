@@ -246,7 +246,7 @@ ResourceMeshData ResourceManager::loadRawMeshData (const std::string &file, cons
 
 	std::unique_lock<std::mutex> lock(assimpImporter_mutex);
 
-	const aiScene* scene = assimpImporter.ReadFile(workingDir + file, aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_ImproveCacheLocality);
+	const aiScene* scene = assimpImporter.ReadFile(file, aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_ImproveCacheLocality);
 
 	if (!scene)
 	{

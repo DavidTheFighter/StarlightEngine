@@ -66,7 +66,7 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 {
 	engineIsRunning = true;
 
-	workingDir = "";
+	workingDir = "/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/";
 
 	mainWindow = new Window(rendererBackendType);
 	mainWindow->initWindow(0, 0, APP_NAME);

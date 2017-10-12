@@ -48,6 +48,8 @@ class WorldRenderer
 		StarlightEngine *engine;
 		WorldHandler *world;
 
+		CommandPool testCommandPool;
+
 		glm::mat4 camProjMat;
 		glm::mat4 camViewMat;
 
@@ -57,6 +59,8 @@ class WorldRenderer
 		void init (suvec2 gbufferDimensions);
 		void destroy ();
 
+		void render ();
+
 		void setGBufferDimensions (suvec2 gbufferDimensions);
 		suvec2 getGBufferDimensions ();
 
@@ -65,16 +69,22 @@ class WorldRenderer
 		void createGBuffer ();
 		void destroyGBuffer ();
 		void createRenderPasses ();
+		void createTestMaterialPipeline ();
 
 		bool isDestroyed; // So that when an instance is deleted, destroy() is always called, either by the user or by the destructor
 
 		suvec2 gbufferRenderDimensions;
 
 		RenderPass gbufferRenderPass;
+		PipelineInputLayout testMaterialPipelineInputLayout;
+		Pipeline testMaterialPipeline;
+		Framebuffer gbufferFramebuffer;
 
 		Texture gbuffer_AlbedoRoughness; // RGB - Albedo, A - Roughness
 		Texture gbuffer_NormalMetalness; // RGB - World Normal, A - Metalness
 		Texture gbuffer_Depth;
+
+		Sampler testSampler;
 };
 
 #endif /* RENDERING_WORLD_WORLDRENDERER_H_ */

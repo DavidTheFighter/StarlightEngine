@@ -46,7 +46,7 @@
 
 	void main()
 	{	
-		diffuse_roughness = vec4(texture(material_tex0, inUV).rgb, 1);
+		diffuse_roughness = vec4(vec3(1, 0.5f, 1), 1);
 		normal_metalness = vec4(normalize(inNormal) * 0.5f + 0.5f, 0);
 	}
 

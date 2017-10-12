@@ -52,7 +52,7 @@ void Game::init ()
 	EventHandler::instance()->registerObserver(EVENT_MOUSE_BUTTON, windowMouseButtonCallback, this);
 
 	mainCamera =
-	{	glm::vec3(100)};
+	{	glm::vec3(0)};
 }
 
 void Game::update (float delta)
