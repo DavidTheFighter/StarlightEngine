@@ -150,5 +150,98 @@ typedef struct ResourceTextureObject
 		RendererTexture *texture;
 } *ResourceTexture;
 
+#define RESOURCE_DEF_MAX_NAME_LENGTH 64
+#define RESOURCE_DEF_MAX_FILE_LENGTH 128
+#define MATERIAL_DEF_MAX_TEXTURE_NUM 5
+
+/*
+ * The definition for a material. It includes it's unique name, all of the
+ * constituent textures, it's material properties, etc.
+ */
+typedef struct ResourceMaterialDefinition
+{
+		// The unique name/identifier of material, MUST be the only loaded material definition with this uniqueName
+		char uniqueName[RESOURCE_DEF_MAX_NAME_LENGTH];
+
+		/*
+		 * The list of textures used in the material, specifying the file
+		 * that the texture is from. Files should be specified relative to
+		 * the root game dir, so a texture in "${GAME_DIR}/GameData/textures/blah.png"
+		 * would be specified as "GameData/textures/blah.png". There should be NO slash
+		 * as the first character.
+		 *
+		 * The textures can be used for anything, with a max of 8 textures, as long as
+		 * the pipeline specified with this material is compatible with it.
+		 */
+		char textureFiles[MATERIAL_DEF_MAX_TEXTURE_NUM][RESOURCE_DEF_MAX_FILE_LENGTH];
+
+		/*
+		 * The graphics pipeline definition that this material will use to render.
+		 * I've decided to enforce using separate definitions to enforce that materials
+		 * should try and use as few pipelines as possible, instead of allowing
+		 * individual settings for each material and selecting a pipeline from a cache.
+		 */
+		char pipelineUniqueName[RESOURCE_DEF_MAX_NAME_LENGTH];
+
+		/*
+		 * The list of sampler definitions, as each material will get it's own
+		 * descriptor set & immutable sampler (from a cache).
+		 */
+
+		bool enableAnisotropy;
+		SamplerAddressMode addressMode; // Note only repeat, mirrored repeat, and clamp to edge are valid, clamp to border is disabled for now
+		bool linearFiltering;
+		bool linearMipmapFiltering;
+
+} MaterialDef;
+
+typedef struct ResourcePipelineDefinition
+{
+		// The unique name/identifier of pipeline, MUST be the only loaded pipeline definition with this uniqueName
+		char uniqueName[RESOURCE_DEF_MAX_NAME_LENGTH];
+
+		/*
+		 * The list of shaders used in this pipeline. For optional stages,
+		 * they are considered omited if the string's length() == 0. The file
+		 * should be specified relative to the root game dir, so
+		 * "${GAME_DIR}/GameData/shaders/blah.glsl" would be specifed as
+		 * "GameData/shaders/blah.glsl"
+		 */
+
+		char vertexShaderFile[RESOURCE_DEF_MAX_FILE_LENGTH];
+		char tessControlShaderFile[RESOURCE_DEF_MAX_FILE_LENGTH];
+		char tessEvalShaderFile[RESOURCE_DEF_MAX_FILE_LENGTH];
+		char geometryShaderFile[RESOURCE_DEF_MAX_FILE_LENGTH];
+		char fragmentShaderFile[RESOURCE_DEF_MAX_FILE_LENGTH];
+
+		/*
+		 * The list of pipeline options, such as face culling.
+		 */
+
+		bool clockwiseFrontFace;
+		bool backfaceCulling;
+		bool frontfaceCullilng;
+		bool polygonLineMode;
+
+} PipelineDef;
+
+typedef struct ResourceMeshDefinition
+{
+		// The unique name/identifier of mesh, MUST be the only loaded mesh definition with this uniqueName
+		char uniqueName[RESOURCE_DEF_MAX_NAME_LENGTH];
+
+		// The file the mesh is to be loaded file
+		char meshFile[RESOURCE_DEF_MAX_FILE_LENGTH];
+
+		// The name of the mesh within the file to load, is ignored for custom binary formats w/ only one mesh per file
+		char meshName[RESOURCE_DEF_MAX_NAME_LENGTH];
+
+} MeshDef;
+
+typedef struct ResourceLevelDefinition
+{
+		char uniqueName[RESOURCE_DEF_MAX_NAME_LENGTH];
+} LevelDef;
+
 #endif /* RESOURCES_RESOURCES_H_ */
 

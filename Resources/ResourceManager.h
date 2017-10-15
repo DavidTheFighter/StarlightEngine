@@ -55,6 +55,16 @@ class ResourceManager
 		ResourceTexture loadTextureImmediate (const std::string &file, TextureFileFormat format = TEXTURE_FILE_FORMAT_MAX_ENUM);
 		void returnTexture (ResourceTexture tex);
 
+		void loadGameDefsFile (const std::string &file);
+
+		void addLevelDef (const LevelDef &def);
+		void addMaterialDef (const MaterialDef &def);
+		void addMeshDef (const MeshDef &def);
+
+		LevelDef *getLevelDef (const std::string &defUniqueName);
+		MaterialDef *getMaterialDef (const std::string &defUniqueName);
+		MeshDef *getMeshDef (const std::string &defUniqueName);
+
 		static std::vector<char> getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData = true);
 
 	private:
@@ -63,6 +73,15 @@ class ResourceManager
 
 		Renderer *renderer;
 		RendererCommandPool *mainThreadTransferCommandPool;
+
+		std::map<std::string, MaterialDef*> loadedMaterialDefsMap;
+		//std::vector<MaterialDef*> loadedMaterialDefs;
+
+		std::map<std::string, MeshDef*> loadedMeshDefsMap;
+		//std::vector<MeshDef*> loadedMeshDefs;
+
+		std::map<std::string, LevelDef*> loadedLevelDefsMap;
+		//std::vector<LevelDef*> loadedLevelDefs;
 
 		// Because I don't know the thread safety of assimp importers, the access is controlled by a mutex for now
 		// TODO Figure out assimp importer thread safety

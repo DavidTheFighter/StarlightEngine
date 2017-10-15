@@ -47,6 +47,65 @@ ResourceManager::~ResourceManager ()
 	// TODO Free all remaining resources when an instance of ResourceManager is deleted
 }
 
+void ResourceManager::loadGameDefsFile (const std::string &file)
+{
+
+}
+
+void ResourceManager::addLevelDef (const LevelDef &def)
+{
+	LevelDef *levelDef = new LevelDef();
+	*levelDef = def;
+
+	loadedLevelDefsMap[std::string(def.uniqueName)] = levelDef;
+}
+
+void ResourceManager::addMaterialDef (const MaterialDef &def)
+{
+	MaterialDef *matDef = new MaterialDef();
+	*matDef = def;
+
+	loadedMaterialDefsMap[std::string(def.uniqueName)] = matDef;
+}
+
+void ResourceManager::addMeshDef (const MeshDef &def)
+{
+	MeshDef *meshDef = new MeshDef();
+	*meshDef = def;
+
+	loadedMeshDefsMap[std::string(def.uniqueName)] = meshDef;
+}
+
+LevelDef *ResourceManager::getLevelDef (const std::string &defUniqueName)
+{
+	auto it = loadedLevelDefsMap.find(defUniqueName);
+
+	if (it != loadedLevelDefsMap.end())
+		return it->second;
+
+	return nullptr;
+}
+
+MaterialDef *ResourceManager::getMaterialDef (const std::string &defUniqueName)
+{
+	auto it = loadedMaterialDefsMap.find(defUniqueName);
+
+	if (it != loadedMaterialDefsMap.end())
+		return it->second;
+
+	return nullptr;
+}
+
+MeshDef *ResourceManager::getMeshDef (const std::string &defUniqueName)
+{
+	auto it = loadedMeshDefsMap.find(defUniqueName);
+
+	if (it != loadedMeshDefsMap.end())
+		return it->second;
+
+	return nullptr;
+}
+
 /*
  * Loads a mesh resource, complete with rendering data. This function is thread safe if called ONLY on the main thread,
  * and note that it might busy wait if the resource has already been requested to be loaded, but the
@@ -74,7 +133,7 @@ ResourceMesh ResourceManager::loadMeshImmediate (const std::string &file, const 
 		meshRes->interlaced = true;
 		meshRes->dataLoaded = true;
 
-		ResourceMeshData rawMeshData = loadRawMeshData (file, mesh);
+		ResourceMeshData rawMeshData = loadRawMeshData(file, mesh);
 		std::vector<char> formattedData = getFormattedMeshData(rawMeshData, rendererOptimizedMeshFormat, meshRes->indexChunkSize, meshRes->vertexStride, true);
 
 		meshRes->faceCount = rawMeshData.faceCount;
@@ -212,7 +271,7 @@ void ResourceManager::returnTexture (ResourceTexture tex)
 		if (it->second.second == 0)
 		{
 			loadedTextures.erase(it);
-			renderer->destroyTexture (tex->texture);
+			renderer->destroyTexture(tex->texture);
 
 			delete tex;
 		}

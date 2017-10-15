@@ -31,12 +31,8 @@
 #define WORLD_WORLDHANDLER_H_
 
 #include <common.h>
-
-typedef struct LevelDefinition
-{
-		std::string uniqueName;
-
-} Level;
+#include <Resources/Resources.h>
+#include <World/LevelData.h>
 
 class StarlightEngine;
 
@@ -49,12 +45,14 @@ class WorldHandler
 		WorldHandler (StarlightEngine *enginePtr);
 		virtual ~WorldHandler ();
 
-		void setActiveLevel (Level *level);
-		Level *getActiveLevel ();
+		void setActiveLevel (LevelDef *level);
+		LevelDef *getActiveLevel ();
+		LevelData *getActiveLevelData ();
 
 	private:
 
-		Level *activeLevel;
+		LevelDef *activeLevel;
+		LevelData *activeLevelData;
 };
 
 #endif /* WORLD_WORLDHANDLER_H_ */

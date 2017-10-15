@@ -38,6 +38,8 @@
 
 #include <Input/Window.h>
 
+#include <Resources/ResourceManager.h>
+
 #include <Game/Game.h>
 
 GameStateInWorld::GameStateInWorld (StarlightEngine *enginePtr)
@@ -67,11 +69,12 @@ void GameStateInWorld::init ()
 
 	presentSampler = engine->renderer->createSampler();
 
-	Level *testLevel = new Level();
-	*testLevel =
-	{};
+	LevelDef testLevel = {};
+	strcpy(testLevel.uniqueName, "Test Level");
 
-	world->setActiveLevel(testLevel);
+	engine->resources->addLevelDef(testLevel);
+
+	world->setActiveLevel(engine->resources->getLevelDef(std::string(testLevel.uniqueName)));
 }
 
 void GameStateInWorld::destroy ()

@@ -17,6 +17,7 @@
 #include <dirent.h>
 #include <stdarg.h>
 #include <math.h>
+#include <string.h>
 
 #include <iostream>
 #include <fstream>
@@ -71,6 +72,8 @@
 
 #define SE_RENDER_DEBUG_MARKERS 1
 
+#define LEVEL_CELL_SIZE 256
+
 #define COMPILER_BARRIER() asm volatile("" ::: "memory")
 
 #define DEBUG_ASSERT(x) if (!(x)) { printf("%s Assertion failed @ file %s, line %i\n", ERR_PREFIX, __FILE__, __LINE__); throw std::runtime_error("failed assertion"); }
@@ -108,6 +111,34 @@ typedef struct simple_integer_vector_2
 typedef struct simple_integer_vector_3
 {
 		int32_t x, y, z;
+
+		bool operator< (const simple_integer_vector_3 &other) const
+		{
+			if (x < other.x)
+				return true;
+
+			if (x > other.x)
+				return false;
+
+			if (y < other.y)
+				return true;
+
+			if (y > other.y)
+				return false;
+
+			if (z < other.z)
+				return true;
+
+			if (z > other.z)
+				return false;
+
+			return false;
+		}
+
+		bool operator== (const simple_integer_vector_3 &other) const
+		{
+			return x == other.x && y == other.y && z == other.z;
+		}
 } sivec3;
 
 typedef struct simple_integer_vector_4
@@ -190,7 +221,7 @@ inline uint64_t millisecondsToNanoseconds (const uint64_t& nanoseconds)
 	return nanoseconds * uint64_t(1e6);
 }
 
-inline std::string getShaderCCompilationStatusString(shaderc_compilation_status status)
+inline std::string getShaderCCompilationStatusString (shaderc_compilation_status status)
 {
 	switch (status)
 	{

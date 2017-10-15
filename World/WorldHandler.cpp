@@ -35,6 +35,7 @@ WorldHandler::WorldHandler (StarlightEngine *enginePtr)
 {
 	engine = enginePtr;
 	activeLevel = nullptr;
+	activeLevelData = nullptr;
 }
 
 WorldHandler::~WorldHandler ()
@@ -42,12 +43,17 @@ WorldHandler::~WorldHandler ()
 
 }
 
-void WorldHandler::setActiveLevel (Level *level)
+void WorldHandler::setActiveLevel (LevelDef *level)
 {
 	activeLevel = level;
 }
 
-Level *WorldHandler::getActiveLevel ()
+LevelDef *WorldHandler::getActiveLevel ()
 {
 	return activeLevel;
+}
+
+LevelData *WorldHandler::getActiveLevelData()
+{
+	return activeLevelData;
 }
