@@ -350,6 +350,19 @@ void VulkanRenderer::writeDescriptorSets (const std::vector<DescriptorWriteInfo>
 	std::vector<VkDescriptorBufferInfo> bufferInfos; // same ^
 	std::vector<VkWriteDescriptorSet> vkWrites;
 
+	size_t im = 0, bf = 0;
+
+	for (size_t i = 0; i < writes.size(); i ++)
+	{
+		const DescriptorWriteInfo &writeInfo = writes[i];
+
+		im += writeInfo.imageInfo.size();
+		bf += writeInfo.bufferInfo.size();
+	}
+
+	imageInfos.reserve(im);
+	bufferInfos.reserve(bf);
+
 	for (size_t i = 0; i < writes.size(); i ++)
 	{
 		const DescriptorWriteInfo &writeInfo = writes[i];
@@ -366,14 +379,14 @@ void VulkanRenderer::writeDescriptorSets (const std::vector<DescriptorWriteInfo>
 			{
 				const DescriptorImageInfo &writeImageInfo = writeInfo.imageInfo[t];
 				VkDescriptorImageInfo imageInfo = {};
-				imageInfo.sampler = static_cast<VulkanSampler*>(writeImageInfo.sampler)->samplerHandle;
-				imageInfo.imageView = static_cast<VulkanTextureView*>(writeImageInfo.view)->imageView;
+				imageInfo.sampler = writeImageInfo.sampler != nullptr ? static_cast<VulkanSampler*>(writeImageInfo.sampler)->samplerHandle : VK_NULL_HANDLE;
+				imageInfo.imageView = writeImageInfo.view != nullptr ? static_cast<VulkanTextureView*>(writeImageInfo.view)->imageView : VK_NULL_HANDLE;
 				imageInfo.imageLayout = toVkImageLayout(writeImageInfo.layout);
 
 				imageInfos.push_back(imageInfo);
 			}
 
-			write.pImageInfo = imageInfos.data() + (imageInfos.size() - writeInfo.imageInfo.size()) * sizeof(VkDescriptorImageInfo);
+			write.pImageInfo = imageInfos.data() + (imageInfos.size() - writeInfo.imageInfo.size());
 		}
 
 		if (writeInfo.bufferInfo.size() > 0)
@@ -389,7 +402,7 @@ void VulkanRenderer::writeDescriptorSets (const std::vector<DescriptorWriteInfo>
 				bufferInfos.push_back(bufferInfo);
 			}
 
-			write.pBufferInfo = bufferInfos.data() + bufferInfos.size() - writeInfo.bufferInfo.size();
+			write.pBufferInfo = bufferInfos.data() + (bufferInfos.size() - writeInfo.bufferInfo.size());
 		}
 
 		vkWrites.push_back(write);
