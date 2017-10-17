@@ -66,7 +66,8 @@ class Renderer
 				SAMPLER_MIPMAP_MODE_LINEAR) = 0;
 
 		virtual Buffer createBuffer (size_t size, BufferUsageFlags usage, MemoryUsage memUsage, bool ownMemory = false) = 0;
-		virtual void mapBuffer (Buffer buffer, size_t dataSize, const void *data) = 0;
+		virtual void *mapBuffer (Buffer buffer) = 0;
+		virtual void unmapBuffer (Buffer buffer) = 0;
 
 		virtual StagingBuffer createStagingBuffer (size_t dataSize) = 0;
 		virtual StagingBuffer createAndMapStagingBuffer (size_t dataSize, const void *data) = 0;

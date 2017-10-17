@@ -811,21 +811,21 @@ Buffer VulkanRenderer::createBuffer (size_t size, BufferUsageFlags usage, Memory
 	return vkBuffer;
 }
 
-void VulkanRenderer::mapBuffer (Buffer buffer, size_t dataSize, const void *data)
+void *VulkanRenderer::mapBuffer (Buffer buffer)
 {
 	VulkanBuffer *vkBuffer = static_cast<VulkanBuffer*>(buffer);
-
-	if (vkBuffer->memorySize < dataSize)
-	{
-		printf("%s Error while mapping a buffer. Given data size (%lu) is larger than buffer memory size (%lu)\n", ERR_PREFIX, dataSize, vkBuffer->memorySize);
-
-		throw std::runtime_error("vulkan error - buffer mapping");
-	}
 
 	void *mappedBufferMemory = nullptr;
 
 	VK_CHECK_RESULT(vmaMapMemory(memAllocator, &vkBuffer->bufferMemory, &mappedBufferMemory));
-	memcpy(mappedBufferMemory, data, dataSize);
+
+	return mappedBufferMemory;
+}
+
+void VulkanRenderer::unmapBuffer(Buffer buffer)
+{
+	VulkanBuffer *vkBuffer = static_cast<VulkanBuffer*>(buffer);
+
 	vmaUnmapMemory(memAllocator, &vkBuffer->bufferMemory);
 }
 
