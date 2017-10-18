@@ -35,8 +35,9 @@
 
 #include <assimp/Importer.hpp>
 
-class Renderer;
+class  Renderer;
 struct RendererCommandPool;
+class  RendererDescriptorPool;
 
 /*
  * Manages resources such as meshes, textures, scripts, etc for the game. It
@@ -55,6 +56,11 @@ class ResourceManager
 		ResourceTexture loadTextureImmediate (const std::string &file, TextureFileFormat format = TEXTURE_FILE_FORMAT_MAX_ENUM);
 		void returnTexture (ResourceTexture tex);
 
+		ResourceMaterial loadMaterialImmediate (const std::string &defUniqueName);
+		ResourceMaterial findMaterial (const std::string &defUniqueName);
+		ResourceMaterial findMaterial (size_t defUniqueNameHash);
+		void returnMaterial (ResourceMaterial mat);
+
 		void loadGameDefsFile (const std::string &file);
 
 		void addLevelDef (const LevelDef &def);
@@ -65,6 +71,10 @@ class ResourceManager
 		MaterialDef *getMaterialDef (const std::string &defUniqueName);
 		MeshDef *getMeshDef (const std::string &defUniqueName);
 
+		LevelDef *getLevelDef (size_t uniqueNameHash);
+		MaterialDef *getMaterialDef (size_t uniqueNameHash);
+		MeshDef *getMeshDef (size_t uniqueNameHash);
+
 		static std::vector<char> getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData = true);
 
 	private:
@@ -73,15 +83,18 @@ class ResourceManager
 
 		Renderer *renderer;
 		RendererCommandPool *mainThreadTransferCommandPool;
+		RendererDescriptorPool *mainThreadDescriptorPool;
 
-		std::map<std::string, MaterialDef*> loadedMaterialDefsMap;
+		std::map<size_t, MaterialDef*> loadedMaterialDefsMap;
 		//std::vector<MaterialDef*> loadedMaterialDefs;
 
-		std::map<std::string, MeshDef*> loadedMeshDefsMap;
+		std::map<size_t, MeshDef*> loadedMeshDefsMap;
 		//std::vector<MeshDef*> loadedMeshDefs;
 
-		std::map<std::string, LevelDef*> loadedLevelDefsMap;
+		std::map<size_t, LevelDef*> loadedLevelDefsMap;
 		//std::vector<LevelDef*> loadedLevelDefs;
+
+		std::map<size_t, std::pair<ResourceMaterial, uint32_t> > loadedMaterials;
 
 		// Because I don't know the thread safety of assimp importers, the access is controlled by a mutex for now
 		// TODO Figure out assimp importer thread safety

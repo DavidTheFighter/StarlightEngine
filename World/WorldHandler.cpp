@@ -46,6 +46,13 @@ WorldHandler::~WorldHandler ()
 void WorldHandler::setActiveLevel (LevelDef *level)
 {
 	activeLevel = level;
+
+	if (activeLevelData != nullptr)
+	{
+		delete activeLevelData;
+	}
+
+	activeLevelData = new LevelData();
 }
 
 LevelDef *WorldHandler::getActiveLevel ()

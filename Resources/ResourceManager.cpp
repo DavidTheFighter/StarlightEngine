@@ -39,11 +39,22 @@ ResourceManager::ResourceManager (Renderer *rendererInstance, const std::string 
 	renderer = rendererInstance;
 	workingDir = gameWorkingDirectory;
 	mainThreadTransferCommandPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
+
+	std::vector<DescriptorSetLayoutBinding> layoutBindings;
+	layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({4, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({5, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+
+	mainThreadDescriptorPool = renderer->createDescriptorPool(layoutBindings, 16);
 }
 
 ResourceManager::~ResourceManager ()
 {
 	renderer->destroyCommandPool(mainThreadTransferCommandPool);
+	renderer->destroyDescriptorPool(mainThreadDescriptorPool);
 	// TODO Free all remaining resources when an instance of ResourceManager is deleted
 }
 
@@ -52,12 +63,108 @@ void ResourceManager::loadGameDefsFile (const std::string &file)
 
 }
 
+ResourceMaterial ResourceManager::loadMaterialImmediate (const std::string &defUniqueName)
+{
+	auto it = loadedMaterials.find(stringHash(defUniqueName));
+
+	if (it == loadedMaterials.end())
+	{
+		MaterialDef *matDef = getMaterialDef(defUniqueName);
+
+		ResourceMaterialObject *mat = new ResourceMaterialObject();
+		mat->defUniqueName = defUniqueName;
+		mat->descriptorSet = mainThreadDescriptorPool->allocateDescriptorSet();
+		mat->sampler = renderer->createSampler(matDef->addressMode, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, 1, {0, 0, 0}, matDef->linearMipmapFiltering ? SAMPLER_MIPMAP_MODE_LINEAR : SAMPLER_MIPMAP_MODE_NEAREST);
+
+		std::vector<DescriptorWriteInfo> writes(1);
+		writes[0].descriptorCount = 1;
+		writes[0].descriptorType = DESCRIPTOR_TYPE_SAMPLER;
+		writes[0].dstSet = mat->descriptorSet;
+		writes[0].imageInfo = {{mat->sampler, nullptr, TEXTURE_LAYOUT_UNDEFINED}};
+		writes[0].dstArrayElement = writes[0].dstBinding = 0;
+
+		for (int i = 0; i < MATERIAL_DEF_MAX_TEXTURE_NUM; i ++)
+		{
+			mat->textures[i] = nullptr;
+
+			if (std::string(matDef->textureFiles[i]).length() != 0)
+			{
+				mat->textures[i] = loadTextureImmediate(workingDir + std::string(matDef->textureFiles[i]));
+
+				DescriptorWriteInfo writeInfo = {};
+				writeInfo.descriptorCount = 1;
+				writeInfo.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+				writeInfo.dstArrayElement = 0;
+				writeInfo.dstBinding = uint32_t(i) + 1;
+				writeInfo.dstSet = mat->descriptorSet;
+				writeInfo.imageInfo = {{mat->sampler, mat->textures[i]->textureView, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
+
+				writes.push_back(writeInfo);
+			}
+		}
+
+		renderer->writeDescriptorSets(writes);
+
+		loadedMaterials[stringHash(defUniqueName)] = std::make_pair(mat, 1);
+
+		return mat;
+	}
+	else
+	{
+		it->second.second ++;
+
+		return it->second.first;
+	}
+}
+
+ResourceMaterial ResourceManager::findMaterial (const std::string &defUniqueName)
+{
+	return findMaterial(stringHash(defUniqueName));
+}
+
+ResourceMaterial ResourceManager::findMaterial (size_t defUniqueNameHash)
+{
+	auto it = loadedMaterials.find(defUniqueNameHash);
+
+	return it != loadedMaterials.end() ? it->second.first : nullptr;
+}
+
+void ResourceManager::returnMaterial (ResourceMaterial mat)
+{
+	auto it = loadedMaterials.find(stringHash(mat->defUniqueName));
+
+	if (it != loadedMaterials.end())
+	{
+		// Decrement the reference counter
+		it->second.second --;
+
+		// If the reference counter is now zero, then delete the mesh data entirely
+		if (it->second.second == 0)
+		{
+			mainThreadDescriptorPool->freeDescriptorSet(mat->descriptorSet);
+			renderer->destroySampler(mat->sampler);
+
+			for (size_t i = 0; i < MATERIAL_DEF_MAX_TEXTURE_NUM; i ++)
+			{
+				if (mat->textures[i] != nullptr)
+				{
+					returnTexture(mat->textures[i]);
+				}
+			}
+
+			delete mat;
+
+			loadedMaterials.erase(it);
+		}
+	}
+}
+
 void ResourceManager::addLevelDef (const LevelDef &def)
 {
 	LevelDef *levelDef = new LevelDef();
 	*levelDef = def;
 
-	loadedLevelDefsMap[std::string(def.uniqueName)] = levelDef;
+	loadedLevelDefsMap[stringHash(std::string(def.uniqueName))] = levelDef;
 }
 
 void ResourceManager::addMaterialDef (const MaterialDef &def)
@@ -65,7 +172,7 @@ void ResourceManager::addMaterialDef (const MaterialDef &def)
 	MaterialDef *matDef = new MaterialDef();
 	*matDef = def;
 
-	loadedMaterialDefsMap[std::string(def.uniqueName)] = matDef;
+	loadedMaterialDefsMap[stringHash(std::string(def.uniqueName))] = matDef;
 }
 
 void ResourceManager::addMeshDef (const MeshDef &def)
@@ -73,12 +180,27 @@ void ResourceManager::addMeshDef (const MeshDef &def)
 	MeshDef *meshDef = new MeshDef();
 	*meshDef = def;
 
-	loadedMeshDefsMap[std::string(def.uniqueName)] = meshDef;
+	loadedMeshDefsMap[stringHash(std::string(def.uniqueName))] = meshDef;
 }
 
 LevelDef *ResourceManager::getLevelDef (const std::string &defUniqueName)
 {
-	auto it = loadedLevelDefsMap.find(defUniqueName);
+	return getLevelDef(stringHash(defUniqueName));
+}
+
+MaterialDef *ResourceManager::getMaterialDef (const std::string &defUniqueName)
+{
+	return getMaterialDef(stringHash(defUniqueName));
+}
+
+MeshDef *ResourceManager::getMeshDef (const std::string &defUniqueName)
+{
+	return getMeshDef(stringHash(defUniqueName));
+}
+
+LevelDef *ResourceManager::getLevelDef (size_t uniqueNameHash)
+{
+	auto it = loadedLevelDefsMap.find(uniqueNameHash);
 
 	if (it != loadedLevelDefsMap.end())
 		return it->second;
@@ -86,9 +208,9 @@ LevelDef *ResourceManager::getLevelDef (const std::string &defUniqueName)
 	return nullptr;
 }
 
-MaterialDef *ResourceManager::getMaterialDef (const std::string &defUniqueName)
+MaterialDef *ResourceManager::getMaterialDef (size_t uniqueNameHash)
 {
-	auto it = loadedMaterialDefsMap.find(defUniqueName);
+	auto it = loadedMaterialDefsMap.find(uniqueNameHash);
 
 	if (it != loadedMaterialDefsMap.end())
 		return it->second;
@@ -96,9 +218,9 @@ MaterialDef *ResourceManager::getMaterialDef (const std::string &defUniqueName)
 	return nullptr;
 }
 
-MeshDef *ResourceManager::getMeshDef (const std::string &defUniqueName)
+MeshDef *ResourceManager::getMeshDef (size_t uniqueNameHash)
 {
-	auto it = loadedMeshDefsMap.find(defUniqueName);
+	auto it = loadedMeshDefsMap.find(uniqueNameHash);
 
 	if (it != loadedMeshDefsMap.end())
 		return it->second;
@@ -187,7 +309,7 @@ void ResourceManager::returnMesh (ResourceMesh mesh)
 		it->second.second --;
 
 		// If the reference counter is now zero, then delete the mesh data entirely
-		if (it->second.second)
+		if (it->second.second == 0)
 		{
 			loadedMeshes.erase(it);
 
@@ -233,6 +355,24 @@ ResourceTexture ResourceManager::loadTextureImmediate (const std::string &file, 
 				break;
 		}
 
+		/*
+		 * I'm formatting the debug name to trim it to the "GameData/shaders/" directory. For example:
+		 * "GameData/shaders/vulkan/temp-swapchain.glsl" would turn to ".../vulkan/temp-swapchain.glsl"
+		 */
+
+		size_t i = file.find("/textures/");
+
+		std::string debugMarkerName = ".../";
+
+		if (i != file.npos)
+			debugMarkerName += file.substr(i + 10);
+		else
+			debugMarkerName = file;
+
+		renderer->setObjectDebugName(texRes->texture, OBJECT_TYPE_TEXTURE, debugMarkerName);
+
+		texRes->textureView = renderer->createTextureView(texRes->texture);
+
 		// Probably don't need this here, but I'm putting here anyway. fight me
 		COMPILER_BARRIER();
 		loadedTextures[file] = std::make_pair(texRes, 1);
@@ -272,6 +412,7 @@ void ResourceManager::returnTexture (ResourceTexture tex)
 		{
 			loadedTextures.erase(it);
 			renderer->destroyTexture(tex->texture);
+			renderer->destroyTextureView(tex->textureView);
 
 			delete tex;
 		}

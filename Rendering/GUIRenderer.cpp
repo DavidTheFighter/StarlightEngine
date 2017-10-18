@@ -155,8 +155,13 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 
 	nk_convert(&ctx, &cmds, &verts, &indices, &cfg);
 
-	renderer->mapBuffer(guiVertexStreamBuffer, verts.allocated, verts.memory.ptr);
-	renderer->mapBuffer(guiIndexStreamBuffer, indices.allocated, indices.memory.ptr);
+	void *data = renderer->mapBuffer(guiVertexStreamBuffer);
+	memcpy(data, verts.memory.ptr, verts.allocated);
+	renderer->unmapBuffer(guiVertexStreamBuffer);
+
+	data = renderer->mapBuffer(guiIndexStreamBuffer);
+	memcpy(data, indices.memory.ptr, indices.allocated);
+	renderer->unmapBuffer(guiIndexStreamBuffer);
 
 	std::vector<ClearValue> clearValues = std::vector<ClearValue>(2);
 	clearValues[0].color =

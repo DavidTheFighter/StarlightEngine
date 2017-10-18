@@ -33,6 +33,9 @@
 // Instead of including a file in another header file & having massive compile-time issues, I'll just prototype here
 struct RendererBuffer;
 struct RendererTexture;
+struct RendererTextureView;
+class  RendererDescriptorSet;
+struct RendererSampler;
 
 #include <Rendering/Renderer/RendererEnums.h>
 
@@ -148,11 +151,23 @@ typedef struct ResourceTextureObject
 		ResourceFormat textureFormat;
 
 		RendererTexture *texture;
+		RendererTextureView *textureView; // A view for the whole texture, aka a default view
 } *ResourceTexture;
 
 #define RESOURCE_DEF_MAX_NAME_LENGTH 64
 #define RESOURCE_DEF_MAX_FILE_LENGTH 128
 #define MATERIAL_DEF_MAX_TEXTURE_NUM 5
+
+typedef struct ResourceMaterialObject
+{
+		std::string defUniqueName;
+
+		ResourceTexture textures[MATERIAL_DEF_MAX_TEXTURE_NUM];
+
+		RendererDescriptorSet *descriptorSet;
+		RendererSampler *sampler;
+
+} *ResourceMaterial;
 
 /*
  * The definition for a material. It includes it's unique name, all of the

@@ -60,9 +60,11 @@ void Game::update (float delta)
 	glm::vec3 playerLookFlatFoward = glm::vec3(sin(mainCamera.lookAngles.x), 0, cos(mainCamera.lookAngles.x));
 	glm::vec3 playerLookRight = glm::vec3(sin(mainCamera.lookAngles.x - M_PI * 0.5f), 0, cos(mainCamera.lookAngles.x - M_PI * 0.5f));
 
-	float movementSpeed = 20.0f;
+	float movementSpeed = 30.0f;
 	float modMoveSpeed = movementSpeed;
 
+	if (gameWindow->isKeyPressed(70))
+		modMoveSpeed = movementSpeed * 4;
 	if (gameWindow->isKeyPressed(87))
 		mainCamera.position += playerLookFlatFoward * delta * modMoveSpeed;
 	if (gameWindow->isKeyPressed(83))

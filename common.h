@@ -175,6 +175,11 @@ inline std::string toString (T0 arg)
 	return str;
 }
 
+inline size_t stringHash (const std::string &str)
+{
+	return std::hash<std::string> {} (str);
+}
+
 inline std::vector<std::string> split (const std::string &s, char delim)
 {
 	std::stringstream ss(s);

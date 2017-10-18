@@ -69,12 +69,66 @@ void GameStateInWorld::init ()
 
 	presentSampler = engine->renderer->createSampler();
 
+	// Setup a test material
+	{
+		MaterialDef dirt = {};
+		strcpy(dirt.uniqueName, "dirt");
+		strcpy(dirt.pipelineUniqueName, "engine.defaultMaterial");
+		strcpy(dirt.textureFiles[0], "GameData/textures/dirt/dirt-albedo.png");
+		strcpy(dirt.textureFiles[1], "GameData/textures/dirt/dirt-normals.png");
+		strcpy(dirt.textureFiles[2], "GameData/textures/dirt/dirt-roughness.png");
+		strcpy(dirt.textureFiles[3], "GameData/textures/dirt/dirt-metalness.png");
+		strcpy(dirt.textureFiles[4], "");
+
+		dirt.enableAnisotropy = true;
+		dirt.linearFiltering = true;
+		dirt.linearMipmapFiltering = true;
+		dirt.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
+
+		engine->resources->addMaterialDef(dirt);
+	}
+
+	// Setup a test mesh
+	{
+		MeshDef bridge = {};
+		strcpy(bridge.uniqueName, "bridge");
+		strcpy(bridge.meshFile, "GameData/meshes/test-bridge.dae");
+		strcpy(bridge.meshName, "bridge0");
+
+		engine->resources->addMeshDef(bridge);
+	}
+
+	{
+		engine->resources->loadMaterialImmediate("dirt");
+	}
+
 	LevelDef testLevel = {};
 	strcpy(testLevel.uniqueName, "Test Level");
 
 	engine->resources->addLevelDef(testLevel);
 
 	world->setActiveLevel(engine->resources->getLevelDef(std::string(testLevel.uniqueName)));
+
+	LevelData &dat = *world->getActiveLevelData();
+
+	LevelStaticObject testObj = {};
+	testObj.boundingSphereRadius_padding = {8, 0, 0, 0};
+	testObj.materialDefUniqueNameHash = std::hash<std::string> {} ("dirt");
+	testObj.meshDefUniqueNameHash = std::hash<std::string> {} ("bridge");
+
+	std::vector<LevelStaticObject> testObjs;
+
+	for (size_t i = 0; i < 4096; i ++)
+	{
+		testObj.position_scale = {(float) (rand() % 16384), (float) (rand() % 8), (float) (rand() % 16384), 1.0f};
+		testObj.rotation = {0, 0, 0, 1};
+
+		testObjs.push_back(testObj);
+	}
+
+	double sT = engine->getTime();
+	dat.insertStaticObjects(testObjs);
+	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
 }
 
 void GameStateInWorld::destroy ()

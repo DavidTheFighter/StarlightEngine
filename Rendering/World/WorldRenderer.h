@@ -30,12 +30,25 @@
 #ifndef RENDERING_WORLD_WORLDRENDERER_H_
 #define RENDERING_WORLD_WORLDRENDERER_H_
 
+#define STATIC_OBJECT_STREAMING_BUFFER_SIZE (4 * 1024 * 1024)
+
 #include <common.h>
 #include <Rendering/Renderer/RendererEnums.h>
 #include <Rendering/Renderer/RendererObjects.h>
 
 class WorldHandler;
 class StarlightEngine;
+
+typedef struct LevelStaticObjStreamData
+{
+		svec4 position_scale;
+		svec4 rotation;
+} LevelStaticObjStreamData;
+
+typedef struct LevelStaticObjectStreamingData
+{
+		std::map<size_t, std::map<size_t, std::vector<LevelStaticObjStreamData> > > data;
+} LevelStaticObjectStreamingData;
 
 class WorldRenderer
 {
@@ -71,13 +84,20 @@ class WorldRenderer
 		void createRenderPasses ();
 		void createTestMaterialPipeline ();
 
+		LevelStaticObjectStreamingData getStaticObjStreamingData();
+
 		bool isDestroyed; // So that when an instance is deleted, destroy() is always called, either by the user or by the destructor
 
 		suvec2 gbufferRenderDimensions;
 
+		size_t worldStreamingBufferOffset;
+		Buffer worldStreamingBuffer;
+		void *worldStreamingBufferData;
+
+		PipelineInputLayout materialPipelineInputLayout;
+		Pipeline defaultMaterialPipeline;
+
 		RenderPass gbufferRenderPass;
-		PipelineInputLayout testMaterialPipelineInputLayout;
-		Pipeline testMaterialPipeline;
 		Framebuffer gbufferFramebuffer;
 
 		Texture gbuffer_AlbedoRoughness; // RGB - Albedo, A - Roughness

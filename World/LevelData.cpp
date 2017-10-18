@@ -75,7 +75,7 @@ void LevelData::insertStaticObject (const LevelStaticObject &obj)
 
 void LevelData::insertStaticObjects (const std::vector<LevelStaticObject> &objs)
 {
-	std::vector<Octree<LevelStaticObject>*> affectedCells;
+	std::vector<size_t> affectedCells;
 
 	for (size_t i = 0; i < objs.size(); i ++)
 	{
@@ -108,14 +108,14 @@ void LevelData::insertStaticObjects (const std::vector<LevelStaticObject> &objs)
 		Octree<LevelStaticObject> &cell = activeStaticObjectCells[index];
 		cell.insertObject(objs[i]);
 
-		if (std::find(affectedCells.begin(), affectedCells.end(), &cell) == affectedCells.end())
+		if (std::find(affectedCells.begin(), affectedCells.end(), index) == affectedCells.end())
 		{
-			affectedCells.push_back(&cell);
+			affectedCells.push_back(index);
 		}
 	}
 
 	for (size_t i = 0; i < affectedCells.size(); i ++)
 	{
-		affectedCells[i]->flushTreeUpdates(defaultOctreeRules);
+		activeStaticObjectCells[affectedCells[i]].flushTreeUpdates(defaultOctreeRules);
 	}
 }

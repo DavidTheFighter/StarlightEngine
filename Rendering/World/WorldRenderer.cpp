@@ -45,9 +45,10 @@ WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHan
 	isDestroyed = false;
 
 	gbufferRenderPass = nullptr;
-	testMaterialPipelineInputLayout = nullptr;
-	testMaterialPipeline = nullptr;
 	gbufferFramebuffer = nullptr;
+
+	materialPipelineInputLayout = nullptr;
+	defaultMaterialPipeline = nullptr;
 
 	testCommandPool = nullptr;
 
@@ -57,6 +58,10 @@ WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHan
 	gbuffer_NormalMetalnessView = nullptr;
 	gbuffer_Depth = nullptr;
 	gbuffer_DepthView = nullptr;
+
+	worldStreamingBuffer = nullptr;
+	worldStreamingBufferOffset = 0;
+	worldStreamingBufferData = nullptr;
 
 	testSampler = nullptr;
 }
@@ -80,7 +85,7 @@ void WorldRenderer::render ()
 	clearValues[0].color =
 	{	0, 0, 0, 1};
 	clearValues[1].color =
-	{0, 0, 0, 1};
+	{	0, 0, 0, 1};
 	clearValues[2].depthStencil =
 	{	0, 0};
 
@@ -89,20 +94,97 @@ void WorldRenderer::render ()
 	CommandBuffer cmdBuffer = engine->renderer->beginSingleTimeCommand(testCommandPool);
 
 	cmdBuffer->beginRenderPass(gbufferRenderPass, gbufferFramebuffer, {0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}, clearValues, SUBPASS_CONTENTS_INLINE);
-
-	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, testMaterialPipeline);
-	cmdBuffer->pushConstants(testMaterialPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVP[0][0]);
 	cmdBuffer->setScissors(0, {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}});
 	cmdBuffer->setViewports(0, {{0, 0, (float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 0.0f, 1.0f}});
 
-	cmdBuffer->bindIndexBuffer(testMesh->meshBuffer);
-	cmdBuffer->bindVertexBuffers(0, {testMesh->meshBuffer}, {testMesh->indexChunkSize});
+	{
+		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, defaultMaterialPipeline);
+		cmdBuffer->pushConstants(materialPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVP[0][0]);
 
-	cmdBuffer->drawIndexed(testMesh->faceCount * 3);
+		double sT = engine->getTime();
+		LevelStaticObjectStreamingData streamData = getStaticObjStreamingData();
+		printf("Stream took: %fms\n", (engine->getTime() - sT) * 1000.0);
+
+		uint32_t drawCallCount = 0;
+		for (auto mat = streamData.data.begin(); mat != streamData.data.end(); mat ++)
+		{
+			ResourceMaterial material = engine->resources->findMaterial(mat->first);
+
+			cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, materialPipelineInputLayout, 0, {material->descriptorSet});
+
+			for (auto mesh = mat->second.begin(); mesh != mat->second.end(); mesh ++)
+			{
+				cmdBuffer->bindIndexBuffer(testMesh->meshBuffer);
+
+				size_t meshInstanceDataSize = mesh->second.size() * sizeof(mesh->second[0]);
+
+				if (worldStreamingBufferOffset * sizeof(mesh->second[0]) + meshInstanceDataSize > STATIC_OBJECT_STREAMING_BUFFER_SIZE)
+				{
+					worldStreamingBufferOffset = 0;
+				}
+
+				cmdBuffer->bindVertexBuffers(0, {testMesh->meshBuffer, worldStreamingBuffer}, {testMesh->indexChunkSize, worldStreamingBufferOffset * sizeof(mesh->second[0])});
+
+				memcpy(static_cast<LevelStaticObjStreamData*>(worldStreamingBufferData) + worldStreamingBufferOffset, mesh->second.data(), meshInstanceDataSize);
+				worldStreamingBufferOffset += mesh->second.size();
+
+				drawCallCount ++;
+
+				cmdBuffer->drawIndexed(testMesh->faceCount * 3, (uint32_t) mesh->second.size());
+			}
+		}
+
+		//printf("Draw calls: %u\n", drawCallCount);
+
+		/*
+		 std::vector<svec4> positions;
+
+		 for (size_t i = 0; i < world->getActiveLevelData()->activeStaticObjectCells.size(); i ++)
+		 {
+		 traverseNode(world->getActiveLevelData()->activeStaticObjectCells[i], positions);
+		 }
+
+		 for (size_t i = 0; i < positions.size(); i ++)
+		 {
+		 cmdBuffer->pushConstants(materialPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(svec3), &positions[i]);
+		 cmdBuffer->drawIndexed(testMesh->faceCount * 3);
+		 }
+		 */
+	}
 
 	cmdBuffer->endRenderPass();
 
 	engine->renderer->endSingleTimeCommand(cmdBuffer, testCommandPool, QUEUE_TYPE_GRAPHICS);
+}
+
+void WorldRenderer_traverseOctreeNode (Octree<LevelStaticObject> &node, LevelStaticObjectStreamingData &data)
+{
+	for (size_t i = 0; i < node.objectList.size(); i ++)
+	{
+		const LevelStaticObject &obj = node.objectList[i];
+
+		data.data[obj.materialDefUniqueNameHash][obj.meshDefUniqueNameHash].push_back({obj.position_scale, obj.rotation});
+	}
+
+	for (int a = 0; a < 8; a ++)
+	{
+		if (node.activeChildren & (1 << a))
+		{
+			WorldRenderer_traverseOctreeNode(*node.children[a], data);
+		}
+	}
+}
+
+LevelStaticObjectStreamingData WorldRenderer::getStaticObjStreamingData ()
+{
+	LevelStaticObjectStreamingData data = {};
+
+	for (size_t i = 0; i < world->getActiveLevelData()->activeStaticObjectCells.size(); i ++)
+	{
+		WorldRenderer_traverseOctreeNode(world->getActiveLevelData()->activeStaticObjectCells[i], data);
+	}
+
+	return data;
 }
 
 void WorldRenderer::init (suvec2 gbufferDimensions)
@@ -112,6 +194,9 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 	testCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
 
 	testSampler = engine->renderer->createSampler();
+
+	worldStreamingBuffer = engine->renderer->createBuffer(STATIC_OBJECT_STREAMING_BUFFER_SIZE, BUFFER_USAGE_VERTEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, true);
+	worldStreamingBufferData = engine->renderer->mapBuffer(worldStreamingBuffer);
 
 	createRenderPasses();
 	createTestMaterialPipeline();
@@ -129,6 +214,10 @@ void WorldRenderer::createGBuffer ()
 	gbuffer_DepthView = engine->renderer->createTextureView(gbuffer_Depth);
 
 	gbufferFramebuffer = engine->renderer->createFramebuffer(gbufferRenderPass, {gbuffer_AlbedoRoughnessView, gbuffer_NormalMetalnessView, gbuffer_DepthView}, gbufferRenderDimensions.x, gbufferRenderDimensions.y, 1);
+
+	engine->renderer->setObjectDebugName(gbuffer_AlbedoRoughness, OBJECT_TYPE_TEXTURE, "GBuffer: Albedo & Roughness");
+	engine->renderer->setObjectDebugName(gbuffer_NormalMetalness, OBJECT_TYPE_TEXTURE, "GBuffer: Normals & Metalness");
+	engine->renderer->setObjectDebugName(gbuffer_Depth, OBJECT_TYPE_TEXTURE, "GBuffer: Depth");
 }
 
 void WorldRenderer::destroyGBuffer ()
@@ -149,12 +238,17 @@ void WorldRenderer::destroy ()
 	isDestroyed = true;
 
 	destroyGBuffer();
-	engine->renderer->destroyPipeline(testMaterialPipeline);
-	engine->renderer->destroyPipelineInputLayout(testMaterialPipelineInputLayout);
+
+	engine->renderer->destroyPipelineInputLayout(materialPipelineInputLayout);
+	engine->renderer->destroyPipeline(defaultMaterialPipeline);
+
 	engine->renderer->destroyRenderPass(gbufferRenderPass);
 
 	engine->renderer->destroyCommandPool(testCommandPool);
 	engine->renderer->destroySampler(testSampler);
+
+	engine->renderer->unmapBuffer(worldStreamingBuffer);
+	engine->renderer->destroyBuffer(worldStreamingBuffer);
 }
 
 void WorldRenderer::createRenderPasses ()
@@ -199,13 +293,17 @@ const uint32_t ivunt_vertexFormatSize = 44;
 
 void WorldRenderer::createTestMaterialPipeline ()
 {
-	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/test-platform.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/test-platform.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/defaultMaterial.glsl", SHADER_STAGE_VERTEX_BIT);
+	ShaderModule fragShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/defaultMaterial.glsl", SHADER_STAGE_FRAGMENT_BIT);
 
-	VertexInputBinding bindingDesc;
-	bindingDesc.binding = 0;
-	bindingDesc.stride = ivunt_vertexFormatSize;
-	bindingDesc.inputRate = VERTEX_INPUT_RATE_VERTEX;
+	VertexInputBinding meshVertexBindingDesc = {}, instanceVertexBindingDesc = {};
+	meshVertexBindingDesc.binding = 0;
+	meshVertexBindingDesc.stride = ivunt_vertexFormatSize;
+	meshVertexBindingDesc.inputRate = VERTEX_INPUT_RATE_VERTEX;
+
+	instanceVertexBindingDesc.binding = 1;
+	instanceVertexBindingDesc.stride = sizeof(svec4) * 2;
+	instanceVertexBindingDesc.inputRate = VERTEX_INPUT_RATE_INSTANCE;
 
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";
@@ -215,7 +313,7 @@ void WorldRenderer::createTestMaterialPipeline ()
 	fragShaderStage.entry = "main";
 	fragShaderStage.module = fragShader;
 
-	std::vector<VertexInputAttrib> attribDesc = std::vector<VertexInputAttrib>(4);
+	std::vector<VertexInputAttrib> attribDesc = std::vector<VertexInputAttrib>(6);
 	attribDesc[0].binding = 0;
 	attribDesc[0].location = 0;
 	attribDesc[0].format = RESOURCE_FORMAT_R32G32B32_SFLOAT;
@@ -236,10 +334,20 @@ void WorldRenderer::createTestMaterialPipeline ()
 	attribDesc[3].format = RESOURCE_FORMAT_R32G32B32_SFLOAT;
 	attribDesc[3].offset = sizeof(glm::vec3) + sizeof(glm::vec2) + sizeof(glm::vec3);
 
+	attribDesc[4].binding = 1;
+	attribDesc[4].location = 4;
+	attribDesc[4].format = RESOURCE_FORMAT_R32G32B32A32_SFLOAT;
+	attribDesc[4].offset = 0;
+
+	attribDesc[5].binding = 1;
+	attribDesc[5].location = 5;
+	attribDesc[5].format = RESOURCE_FORMAT_R32G32B32A32_SFLOAT;
+	attribDesc[5].offset = sizeof(svec4);
+
 	PipelineVertexInputInfo vertexInput = {};
 	vertexInput.vertexInputAttribs = attribDesc;
 	vertexInput.vertexInputBindings =
-	{	bindingDesc};
+	{	meshVertexBindingDesc, instanceVertexBindingDesc};
 
 	PipelineInputAssemblyInfo inputAssembly = {};
 	inputAssembly.primitiveRestart = false;
@@ -296,11 +404,20 @@ void WorldRenderer::createTestMaterialPipeline ()
 	info.colorBlendInfo = colorBlend;
 	info.dynamicStateInfo = dynamicState;
 
-	testMaterialPipelineInputLayout = engine->renderer->createPipelineInputLayout({{0, sizeof(glm::mat4), SHADER_STAGE_VERTEX_BIT}}, {{{0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}}});
-	testMaterialPipeline = engine->renderer->createGraphicsPipeline(info, testMaterialPipelineInputLayout, gbufferRenderPass, 0);
+	std::vector<DescriptorSetLayoutBinding> layoutBindings;
+	layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({4, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({5, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
 
-	engine->renderer->destroyShaderModule(vertShader);
-	engine->renderer->destroyShaderModule(fragShader);
+	materialPipelineInputLayout = engine->renderer->createPipelineInputLayout({{0, sizeof(glm::mat4), SHADER_STAGE_VERTEX_BIT}}, {layoutBindings});
+
+	defaultMaterialPipeline = engine->renderer->createGraphicsPipeline(info, materialPipelineInputLayout, gbufferRenderPass, 0);
+
+	engine->renderer->destroyShaderModule(vertShaderStage.module);
+	engine->renderer->destroyShaderModule(fragShaderStage.module);
 }
 
 void WorldRenderer::setGBufferDimensions (suvec2 gbufferDimensions)
@@ -314,7 +431,7 @@ void WorldRenderer::setGBufferDimensions (suvec2 gbufferDimensions)
 
 	engine->renderer->setSwapchainTexture(engine->mainWindow, gbuffer_AlbedoRoughnessView, testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	camProjMat = glm::perspective<float>(60 * (M_PI / 180.0f), gbufferDimensions.x / float(gbufferDimensions.y), 10000.0f, 0.1f);
+	camProjMat = glm::perspective<float>(60 * (M_PI / 180.0f), gbufferDimensions.x / float(gbufferDimensions.y), 100000.0f, 0.1f);
 	camProjMat[1][1] *= -1;
 }
 

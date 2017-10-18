@@ -46,12 +46,7 @@ typedef struct LevelStaticObject
 		size_t meshDefUniqueNameHash;
 		size_t materialDefUniqueNameHash;
 
-		svec4 octreeGetPosition()
-		{
-			return position_scale;
-		}
-
-		svec4 octreeGetBoundingSphere()
+		inline svec4 octreeGetBoundingSphere()
 		{
 			return {position_scale.x, position_scale.y, position_scale.z, boundingSphereRadius_padding.x};
 		}
