@@ -101,6 +101,11 @@ typedef struct simple_float_vector_3
 typedef struct simple_float_vector_4
 {
 		float x, y, z, w;
+
+		inline bool operator== (const simple_float_vector_4 &vec0)
+		{
+			return vec0.x == this->x && vec0.y == this->y && vec0.z == this->z && vec0.w == this->w;
+		}
 } svec4;
 
 typedef struct simple_integer_vector_2

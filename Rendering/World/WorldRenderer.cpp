@@ -93,27 +93,31 @@ void WorldRenderer::render ()
 
 	CommandBuffer cmdBuffer = engine->renderer->beginSingleTimeCommand(testCommandPool);
 
+	cmdBuffer->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
 	cmdBuffer->beginRenderPass(gbufferRenderPass, gbufferFramebuffer, {0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}, clearValues, SUBPASS_CONTENTS_INLINE);
 	cmdBuffer->setScissors(0, {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}});
 	cmdBuffer->setViewports(0, {{0, 0, (float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 0.0f, 1.0f}});
 
 	{
+		cmdBuffer->beginDebugRegion("Level Static Objects", glm::vec4(1.0f, 0.984f, 0.059f, 1.0f));
 		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, defaultMaterialPipeline);
 		cmdBuffer->pushConstants(materialPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVP[0][0]);
 
-		double sT = engine->getTime();
+		//double sT = engine->getTime();
 		LevelStaticObjectStreamingData streamData = getStaticObjStreamingData();
-		printf("Stream took: %fms\n", (engine->getTime() - sT) * 1000.0);
+		//printf("Stream took: %fms\n", (engine->getTime() - sT) * 1000.0);
 
 		uint32_t drawCallCount = 0;
 		for (auto mat = streamData.data.begin(); mat != streamData.data.end(); mat ++)
 		{
 			ResourceMaterial material = engine->resources->findMaterial(mat->first);
 
+			cmdBuffer->beginDebugRegion("For material: " + material->defUniqueName, glm::vec4(1.0f, 0.467f, 0.02f, 1.0f));
 			cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, materialPipelineInputLayout, 0, {material->descriptorSet});
 
 			for (auto mesh = mat->second.begin(); mesh != mat->second.end(); mesh ++)
 			{
+				cmdBuffer->insertDebugMarker("For mesh: " + testMesh->mesh, glm::vec4(1.0f, 0.039f, 0.439f, 1.0f));
 				cmdBuffer->bindIndexBuffer(testMesh->meshBuffer);
 
 				size_t meshInstanceDataSize = mesh->second.size() * sizeof(mesh->second[0]);
@@ -125,45 +129,36 @@ void WorldRenderer::render ()
 
 				cmdBuffer->bindVertexBuffers(0, {testMesh->meshBuffer, worldStreamingBuffer}, {testMesh->indexChunkSize, worldStreamingBufferOffset * sizeof(mesh->second[0])});
 
-				memcpy(static_cast<LevelStaticObjStreamData*>(worldStreamingBufferData) + worldStreamingBufferOffset, mesh->second.data(), meshInstanceDataSize);
+				memcpy(static_cast<LevelStaticObject*>(worldStreamingBufferData) + worldStreamingBufferOffset, mesh->second.data(), meshInstanceDataSize);
 				worldStreamingBufferOffset += mesh->second.size();
 
 				drawCallCount ++;
 
 				cmdBuffer->drawIndexed(testMesh->faceCount * 3, (uint32_t) mesh->second.size());
 			}
-		}
 
+			cmdBuffer->endDebugRegion();
+		}
 		//printf("Draw calls: %u\n", drawCallCount);
 
-		/*
-		 std::vector<svec4> positions;
-
-		 for (size_t i = 0; i < world->getActiveLevelData()->activeStaticObjectCells.size(); i ++)
-		 {
-		 traverseNode(world->getActiveLevelData()->activeStaticObjectCells[i], positions);
-		 }
-
-		 for (size_t i = 0; i < positions.size(); i ++)
-		 {
-		 cmdBuffer->pushConstants(materialPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(svec3), &positions[i]);
-		 cmdBuffer->drawIndexed(testMesh->faceCount * 3);
-		 }
-		 */
+		cmdBuffer->endDebugRegion();
 	}
 
 	cmdBuffer->endRenderPass();
+	cmdBuffer->endDebugRegion();
 
 	engine->renderer->endSingleTimeCommand(cmdBuffer, testCommandPool, QUEUE_TYPE_GRAPHICS);
 }
 
-void WorldRenderer_traverseOctreeNode (Octree<LevelStaticObject> &node, LevelStaticObjectStreamingData &data)
+void WorldRenderer_traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data)
 {
 	for (size_t i = 0; i < node.objectList.size(); i ++)
 	{
-		const LevelStaticObject &obj = node.objectList[i];
+		const LevelStaticObjectType &objType = node.objectList[i].first;
+		std::vector<LevelStaticObject> &objList = node.objectList[i].second;
+		std::vector<LevelStaticObject> &dataList = data.data[objType.materialDefUniqueNameHash][objType.meshDefUniqueNameHash];
 
-		data.data[obj.materialDefUniqueNameHash][obj.meshDefUniqueNameHash].push_back({obj.position_scale, obj.rotation});
+		dataList.insert(dataList.end(), objList.begin(), objList.end());
 	}
 
 	for (int a = 0; a < 8; a ++)
@@ -197,6 +192,8 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 
 	worldStreamingBuffer = engine->renderer->createBuffer(STATIC_OBJECT_STREAMING_BUFFER_SIZE, BUFFER_USAGE_VERTEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, true);
 	worldStreamingBufferData = engine->renderer->mapBuffer(worldStreamingBuffer);
+
+	engine->renderer->setObjectDebugName(worldStreamingBuffer, OBJECT_TYPE_BUFFER, "LevelStaticObj Streaming Buffer");
 
 	createRenderPasses();
 	createTestMaterialPipeline();

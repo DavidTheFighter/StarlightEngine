@@ -31,7 +31,7 @@
 #define WORLD_LEVELDATA_H_
 
 #include <common.h>
-#include <World/Octree.h>
+#include <World/SortedOctree.h>
 
 /*
  * The data for a static object. Much of the misc data for stuff like
@@ -41,31 +41,65 @@ typedef struct LevelStaticObject
 {
 		svec4 position_scale; 	// xyz - position, w - scale
 		svec4 rotation; 		// quaternion rotation
-		svec4 boundingSphereRadius_padding; // x - bounding sphere radius WITH scaling already applied, yzw - padding
 
-		size_t meshDefUniqueNameHash;
-		size_t materialDefUniqueNameHash;
-
-		inline svec4 octreeGetBoundingSphere()
+		inline svec4 octreeGetPositionScale()
 		{
-			return {position_scale.x, position_scale.y, position_scale.z, boundingSphereRadius_padding.x};
+			return position_scale;
 		}
 
 } LevelStaticObject;
+
+typedef struct LevelStaticObjectType
+{
+		size_t meshDefUniqueNameHash;
+		size_t materialDefUniqueNameHash;
+
+		// x - bounding sphere radius w/o scaling, y - maximum displayed LOD distance, zw - padding
+		svec4 boundingSphereRadius_maxLodDist_padding;
+
+		inline float octreeGetBoundingSphereRadius()
+		{
+			return boundingSphereRadius_maxLodDist_padding.x;
+		}
+
+		inline bool operator== (const LevelStaticObjectType &arg0)
+		{
+			return arg0.materialDefUniqueNameHash == this->materialDefUniqueNameHash && arg0.meshDefUniqueNameHash == this->meshDefUniqueNameHash &&
+					arg0.boundingSphereRadius_maxLodDist_padding.x == this->boundingSphereRadius_maxLodDist_padding.x &&
+					arg0.boundingSphereRadius_maxLodDist_padding.y == this->boundingSphereRadius_maxLodDist_padding.y; // We only compare these two components, as the rest are padding
+		}
+
+		inline bool operator== (const std::pair<LevelStaticObjectType, std::vector<LevelStaticObject> > &arg0)
+		{
+			return operator== (arg0.first);
+		}
+
+} LevelStaticObjectType;
+
+inline bool operator== (const LevelStaticObjectType &arg0, const LevelStaticObjectType &arg1)
+{
+	return arg0.materialDefUniqueNameHash == arg1.materialDefUniqueNameHash && arg0.meshDefUniqueNameHash == arg1.meshDefUniqueNameHash &&
+			arg0.boundingSphereRadius_maxLodDist_padding.x == arg1.boundingSphereRadius_maxLodDist_padding.x &&
+			arg0.boundingSphereRadius_maxLodDist_padding.y == arg1.boundingSphereRadius_maxLodDist_padding.y; // We only compare these two components, as the rest are padding
+}
+
+inline bool operator== (const std::pair<LevelStaticObjectType, std::vector<LevelStaticObject> > &arg0, const LevelStaticObjectType &arg1)
+{
+	return operator== (arg0.first, arg1);
+}
 
 class LevelData
 {
 	public:
 
 		std::map<sivec3, size_t> activeStaticObjectCells_map; // Maps cell coords to the index of a cell in member "activeStaticObjectCells"
-		std::vector<Octree<LevelStaticObject> > activeStaticObjectCells;
-
+		std::vector<SortedOctree<LevelStaticObjectType, LevelStaticObject> > activeStaticObjectCells;
 
 		LevelData ();
 		virtual ~LevelData ();
 
-		void insertStaticObject (const LevelStaticObject &obj);
-		void insertStaticObjects (const std::vector<LevelStaticObject> &objs);
+		void insertStaticObject (const LevelStaticObjectType &objType, const LevelStaticObject &obj);
+		void insertStaticObjects (const LevelStaticObjectType &objType, const std::vector<LevelStaticObject> &objs);
 };
 
 #endif /* WORLD_LEVELDATA_H_ */

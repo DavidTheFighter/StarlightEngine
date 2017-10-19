@@ -39,15 +39,11 @@
 class WorldHandler;
 class StarlightEngine;
 
-typedef struct LevelStaticObjStreamData
-{
-		svec4 position_scale;
-		svec4 rotation;
-} LevelStaticObjStreamData;
+struct LevelStaticObject;
 
 typedef struct LevelStaticObjectStreamingData
 {
-		std::map<size_t, std::map<size_t, std::vector<LevelStaticObjStreamData> > > data;
+		std::map<size_t, std::map<size_t, std::vector<LevelStaticObject> > > data;
 } LevelStaticObjectStreamingData;
 
 class WorldRenderer

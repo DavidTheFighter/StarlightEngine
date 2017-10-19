@@ -41,7 +41,7 @@ LevelData::~LevelData ()
 
 const OctreeRules defaultOctreeRules = {1, 16};
 
-void LevelData::insertStaticObject (const LevelStaticObject &obj)
+void LevelData::insertStaticObject (const LevelStaticObjectType &objType, const LevelStaticObject &obj)
 {
 	int32_t cellCoordX = (int32_t) std::floor(obj.position_scale.x / float(LEVEL_CELL_SIZE));
 	int32_t cellCoordY = (int32_t) std::floor(obj.position_scale.y / float(LEVEL_CELL_SIZE));
@@ -54,7 +54,7 @@ void LevelData::insertStaticObject (const LevelStaticObject &obj)
 
 	if (cellIt == activeStaticObjectCells_map.end())
 	{
-		Octree<LevelStaticObject> cell(nullptr);
+		SortedOctree<LevelStaticObjectType, LevelStaticObject> cell(nullptr);
 		cell.cellCoords = cellCoords;
 		cell.cellBB = {{cellCoordX * float(LEVEL_CELL_SIZE), cellCoordY * float(LEVEL_CELL_SIZE), cellCoordZ * float(LEVEL_CELL_SIZE)}, {cellCoordX * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE), cellCoordY * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE), cellCoordZ * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE)}};
 
@@ -68,12 +68,12 @@ void LevelData::insertStaticObject (const LevelStaticObject &obj)
 		index = cellIt->second;
 	}
 
-	Octree<LevelStaticObject> &cell = activeStaticObjectCells[index];
-	cell.insertObject(obj);
+	SortedOctree<LevelStaticObjectType, LevelStaticObject> &cell = activeStaticObjectCells[index];
+	cell.insertObject(objType, obj);
 	cell.flushTreeUpdates(defaultOctreeRules);
 }
 
-void LevelData::insertStaticObjects (const std::vector<LevelStaticObject> &objs)
+void LevelData::insertStaticObjects (const LevelStaticObjectType &objType, const std::vector<LevelStaticObject> &objs)
 {
 	std::vector<size_t> affectedCells;
 
@@ -91,7 +91,7 @@ void LevelData::insertStaticObjects (const std::vector<LevelStaticObject> &objs)
 
 		if (cellIt == activeStaticObjectCells_map.end())
 		{
-			Octree<LevelStaticObject> cell(nullptr);
+			SortedOctree<LevelStaticObjectType, LevelStaticObject> cell(nullptr);
 			cell.cellCoords = cellCoords;
 			cell.cellBB = {{cellCoordX * float(LEVEL_CELL_SIZE), cellCoordY * float(LEVEL_CELL_SIZE), cellCoordZ * float(LEVEL_CELL_SIZE)}, {cellCoordX * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE), cellCoordY * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE), cellCoordZ * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE)}};
 
@@ -105,8 +105,8 @@ void LevelData::insertStaticObjects (const std::vector<LevelStaticObject> &objs)
 			index = cellIt->second;
 		}
 
-		Octree<LevelStaticObject> &cell = activeStaticObjectCells[index];
-		cell.insertObject(objs[i]);
+		SortedOctree<LevelStaticObjectType, LevelStaticObject> &cell = activeStaticObjectCells[index];
+		cell.insertObject(objType, objs[i]);
 
 		if (std::find(affectedCells.begin(), affectedCells.end(), index) == affectedCells.end())
 		{

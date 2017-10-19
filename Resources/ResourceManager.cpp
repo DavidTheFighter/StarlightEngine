@@ -75,6 +75,7 @@ ResourceMaterial ResourceManager::loadMaterialImmediate (const std::string &defU
 		mat->defUniqueName = defUniqueName;
 		mat->descriptorSet = mainThreadDescriptorPool->allocateDescriptorSet();
 		mat->sampler = renderer->createSampler(matDef->addressMode, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, 1, {0, 0, 0}, matDef->linearMipmapFiltering ? SAMPLER_MIPMAP_MODE_LINEAR : SAMPLER_MIPMAP_MODE_NEAREST);
+		renderer->setObjectDebugName(mat->sampler, OBJECT_TYPE_SAMPLER, "Material: " + mat->defUniqueName + " sampler");
 
 		std::vector<DescriptorWriteInfo> writes(1);
 		writes[0].descriptorCount = 1;
@@ -269,6 +270,22 @@ ResourceMesh ResourceManager::loadMeshImmediate (const std::string &file, const 
 
 		renderer->destroyStagingBuffer(stagingBuffer);
 
+		/*
+		 * I'm formatting the debug name to trim it to the "GameData/meshes/" directory. For example:
+		 * "GameData/meshes/blah.fbx" would turn to ".../blah.fbx""
+		 */
+
+		size_t i = file.find("/meshes/");
+
+		std::string debugMarkerName = ".../";
+
+		if (i != file.npos)
+			debugMarkerName += file.substr(i + 8);
+		else
+			debugMarkerName = file;
+
+		renderer->setObjectDebugName(meshRes->meshBuffer, OBJECT_TYPE_BUFFER, debugMarkerName + "[" + mesh + "]");
+
 		// Probably don't need this here, but I'm putting it here anyway
 		COMPILER_BARRIER();
 
@@ -356,8 +373,8 @@ ResourceTexture ResourceManager::loadTextureImmediate (const std::string &file, 
 		}
 
 		/*
-		 * I'm formatting the debug name to trim it to the "GameData/shaders/" directory. For example:
-		 * "GameData/shaders/vulkan/temp-swapchain.glsl" would turn to ".../vulkan/temp-swapchain.glsl"
+		 * I'm formatting the debug name to trim it to the "GameData/textures/" directory. For example:
+		 * "GameData/textures/blah.png" would turn to ".../blah.png""
 		 */
 
 		size_t i = file.find("/textures/");

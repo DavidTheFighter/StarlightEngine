@@ -111,23 +111,25 @@ void GameStateInWorld::init ()
 
 	LevelData &dat = *world->getActiveLevelData();
 
-	LevelStaticObject testObj = {};
-	testObj.boundingSphereRadius_padding = {8, 0, 0, 0};
-	testObj.materialDefUniqueNameHash = std::hash<std::string> {} ("dirt");
-	testObj.meshDefUniqueNameHash = std::hash<std::string> {} ("bridge");
+	LevelStaticObjectType testObjType = {};
+	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("dirt");
+	testObjType.meshDefUniqueNameHash = std::hash<std::string> {} ("bridge");
+	testObjType.boundingSphereRadius_maxLodDist_padding = {8, 1, 0, 0};
+
+	LevelStaticObject testObjInstance = {};
 
 	std::vector<LevelStaticObject> testObjs;
 
-	for (size_t i = 0; i < 4096; i ++)
+	for (size_t i = 0; i < 8; i ++)
 	{
-		testObj.position_scale = {(float) (rand() % 16384), (float) (rand() % 8), (float) (rand() % 16384), 1.0f};
-		testObj.rotation = {0, 0, 0, 1};
+		testObjInstance.position_scale = {(float) (rand() % 16384), (float) (rand() % 8), (float) (rand() % 16384), 1.0f};
+		testObjInstance.rotation = {0, 0, 0, 1};
 
-		testObjs.push_back(testObj);
+		testObjs.push_back(testObjInstance);
 	}
 
 	double sT = engine->getTime();
-	dat.insertStaticObjects(testObjs);
+	dat.insertStaticObjects(testObjType, testObjs);
 	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
 }
 
