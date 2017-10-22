@@ -83,9 +83,9 @@ void WorldRenderer::render ()
 
 	std::vector<ClearValue> clearValues = std::vector<ClearValue>(3);
 	clearValues[0].color =
-	{	0, 0, 0, 1};
+	{	0, 0, 0, 0};
 	clearValues[1].color =
-	{	0, 0, 0, 1};
+	{	0, 0, 0, 0};
 	clearValues[2].depthStencil =
 	{	0, 0};
 

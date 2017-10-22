@@ -129,7 +129,7 @@ void VulkanCommandBuffer::bindDescriptorSets (PipelineBindPoint point, PipelineI
 
 }
 
-void VulkanCommandBuffer::transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout)
+void VulkanCommandBuffer::transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource)
 {
 	VkImageMemoryBarrier barrier = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
 	barrier.oldLayout = toVkImageLayout(oldLayout);
@@ -138,7 +138,7 @@ void VulkanCommandBuffer::transitionTextureLayout (Texture texture, TextureLayou
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = static_cast<VulkanTexture*>(texture)->imageHandle;
 	barrier.subresourceRange =
-	{	VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+	{	isDepthFormat(texture->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT, subresource.baseMipLevel, subresource.levelCount, subresource.baseArrayLayer, subresource.layerCount};
 
 	VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 	VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -155,6 +155,13 @@ void VulkanCommandBuffer::transitionTextureLayout (Texture texture, TextureLayou
 		case TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL:
 		{
 			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+			break;
+		}
+		case TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		{
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 			srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 
 			break;
@@ -179,11 +186,127 @@ void VulkanCommandBuffer::transitionTextureLayout (Texture texture, TextureLayou
 
 			break;
 		}
+		case TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		{
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			dstStage = VK_PIPELINE_STAGE_HOST_BIT;
+
+			break;
+		}
 		default:
 			break;
 	}
 
 	vkCmdPipelineBarrier(bufferHandle, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+void VulkanCommandBuffer::setTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource, PipelineStageFlags srcStage, PipelineStageFlags dstStage)
+{
+	VkImageMemoryBarrier imageMemoryBarrier = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+	imageMemoryBarrier.oldLayout = toVkImageLayout(oldLayout);
+	imageMemoryBarrier.newLayout = toVkImageLayout(newLayout);
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageMemoryBarrier.image = static_cast<VulkanTexture*>(texture)->imageHandle;
+	imageMemoryBarrier.subresourceRange =
+	{	isDepthFormat(texture->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT, subresource.baseMipLevel, subresource.levelCount, subresource.baseArrayLayer, subresource.layerCount};
+
+	// Source layouts (old)
+	// Source access mask controls actions that have to be finished on the old layout
+	// before it will be transitioned to the new layout
+	switch (oldLayout)
+	{
+		case TEXTURE_LAYOUT_UNDEFINED:
+			// Image layout is undefined (or does not matter)
+			// Only valid as initial layout
+			// No flags required, listed only for completeness
+			imageMemoryBarrier.srcAccessMask = 0;
+			break;
+
+		case TEXTURE_LAYOUT_PREINITIALIZED:
+			// Image is preinitialized
+			// Only valid as initial layout for linear images, preserves memory contents
+			// Make sure host writes have been finished
+			imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+			break;
+
+		case TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			// Image is a color attachment
+			// Make sure any writes to the color buffer have been finished
+			imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			break;
+
+		case TEXTURE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+			// Image is a depth/stencil attachment
+			// Make sure any writes to the depth/stencil buffer have been finished
+			imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			break;
+
+		case TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			// Image is a transfer source
+			// Make sure any reads from the image have been finished
+			imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			break;
+
+		case TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			// Image is a transfer destination
+			// Make sure any writes to the image have been finished
+			imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			break;
+
+		case TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			// Image is read by a shader
+			// Make sure any shader reads from the image have been finished
+			imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+		default:
+			// Other source layouts aren't handled (yet)
+			break;
+	}
+
+	// Target layouts (new)
+	// Destination access mask controls the dependency for the new image layout
+	switch (newLayout)
+	{
+		case TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			// Image will be used as a transfer destination
+			// Make sure any writes to the image have been finished
+			imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			break;
+
+		case TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			// Image will be used as a transfer source
+			// Make sure any reads from the image have been finished
+			imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			break;
+
+		case TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			// Image will be used as a color attachment
+			// Make sure any writes to the color buffer have been finished
+			imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			break;
+
+		case TEXTURE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+			// Image layout will be used as a depth/stencil attachment
+			// Make sure any writes to depth/stencil buffer have been finished
+			imageMemoryBarrier.dstAccessMask = imageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			break;
+
+		case TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			// Image will be read in a shader (sampler, input attachment)
+			// Make sure any writes to the image have been finished
+			if (imageMemoryBarrier.srcAccessMask == 0)
+			{
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+			}
+			imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+		default:
+			// Other source layouts aren't handled (yet)
+			break;
+	}
+
+	vkCmdPipelineBarrier(bufferHandle, toVkPipelineStageFlags(srcStage), toVkPipelineStageFlags(dstStage), 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
 
 void VulkanCommandBuffer::stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture)
@@ -192,7 +315,7 @@ void VulkanCommandBuffer::stageBuffer (StagingBuffer stagingBuffer, Texture dstT
 	imgCopyRegion.bufferOffset = 0;
 	imgCopyRegion.bufferRowLength = 0;
 	imgCopyRegion.bufferImageHeight = 0;
-	imgCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imgCopyRegion.imageSubresource.aspectMask = isDepthFormat(dstTexture->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	imgCopyRegion.imageSubresource.mipLevel = 0;
 	imgCopyRegion.imageSubresource.baseArrayLayer = 0;
 	imgCopyRegion.imageSubresource.layerCount = 1;
@@ -224,6 +347,29 @@ void VulkanCommandBuffer::setScissors (uint32_t firstScissor, const std::vector<
 {
 	// Generic scissors are laid out in the same way as VkRect2D's, so they should be fine to cast directly
 	vkCmdSetScissor(bufferHandle, firstScissor, static_cast<uint32_t>(scissors.size()), reinterpret_cast<const VkRect2D*>(scissors.data()));
+}
+
+void VulkanCommandBuffer::blitTexture (Texture src, TextureLayout srcLayout, Texture dst, TextureLayout dstLayout, std::vector<TextureBlitInfo> blitRegions, SamplerFilter filter)
+{
+	std::vector<VkImageBlit> imageBlits;
+
+	for (size_t i = 0; i < blitRegions.size(); i ++)
+	{
+		const TextureBlitInfo &blitRegion = blitRegions[i];
+		VkImageBlit blit = {};
+
+		blit.srcSubresource.aspectMask = isDepthFormat(src->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.aspectMask = isDepthFormat(dst->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+		memcpy(reinterpret_cast<uint8_t*>(&blit.srcSubresource) + offsetof(VkImageSubresourceLayers, mipLevel), &blitRegion.srcSubresource, sizeof(blitRegion.srcSubresource));
+		memcpy(reinterpret_cast<uint8_t*>(&blit.dstSubresource) + offsetof(VkImageSubresourceLayers, mipLevel), &blitRegion.dstSubresource, sizeof(blitRegion.dstSubresource));
+
+		memcpy(blit.srcOffsets, blitRegion.srcOffsets, sizeof(blitRegion.srcOffsets));
+		memcpy(blit.dstOffsets, blitRegion.dstOffsets, sizeof(blitRegion.dstOffsets));
+
+		imageBlits.push_back(blit);
+	}
+
+	vkCmdBlitImage(bufferHandle, static_cast<VulkanTexture*>(src)->imageHandle, toVkImageLayout(srcLayout), static_cast<VulkanTexture*>(dst)->imageHandle, toVkImageLayout(dstLayout), static_cast<uint32_t>(imageBlits.size()), imageBlits.data(), toVkFilter(filter));
 }
 
 void VulkanCommandBuffer::beginDebugRegion (const std::string &regionName, glm::vec4 color)

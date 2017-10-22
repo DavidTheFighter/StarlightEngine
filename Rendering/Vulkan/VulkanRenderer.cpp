@@ -721,6 +721,7 @@ Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, Text
 	tex->width = uint32_t(extent.x);
 	tex->height = uint32_t(extent.y);
 	tex->depth = uint32_t(extent.z);
+	tex->textureFormat = format;
 
 	VkImageCreateInfo imageCreateInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 	imageCreateInfo.extent = toVkExtent(extent);

@@ -61,12 +61,15 @@ class VulkanCommandBuffer : public RendererCommandBuffer
 		void pushConstants (PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data);
 		void bindDescriptorSets (PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets);
 
-		void transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout);
+		void transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource);
+		void setTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource, PipelineStageFlags srcStage, PipelineStageFlags dstStage);
 		void stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture);
 		void stageBuffer (StagingBuffer stagingBuffer, Buffer dstBuffer);
 
 		void setViewports (uint32_t firstViewport, const std::vector<Viewport> &viewports);
 		void setScissors (uint32_t firstScissor, const std::vector<Scissor> &scissors);
+
+		void blitTexture (Texture src, TextureLayout srcLayout, Texture dst, TextureLayout dstLayout, std::vector<TextureBlitInfo> blitRegions, SamplerFilter filter);
 
 		void beginDebugRegion (const std::string &regionName, glm::vec4 color);
 		void endDebugRegion ();

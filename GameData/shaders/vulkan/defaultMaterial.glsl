@@ -12,8 +12,8 @@
 	layout(location = 1) in vec2 inUV;
 	layout(location = 2) in vec3 inNormal;
 	layout(location = 3) in vec3 inTangent;
-	layout(location = 4) in vec4 inInstancePosition_Scale;
-	layout(location = 5) in vec4 inInstanceRotation;
+	layout(location = 4) in vec4 inInstancePosition_Scale; // xyz - position, w - scale
+	layout(location = 5) in vec4 inInstanceRotation; // quaternion
 
 	layout(location = 0) out vec2 outUV;
 	layout(location = 1) out vec3 outNormal;
@@ -26,7 +26,7 @@
 		
 	void main()
 	{	
-		gl_Position = pushConsts.mvp * vec4(inVertex + inInstancePosition_Scale.xyz + vec3(1), 1);
+		gl_Position = pushConsts.mvp * vec4(inVertex * inInstancePosition_Scale.w + inInstancePosition_Scale.xyz, 1);
 		
 		outUV = inUV;
 		outNormal = inNormal;
@@ -48,13 +48,23 @@
 	layout(location = 1) in vec3 inNormal;
 	layout(location = 2) in vec3 inTangent;
 	
-	layout(location = 0) out vec4 diffuse_roughness;
-	layout(location = 1) out vec4 normal_metalness;
+	layout(location = 0) out vec4 albedo_roughness; // rgb - albedo, a - roughness
+	layout(location = 1) out vec4 normal_metalness; // rgb - normals, a - metalness
+
+	vec3 calcNormal()
+	{
+		vec3 N = normalize(inNormal);
+		vec3 T = normalize(inTangent);
+		vec3 B = cross(N, T);
+		mat3 tbn = mat3(T, B, N);
+		
+		return tbn * normalize(texture(sampler2D(materialTex1, materialSampler), inUV).rgb * 2.0f - 1.0f);
+	}
 
 	void main()
 	{	
-		diffuse_roughness = vec4(texture(sampler2D(materialTex0, materialSampler), inUV).rgb, texture(sampler2D(materialTex2, materialSampler), inUV).r);
-		normal_metalness = vec4(normalize(inNormal) * 0.5f + 0.5f, texture(sampler2D(materialTex3, materialSampler), inUV).r);
+		albedo_roughness = vec4(texture(sampler2D(materialTex0, materialSampler), inUV).rgb, texture(sampler2D(materialTex2, materialSampler), inUV).r);
+		normal_metalness = vec4(calcNormal(), texture(sampler2D(materialTex3, materialSampler), inUV).r);
 	}
 
 #endif

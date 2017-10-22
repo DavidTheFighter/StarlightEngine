@@ -13,6 +13,7 @@
 typedef struct RendererTexture
 {
 		uint32_t width, height, depth;
+		ResourceFormat textureFormat;
 } RendererTexture;
 
 typedef struct RendererTextureView
@@ -30,6 +31,13 @@ typedef struct TextureSubresourceRange
 		uint32_t baseArrayLayer;
 		uint32_t layerCount;
 } TextureSubresourceRange;
+
+typedef struct TextureSubresourceLayers
+{
+	    uint32_t              mipLevel;
+	    uint32_t              baseArrayLayer;
+	    uint32_t              layerCount;
+} TextureSubresourceLayers;
 
 typedef struct RendererStagingBuffer
 {
@@ -328,6 +336,14 @@ typedef union RendererClearValue {
     ClearColorValue           color;
     ClearDepthStencilValue    depthStencil;
 } ClearValue;
+
+typedef struct TextureBlitInfo
+{
+		TextureSubresourceLayers srcSubresource;
+		sivec3 srcOffsets[2];
+		TextureSubresourceLayers dstSubresource;
+		sivec3 dstOffsets[2];
+} TextureBlitInfo;
 
 //f//
 

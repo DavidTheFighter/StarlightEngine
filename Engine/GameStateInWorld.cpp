@@ -122,7 +122,7 @@ void GameStateInWorld::init ()
 
 	for (size_t i = 0; i < 8; i ++)
 	{
-		testObjInstance.position_scale = {(float) (rand() % 16384), (float) (rand() % 8), (float) (rand() % 16384), 1.0f};
+		testObjInstance.position_scale = {(float) (rand() % 1024), (float) (rand() % 8), (float) (rand() % 1024), 1.0f};
 		testObjInstance.rotation = {0, 0, 0, 1};
 
 		testObjs.push_back(testObjInstance);
@@ -131,6 +131,8 @@ void GameStateInWorld::init ()
 	double sT = engine->getTime();
 	dat.insertStaticObjects(testObjType, testObjs);
 	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
+
+
 }
 
 void GameStateInWorld::destroy ()
@@ -138,6 +140,7 @@ void GameStateInWorld::destroy ()
 	worldRenderer->destroy();
 
 	engine->renderer->destroySampler(presentSampler);
+	engine->resources->returnMaterial(engine->resources->findMaterial("dirt"));
 
 	delete testGame;
 	delete world->getActiveLevel();

@@ -62,12 +62,15 @@ class RendererCommandBuffer
 		virtual void pushConstants (PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) = 0;
 		virtual void bindDescriptorSets (PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets) = 0;
 
-		virtual void transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout) = 0;
+		virtual void transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource = {0, 1, 0, 1}) = 0;
+		virtual void setTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource, PipelineStageFlags srcStage, PipelineStageFlags dstStage) = 0;
 		virtual void stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture) = 0;
 		virtual void stageBuffer (StagingBuffer stagingBuffer, Buffer dstBuffer) = 0;
 
 		virtual void setViewports (uint32_t firstViewport, const std::vector<Viewport> &viewports) = 0;
 		virtual void setScissors (uint32_t firstScissor, const std::vector<Scissor> &scissors) = 0;
+
+		virtual void blitTexture (Texture src, TextureLayout srcLayout, Texture dst, TextureLayout dstLayout, std::vector<TextureBlitInfo> blitRegions, SamplerFilter filter = SAMPLER_FILTER_LINEAR) = 0;
 
 #if SE_RENDER_DEBUG_MARKERS
 		virtual void beginDebugRegion (const std::string &regionName, glm::vec4 color = glm::vec4(1)) = 0;

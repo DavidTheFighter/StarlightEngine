@@ -149,6 +149,7 @@ typedef struct ResourceTextureObject
 		std::atomic<bool> dataLoaded; // Used for multi-threaded texture loading
 		std::string file;
 		ResourceFormat textureFormat;
+		uint32_t mipmapLevels;
 
 		RendererTexture *texture;
 		RendererTextureView *textureView; // A view for the whole texture, aka a default view
