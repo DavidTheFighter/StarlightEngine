@@ -72,15 +72,8 @@ WorldRenderer::~WorldRenderer ()
 		destroy();
 }
 
-ResourceMesh testMesh = nullptr;
-
 void WorldRenderer::render ()
 {
-	if (testMesh == nullptr)
-	{
-		testMesh = engine->resources->loadMeshImmediate(engine->getWorkingDir() + "GameData/meshes/test-bridge.dae", "bridge0");
-	}
-
 	std::vector<ClearValue> clearValues = std::vector<ClearValue>(3);
 	clearValues[0].color =
 	{	0, 0, 0, 0};
@@ -117,8 +110,10 @@ void WorldRenderer::render ()
 
 			for (auto mesh = mat->second.begin(); mesh != mat->second.end(); mesh ++)
 			{
-				cmdBuffer->insertDebugMarker("For mesh: " + testMesh->mesh, glm::vec4(1.0f, 0.039f, 0.439f, 1.0f));
-				cmdBuffer->bindIndexBuffer(testMesh->meshBuffer);
+				ResourceStaticMesh staticMesh = engine->resources->findStaticMesh(mesh->first);
+
+				cmdBuffer->insertDebugMarker("For mesh: " + staticMesh->mesh->mesh, glm::vec4(1.0f, 0.039f, 0.439f, 1.0f));
+				cmdBuffer->bindIndexBuffer(staticMesh->mesh->meshBuffer);
 
 				size_t meshInstanceDataSize = mesh->second.size() * sizeof(mesh->second[0]);
 
@@ -127,14 +122,14 @@ void WorldRenderer::render ()
 					worldStreamingBufferOffset = 0;
 				}
 
-				cmdBuffer->bindVertexBuffers(0, {testMesh->meshBuffer, worldStreamingBuffer}, {testMesh->indexChunkSize, worldStreamingBufferOffset * sizeof(mesh->second[0])});
+				cmdBuffer->bindVertexBuffers(0, {staticMesh->mesh->meshBuffer, worldStreamingBuffer}, {staticMesh->mesh->indexChunkSize, worldStreamingBufferOffset * sizeof(mesh->second[0])});
 
 				memcpy(static_cast<LevelStaticObject*>(worldStreamingBufferData) + worldStreamingBufferOffset, mesh->second.data(), meshInstanceDataSize);
 				worldStreamingBufferOffset += mesh->second.size();
 
 				drawCallCount ++;
 
-				cmdBuffer->drawIndexed(testMesh->faceCount * 3, (uint32_t) mesh->second.size());
+				cmdBuffer->drawIndexed(staticMesh->mesh->faceCount * 3, (uint32_t) mesh->second.size());
 			}
 
 			cmdBuffer->endDebugRegion();

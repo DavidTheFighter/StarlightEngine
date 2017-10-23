@@ -74,14 +74,17 @@ ResourceMaterial ResourceManager::loadMaterialImmediate (const std::string &defU
 		ResourceMaterialObject *mat = new ResourceMaterialObject();
 		mat->defUniqueName = defUniqueName;
 		mat->descriptorSet = mainThreadDescriptorPool->allocateDescriptorSet();
-		mat->sampler = renderer->createSampler(matDef->addressMode, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, 4, {0, 14, 0}, matDef->linearMipmapFiltering ? SAMPLER_MIPMAP_MODE_LINEAR : SAMPLER_MIPMAP_MODE_NEAREST);
+		mat->sampler = renderer->createSampler(matDef->addressMode, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, 4, {0, 14, 0},
+				matDef->linearMipmapFiltering ? SAMPLER_MIPMAP_MODE_LINEAR : SAMPLER_MIPMAP_MODE_NEAREST);
 		renderer->setObjectDebugName(mat->sampler, OBJECT_TYPE_SAMPLER, "Material: " + mat->defUniqueName + " sampler");
 
 		std::vector<DescriptorWriteInfo> writes(1);
 		writes[0].descriptorCount = 1;
 		writes[0].descriptorType = DESCRIPTOR_TYPE_SAMPLER;
 		writes[0].dstSet = mat->descriptorSet;
-		writes[0].imageInfo = {{mat->sampler, nullptr, TEXTURE_LAYOUT_UNDEFINED}};
+		writes[0].imageInfo =
+		{
+			{	mat->sampler, nullptr, TEXTURE_LAYOUT_UNDEFINED}};
 		writes[0].dstArrayElement = writes[0].dstBinding = 0;
 
 		for (int i = 0; i < MATERIAL_DEF_MAX_TEXTURE_NUM; i ++)
@@ -98,7 +101,9 @@ ResourceMaterial ResourceManager::loadMaterialImmediate (const std::string &defU
 				writeInfo.dstArrayElement = 0;
 				writeInfo.dstBinding = uint32_t(i) + 1;
 				writeInfo.dstSet = mat->descriptorSet;
-				writeInfo.imageInfo = {{mat->sampler, mat->textures[i]->textureView, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
+				writeInfo.imageInfo =
+				{
+					{	mat->sampler, mat->textures[i]->textureView, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
 
 				writes.push_back(writeInfo);
 			}
@@ -130,9 +135,14 @@ ResourceMaterial ResourceManager::findMaterial (size_t defUniqueNameHash)
 	return it != loadedMaterials.end() ? it->second.first : nullptr;
 }
 
-void ResourceManager::returnMaterial (ResourceMaterial mat)
+void ResourceManager::returnMaterial (const std::string &defUniqueName)
 {
-	auto it = loadedMaterials.find(stringHash(mat->defUniqueName));
+	return returnMaterial(stringHash(defUniqueName));
+}
+
+void ResourceManager::returnMaterial (size_t defUniqueNameHash)
+{
+	auto it = loadedMaterials.find(defUniqueNameHash);
 
 	if (it != loadedMaterials.end())
 	{
@@ -142,6 +152,8 @@ void ResourceManager::returnMaterial (ResourceMaterial mat)
 		// If the reference counter is now zero, then delete the mesh data entirely
 		if (it->second.second == 0)
 		{
+			ResourceMaterial mat = it->second.first;
+
 			mainThreadDescriptorPool->freeDescriptorSet(mat->descriptorSet);
 			renderer->destroySampler(mat->sampler);
 
@@ -156,6 +168,70 @@ void ResourceManager::returnMaterial (ResourceMaterial mat)
 			delete mat;
 
 			loadedMaterials.erase(it);
+		}
+	}
+}
+
+ResourceStaticMesh ResourceManager::loadStaticMeshImmediate (const std::string &defUniqueName)
+{
+	auto it = loadedStaticMeshes.find(stringHash(defUniqueName));
+
+	if (it == loadedStaticMeshes.end())
+	{
+		StaticMeshDef *matDef = getMeshDef(defUniqueName);
+
+		ResourceStaticMeshObject *mesh = new ResourceStaticMeshObject();
+
+		mesh->mesh = loadMeshImmediate(workingDir + std::string(matDef->meshFile), std::string(matDef->meshName));
+
+		loadedStaticMeshes[stringHash(defUniqueName)] = std::make_pair(mesh, 1);
+
+		return mesh;
+	}
+	else
+	{
+		it->second.second ++;
+
+		return it->second.first;
+	}
+}
+
+ResourceStaticMesh ResourceManager::findStaticMesh (const std::string &defUniqueName)
+{
+	return findStaticMesh(stringHash(defUniqueName));
+}
+
+ResourceStaticMesh ResourceManager::findStaticMesh (size_t defUniqueNameHash)
+{
+	auto it = loadedStaticMeshes.find(defUniqueNameHash);
+
+	return it != loadedStaticMeshes.end() ? it->second.first : nullptr;
+}
+
+void ResourceManager::returnStaticMesh (const std::string &defUniqueName)
+{
+	returnStaticMesh (stringHash(defUniqueName));
+}
+
+void ResourceManager::returnStaticMesh (size_t defUniqueNameHash)
+{
+	auto it = loadedStaticMeshes.find(defUniqueNameHash);
+
+	if (it != loadedStaticMeshes.end())
+	{
+		// Decrement the reference counter
+		it->second.second --;
+
+		// If the reference counter is now zero, then delete the mesh data entirely
+		if (it->second.second == 0)
+		{
+			ResourceStaticMesh mesh = it->second.first;
+
+			returnMesh(mesh->mesh);
+
+			delete mesh;
+
+			loadedStaticMeshes.erase(it);
 		}
 	}
 }
@@ -176,9 +252,9 @@ void ResourceManager::addMaterialDef (const MaterialDef &def)
 	loadedMaterialDefsMap[stringHash(std::string(def.uniqueName))] = matDef;
 }
 
-void ResourceManager::addMeshDef (const MeshDef &def)
+void ResourceManager::addMeshDef (const StaticMeshDef &def)
 {
-	MeshDef *meshDef = new MeshDef();
+	StaticMeshDef *meshDef = new StaticMeshDef();
 	*meshDef = def;
 
 	loadedMeshDefsMap[stringHash(std::string(def.uniqueName))] = meshDef;
@@ -194,7 +270,7 @@ MaterialDef *ResourceManager::getMaterialDef (const std::string &defUniqueName)
 	return getMaterialDef(stringHash(defUniqueName));
 }
 
-MeshDef *ResourceManager::getMeshDef (const std::string &defUniqueName)
+StaticMeshDef *ResourceManager::getMeshDef (const std::string &defUniqueName)
 {
 	return getMeshDef(stringHash(defUniqueName));
 }
@@ -219,7 +295,7 @@ MaterialDef *ResourceManager::getMaterialDef (size_t uniqueNameHash)
 	return nullptr;
 }
 
-MeshDef *ResourceManager::getMeshDef (size_t uniqueNameHash)
+StaticMeshDef *ResourceManager::getMeshDef (size_t uniqueNameHash)
 {
 	auto it = loadedMeshDefsMap.find(uniqueNameHash);
 
@@ -473,12 +549,18 @@ void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 			mipRange.layerCount = 1;
 
 			TextureBlitInfo blitInfo = {};
-			blitInfo.srcSubresource = {i - 1, 0, 1};
-			blitInfo.dstSubresource = {i, 0, 1};
-			blitInfo.srcOffsets[0] = {0, 0, 0};
-			blitInfo.dstOffsets[0] = {0, 0, 0};
-			blitInfo.srcOffsets[1] = {int32_t(width >> (i - 1)), int32_t(height >> (i - 1)), 1};
-			blitInfo.dstOffsets[1] = {int32_t(width >> i), int32_t(height >> i), 1};
+			blitInfo.srcSubresource =
+			{	i - 1, 0, 1};
+			blitInfo.dstSubresource =
+			{	i, 0, 1};
+			blitInfo.srcOffsets[0] =
+			{	0, 0, 0};
+			blitInfo.dstOffsets[0] =
+			{	0, 0, 0};
+			blitInfo.srcOffsets[1] =
+			{	int32_t(width >> (i - 1)), int32_t(height >> (i - 1)), 1};
+			blitInfo.dstOffsets[1] =
+			{	int32_t(width >> i), int32_t(height >> i), 1};
 
 			//cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, mipRange);
 			cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, mipRange, PIPELINE_STAGE_TRANSFER_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);

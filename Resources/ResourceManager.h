@@ -59,21 +59,28 @@ class ResourceManager
 		ResourceMaterial loadMaterialImmediate (const std::string &defUniqueName);
 		ResourceMaterial findMaterial (const std::string &defUniqueName);
 		ResourceMaterial findMaterial (size_t defUniqueNameHash);
-		void returnMaterial (ResourceMaterial mat);
+		void returnMaterial (const std::string &defUniqueName);
+		void returnMaterial (size_t defUniqueNameHash);
+
+		ResourceStaticMesh loadStaticMeshImmediate (const std::string &defUniqueName);
+		ResourceStaticMesh findStaticMesh (const std::string &defUniqueName);
+		ResourceStaticMesh findStaticMesh (size_t defUniqueNameHash);
+		void returnStaticMesh (const std::string &defUniqueName);
+		void returnStaticMesh (size_t defUniqueNameHash);
 
 		void loadGameDefsFile (const std::string &file);
 
 		void addLevelDef (const LevelDef &def);
 		void addMaterialDef (const MaterialDef &def);
-		void addMeshDef (const MeshDef &def);
+		void addMeshDef (const StaticMeshDef &def);
 
 		LevelDef *getLevelDef (const std::string &defUniqueName);
 		MaterialDef *getMaterialDef (const std::string &defUniqueName);
-		MeshDef *getMeshDef (const std::string &defUniqueName);
+		StaticMeshDef *getMeshDef (const std::string &defUniqueName);
 
 		LevelDef *getLevelDef (size_t uniqueNameHash);
 		MaterialDef *getMaterialDef (size_t uniqueNameHash);
-		MeshDef *getMeshDef (size_t uniqueNameHash);
+		StaticMeshDef *getMeshDef (size_t uniqueNameHash);
 
 		static std::vector<char> getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData = true);
 
@@ -88,13 +95,14 @@ class ResourceManager
 		std::map<size_t, MaterialDef*> loadedMaterialDefsMap;
 		//std::vector<MaterialDef*> loadedMaterialDefs;
 
-		std::map<size_t, MeshDef*> loadedMeshDefsMap;
+		std::map<size_t, StaticMeshDef*> loadedMeshDefsMap;
 		//std::vector<MeshDef*> loadedMeshDefs;
 
 		std::map<size_t, LevelDef*> loadedLevelDefsMap;
 		//std::vector<LevelDef*> loadedLevelDefs;
 
 		std::map<size_t, std::pair<ResourceMaterial, uint32_t> > loadedMaterials;
+		std::map<size_t, std::pair<ResourceStaticMesh, uint32_t> > loadedStaticMeshes;
 
 		// Because I don't know the thread safety of assimp importers, the access is controlled by a mutex for now
 		// TODO Figure out assimp importer thread safety

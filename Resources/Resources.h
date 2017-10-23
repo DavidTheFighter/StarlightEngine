@@ -170,6 +170,14 @@ typedef struct ResourceMaterialObject
 
 } *ResourceMaterial;
 
+typedef struct ResourceStaticMeshObject
+{
+		std::string defUniqueName;
+
+		ResourceMesh mesh;
+
+} *ResourceStaticMesh;
+
 /*
  * The definition for a material. It includes it's unique name, all of the
  * constituent textures, it's material properties, etc.
@@ -241,7 +249,7 @@ typedef struct ResourcePipelineDefinition
 
 } PipelineDef;
 
-typedef struct ResourceMeshDefinition
+typedef struct ResourceStaticMeshDefinition
 {
 		// The unique name/identifier of mesh, MUST be the only loaded mesh definition with this uniqueName
 		char uniqueName[RESOURCE_DEF_MAX_NAME_LENGTH];
@@ -252,7 +260,7 @@ typedef struct ResourceMeshDefinition
 		// The name of the mesh within the file to load, is ignored for custom binary formats w/ only one mesh per file
 		char meshName[RESOURCE_DEF_MAX_NAME_LENGTH];
 
-} MeshDef;
+} StaticMeshDef;
 
 typedef struct ResourceLevelDefinition
 {

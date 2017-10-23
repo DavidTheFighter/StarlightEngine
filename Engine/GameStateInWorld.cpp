@@ -86,20 +86,49 @@ void GameStateInWorld::init ()
 		dirt.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
 
 		engine->resources->addMaterialDef(dirt);
+
+		MaterialDef slate = {};
+		strcpy(slate.uniqueName, "slate");
+		strcpy(slate.pipelineUniqueName, "engine.defaultMaterial");
+		strcpy(slate.textureFiles[0], "GameData/textures/slate/slate-albedo.png");
+		strcpy(slate.textureFiles[1], "GameData/textures/slate/slate-normals.png");
+		strcpy(slate.textureFiles[2], "GameData/textures/slate/slate-roughness.png");
+		strcpy(slate.textureFiles[3], "GameData/textures/slate/slate-metalness.png");
+		strcpy(slate.textureFiles[4], "");
+
+		slate.enableAnisotropy = true;
+		slate.linearFiltering = true;
+		slate.linearMipmapFiltering = true;
+		slate.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
+
+		engine->resources->addMaterialDef(slate);
 	}
 
 	// Setup a test mesh
 	{
-		MeshDef bridge = {};
+		StaticMeshDef bridge = {};
 		strcpy(bridge.uniqueName, "bridge");
 		strcpy(bridge.meshFile, "GameData/meshes/test-bridge.dae");
 		strcpy(bridge.meshName, "bridge0");
 
 		engine->resources->addMeshDef(bridge);
+
+		StaticMeshDef boulder = {};
+		strcpy(boulder.uniqueName, "boulder");
+		strcpy(boulder.meshFile, "GameData/meshes/test-boulder.dae");
+		strcpy(boulder.meshName, "boulder");
+
+		engine->resources->addMeshDef(boulder);
 	}
 
 	{
 		engine->resources->loadMaterialImmediate("dirt");
+		engine->resources->loadMaterialImmediate("slate");
+	}
+
+	{
+		engine->resources->loadStaticMeshImmediate("bridge");
+		engine->resources->loadStaticMeshImmediate("boulder");
 	}
 
 	LevelDef testLevel = {};
@@ -112,7 +141,7 @@ void GameStateInWorld::init ()
 	LevelData &dat = *world->getActiveLevelData();
 
 	LevelStaticObjectType testObjType = {};
-	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("dirt");
+	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("slate");
 	testObjType.meshDefUniqueNameHash = std::hash<std::string> {} ("bridge");
 	testObjType.boundingSphereRadius_maxLodDist_padding = {8, 1, 0, 0};
 
@@ -132,6 +161,39 @@ void GameStateInWorld::init ()
 	dat.insertStaticObjects(testObjType, testObjs);
 	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
 
+	testObjs.clear();
+
+	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("slate");
+	testObjType.meshDefUniqueNameHash = std::hash<std::string> {} ("boulder");
+
+	for (size_t i = 0; i < 8; i ++)
+	{
+		testObjInstance.position_scale = {(float) (rand() % 1024) + 1024.0f, (float) (rand() % 8), (float) (rand() % 1024), 8.0f};
+		testObjInstance.rotation = {0, 0, 0, 1};
+
+		testObjs.push_back(testObjInstance);
+	}
+
+	sT = engine->getTime();
+	dat.insertStaticObjects(testObjType, testObjs);
+	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
+
+	testObjs.clear();
+
+	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("dirt");
+	testObjType.meshDefUniqueNameHash = std::hash<std::string> {} ("bridge");
+
+	for (size_t i = 0; i < 8; i ++)
+	{
+		testObjInstance.position_scale = {(float) (rand() % 1024), (float) (rand() % 8), (float) (rand() % 1024) + 1024.0f, 1.0f};
+		testObjInstance.rotation = {0, 0, 0, 1};
+
+		testObjs.push_back(testObjInstance);
+	}
+
+	sT = engine->getTime();
+	dat.insertStaticObjects(testObjType, testObjs);
+	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
 
 }
 
@@ -140,7 +202,10 @@ void GameStateInWorld::destroy ()
 	worldRenderer->destroy();
 
 	engine->renderer->destroySampler(presentSampler);
-	engine->resources->returnMaterial(engine->resources->findMaterial("dirt"));
+	engine->resources->returnMaterial("dirt");
+	engine->resources->returnMaterial("slate");
+	engine->resources->returnStaticMesh("bridge");
+	engine->resources->returnStaticMesh("boulder");
 
 	delete testGame;
 	delete world->getActiveLevel();
