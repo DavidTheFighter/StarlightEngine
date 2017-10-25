@@ -64,7 +64,7 @@ void Game::update (float delta)
 	float modMoveSpeed = movementSpeed;
 
 	if (gameWindow->isKeyPressed(70))
-		modMoveSpeed = movementSpeed * 4;
+		modMoveSpeed = movementSpeed * 16;
 	if (gameWindow->isKeyPressed(87))
 		mainCamera.position += playerLookFlatFoward * delta * modMoveSpeed;
 	if (gameWindow->isKeyPressed(83))

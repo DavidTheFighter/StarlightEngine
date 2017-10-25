@@ -44,9 +44,6 @@ class SortedOctree
 {
 	public:
 
-		// The world-cell coordinates, in integer form. More of a user parameter for user reference, the octree class doesn't actually touch this member anywhere
-		sivec3 cellCoords;
-
 		// The bounding box for this cell
 		BoundingBox cellBB;
 

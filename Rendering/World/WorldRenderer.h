@@ -35,15 +35,25 @@
 #include <common.h>
 #include <Rendering/Renderer/RendererEnums.h>
 #include <Rendering/Renderer/RendererObjects.h>
+#include <World/SortedOctree.h>
 
 class WorldHandler;
 class StarlightEngine;
 
 struct LevelStaticObject;
+struct LevelStaticObjectType;
 
 typedef struct LevelStaticObjectStreamingData
 {
-		std::map<size_t, std::map<size_t, std::vector<LevelStaticObject> > > data;
+		/*
+		 * The data that will be rendered. It's a little complex and long winded, and might change.
+		 *
+		 * In order, it goes: map of material hashes
+		 * 						map of mesh hashes
+		 * 							vector of mesh lods (size() == mesh lod number, always)
+		 * 								vector of objs using this data
+		 */
+		std::map<size_t, std::map<size_t, std::vector<std::vector<LevelStaticObject> > > > data;
 } LevelStaticObjectStreamingData;
 
 class WorldRenderer
@@ -61,6 +71,7 @@ class WorldRenderer
 
 		glm::mat4 camProjMat;
 		glm::mat4 camViewMat;
+		glm::vec3 cameraPosition;
 
 		WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr);
 		virtual ~WorldRenderer ();
@@ -74,6 +85,8 @@ class WorldRenderer
 		suvec2 getGBufferDimensions ();
 
 	private:
+
+		void traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data);
 
 		void createGBuffer ();
 		void destroyGBuffer ();

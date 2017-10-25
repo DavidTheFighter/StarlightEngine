@@ -172,6 +172,11 @@ void ResourceManager::returnMaterial (size_t defUniqueNameHash)
 	}
 }
 
+bool ResourceMananger_meshLodDistComp (const std::pair<float, ResourceMesh> &arg0, const std::pair<float, ResourceMesh> &arg1)
+{
+	return arg0.first < arg1.first;
+}
+
 ResourceStaticMesh ResourceManager::loadStaticMeshImmediate (const std::string &defUniqueName)
 {
 	auto it = loadedStaticMeshes.find(stringHash(defUniqueName));
@@ -182,7 +187,21 @@ ResourceStaticMesh ResourceManager::loadStaticMeshImmediate (const std::string &
 
 		ResourceStaticMeshObject *mesh = new ResourceStaticMeshObject();
 
-		mesh->mesh = loadMeshImmediate(workingDir + std::string(matDef->meshFile), std::string(matDef->meshName));
+		DEBUG_ASSERT(matDef->meshLODFiles.size() == matDef->meshLODNames.size() && matDef->meshLODNames.size() == matDef->meshLODMaxDists.size());
+
+		for (size_t i = 0; i < matDef->meshLODFiles.size(); i ++)
+		{
+			std::string lodMeshFile = std::string(matDef->meshLODFiles[i]);
+			std::string lodMeshName = std::string(matDef->meshLODNames[i]);
+			float lodMaxDist = matDef->meshLODMaxDists[i];
+
+			mesh->meshLODs.push_back(std::make_pair(lodMaxDist, loadMeshImmediate(workingDir + lodMeshFile, lodMeshName)));
+		}
+
+		// The "meshLODs" member is required to be sorted by lod distance
+		std::sort(mesh->meshLODs.begin(), mesh->meshLODs.end(), ResourceMananger_meshLodDistComp);
+
+		//mesh->mesh = loadMeshImmediate(workingDir + std::string(matDef->meshFile), std::string(matDef->meshName));
 
 		loadedStaticMeshes[stringHash(defUniqueName)] = std::make_pair(mesh, 1);
 
@@ -227,7 +246,10 @@ void ResourceManager::returnStaticMesh (size_t defUniqueNameHash)
 		{
 			ResourceStaticMesh mesh = it->second.first;
 
-			returnMesh(mesh->mesh);
+			for (uint32_t lod = 0; lod < mesh->meshLODs.size(); lod ++)
+			{
+				returnMesh(mesh->meshLODs[lod].second);
+			}
 
 			delete mesh;
 

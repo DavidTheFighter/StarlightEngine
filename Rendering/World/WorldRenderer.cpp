@@ -112,24 +112,34 @@ void WorldRenderer::render ()
 			{
 				ResourceStaticMesh staticMesh = engine->resources->findStaticMesh(mesh->first);
 
-				cmdBuffer->insertDebugMarker("For mesh: " + staticMesh->mesh->mesh, glm::vec4(1.0f, 0.039f, 0.439f, 1.0f));
-				cmdBuffer->bindIndexBuffer(staticMesh->mesh->meshBuffer);
+				cmdBuffer->insertDebugMarker("For mesh: " + staticMesh->defUniqueName, glm::vec4(1.0f, 0.039f, 0.439f, 1.0f));
 
-				size_t meshInstanceDataSize = mesh->second.size() * sizeof(mesh->second[0]);
-
-				if (worldStreamingBufferOffset * sizeof(mesh->second[0]) + meshInstanceDataSize > STATIC_OBJECT_STREAMING_BUFFER_SIZE)
+				for (uint32_t lod = 0; lod < staticMesh->meshLODs.size(); lod ++)
 				{
-					worldStreamingBufferOffset = 0;
+					std::vector<LevelStaticObject> &dataList = mesh->second[lod];
+
+					if (dataList.size() == 0)
+						continue;
+
+					ResourceMesh staticMeshLOD = staticMesh->meshLODs[lod].second;
+
+					size_t meshInstanceDataSize = dataList.size() * sizeof(dataList[0]);
+
+					if (worldStreamingBufferOffset * sizeof(dataList[0]) + meshInstanceDataSize > STATIC_OBJECT_STREAMING_BUFFER_SIZE)
+					{
+						worldStreamingBufferOffset = 0;
+					}
+
+					cmdBuffer->bindIndexBuffer(staticMeshLOD->meshBuffer);
+					cmdBuffer->bindVertexBuffers(0, {staticMeshLOD->meshBuffer, worldStreamingBuffer}, {staticMeshLOD->indexChunkSize, worldStreamingBufferOffset * sizeof(dataList[0])});
+
+					memcpy(static_cast<LevelStaticObject*>(worldStreamingBufferData) + worldStreamingBufferOffset, dataList.data(), meshInstanceDataSize);
+					worldStreamingBufferOffset += dataList.size();
+
+					drawCallCount ++;
+
+					cmdBuffer->drawIndexed(staticMeshLOD->faceCount * 3, (uint32_t) dataList.size());
 				}
-
-				cmdBuffer->bindVertexBuffers(0, {staticMesh->mesh->meshBuffer, worldStreamingBuffer}, {staticMesh->mesh->indexChunkSize, worldStreamingBufferOffset * sizeof(mesh->second[0])});
-
-				memcpy(static_cast<LevelStaticObject*>(worldStreamingBufferData) + worldStreamingBufferOffset, mesh->second.data(), meshInstanceDataSize);
-				worldStreamingBufferOffset += mesh->second.size();
-
-				drawCallCount ++;
-
-				cmdBuffer->drawIndexed(staticMesh->mesh->faceCount * 3, (uint32_t) mesh->second.size());
 			}
 
 			cmdBuffer->endDebugRegion();
@@ -145,13 +155,52 @@ void WorldRenderer::render ()
 	engine->renderer->endSingleTimeCommand(cmdBuffer, testCommandPool, QUEUE_TYPE_GRAPHICS);
 }
 
-void WorldRenderer_traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data)
+void WorldRenderer::traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data)
 {
 	for (size_t i = 0; i < node.objectList.size(); i ++)
 	{
 		const LevelStaticObjectType &objType = node.objectList[i].first;
 		std::vector<LevelStaticObject> &objList = node.objectList[i].second;
-		std::vector<LevelStaticObject> &dataList = data.data[objType.materialDefUniqueNameHash][objType.meshDefUniqueNameHash];
+
+		ResourceStaticMesh mesh = engine->resources->findStaticMesh(objType.meshDefUniqueNameHash);
+
+		int32_t lod = 0;
+		float cellDistance = glm::distance(cameraPosition, node.cellBB.getCenter());
+
+		for (uint32_t meshLod = 0; meshLod < mesh->meshLODs.size() + 1; meshLod ++)
+		{
+			if (meshLod == mesh->meshLODs.size())
+			{
+				lod = -1;
+				break;
+			}
+
+			lod = (int32_t) meshLod;
+
+			if (cellDistance < mesh->meshLODs[meshLod].first)
+				break;
+		}
+
+		if (lod == -1)
+		{
+			continue;
+		}
+
+		// If there's no mesh data for this material, we need to do some special setup for it
+		auto &materialList = data.data[objType.materialDefUniqueNameHash];
+		if (materialList.find(objType.meshDefUniqueNameHash) == materialList.end())
+		{
+			std::vector<std::vector<LevelStaticObject> > dataList;
+
+			for (uint32_t l = 0; l < mesh->meshLODs.size(); l ++)
+			{
+				dataList.push_back(std::vector<LevelStaticObject>());
+			}
+
+			materialList[objType.meshDefUniqueNameHash] = dataList;
+		}
+
+		std::vector<LevelStaticObject> &dataList = materialList[objType.meshDefUniqueNameHash][lod];
 
 		dataList.insert(dataList.end(), objList.begin(), objList.end());
 	}
@@ -160,7 +209,7 @@ void WorldRenderer_traverseOctreeNode (SortedOctree<LevelStaticObjectType, Level
 	{
 		if (node.activeChildren & (1 << a))
 		{
-			WorldRenderer_traverseOctreeNode(*node.children[a], data);
+			traverseOctreeNode(*node.children[a], data);
 		}
 	}
 }
@@ -171,7 +220,7 @@ LevelStaticObjectStreamingData WorldRenderer::getStaticObjStreamingData ()
 
 	for (size_t i = 0; i < world->getActiveLevelData()->activeStaticObjectCells.size(); i ++)
 	{
-		WorldRenderer_traverseOctreeNode(world->getActiveLevelData()->activeStaticObjectCells[i], data);
+		traverseOctreeNode(world->getActiveLevelData()->activeStaticObjectCells[i], data);
 	}
 
 	return data;

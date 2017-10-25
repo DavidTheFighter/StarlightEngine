@@ -108,17 +108,32 @@ void GameStateInWorld::init ()
 	{
 		StaticMeshDef bridge = {};
 		strcpy(bridge.uniqueName, "bridge");
-		strcpy(bridge.meshFile, "GameData/meshes/test-bridge.dae");
-		strcpy(bridge.meshName, "bridge0");
+		bridge.meshLODFiles.push_back("GameData/meshes/test-bridge.dae");
+		bridge.meshLODNames.push_back("bridge0");
+		bridge.meshLODMaxDists.push_back(8192);
 
 		engine->resources->addMeshDef(bridge);
 
 		StaticMeshDef boulder = {};
 		strcpy(boulder.uniqueName, "boulder");
-		strcpy(boulder.meshFile, "GameData/meshes/test-boulder.dae");
-		strcpy(boulder.meshName, "boulder");
+		boulder.meshLODFiles.push_back("GameData/meshes/test-boulder.dae");
+		boulder.meshLODNames.push_back("boulder");
+		boulder.meshLODMaxDists.push_back(8192);
 
 		engine->resources->addMeshDef(boulder);
+
+		StaticMeshDef lodTest = {};
+		strcpy(lodTest.uniqueName, "LOD Test");
+
+		for (uint32_t i = 0; i < 5; i ++)
+		{
+			lodTest.meshLODFiles.push_back("GameData/meshes/lod-test.dae");
+			lodTest.meshLODNames.push_back("lod" + toString(i));
+		}
+
+		lodTest.meshLODMaxDists = {512, 768, 1024, 1566, 2048};
+
+		engine->resources->addMeshDef(lodTest);
 	}
 
 	{
@@ -129,6 +144,7 @@ void GameStateInWorld::init ()
 	{
 		engine->resources->loadStaticMeshImmediate("bridge");
 		engine->resources->loadStaticMeshImmediate("boulder");
+		engine->resources->loadStaticMeshImmediate("LOD Test");
 	}
 
 	LevelDef testLevel = {};
@@ -195,6 +211,23 @@ void GameStateInWorld::init ()
 	dat.insertStaticObjects(testObjType, testObjs);
 	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
 
+	testObjs.clear();
+
+	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("slate");
+	testObjType.meshDefUniqueNameHash = std::hash<std::string> {} ("LOD Test");
+
+	for (size_t i = 0; i < 1; i ++)
+	{
+		testObjInstance.position_scale = {(float) (4096), (float) (rand() % 8), (float) (4096), 32.0f};
+		testObjInstance.rotation = {0, 0, 0, 1};
+
+		testObjs.push_back(testObjInstance);
+	}
+
+	sT = engine->getTime();
+	dat.insertStaticObjects(testObjType, testObjs);
+	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
+
 }
 
 void GameStateInWorld::destroy ()
@@ -239,6 +272,7 @@ void GameStateInWorld::update ()
 	glm::vec3 playerLookUp = glm::cross(playerLookRight, playerLookDir);
 
 	worldRenderer->camViewMat = glm::lookAt(testGame->mainCamera.position, testGame->mainCamera.position + playerLookDir, playerLookUp);
+	worldRenderer->cameraPosition = testGame->mainCamera.position;
 }
 
 void GameStateInWorld::render ()

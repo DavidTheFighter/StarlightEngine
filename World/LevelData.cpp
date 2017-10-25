@@ -55,7 +55,6 @@ void LevelData::insertStaticObject (const LevelStaticObjectType &objType, const 
 	if (cellIt == activeStaticObjectCells_map.end())
 	{
 		SortedOctree<LevelStaticObjectType, LevelStaticObject> cell(nullptr);
-		cell.cellCoords = cellCoords;
 		cell.cellBB = {{cellCoordX * float(LEVEL_CELL_SIZE), cellCoordY * float(LEVEL_CELL_SIZE), cellCoordZ * float(LEVEL_CELL_SIZE)}, {cellCoordX * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE), cellCoordY * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE), cellCoordZ * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE)}};
 
 		activeStaticObjectCells.push_back(cell);
@@ -92,7 +91,6 @@ void LevelData::insertStaticObjects (const LevelStaticObjectType &objType, const
 		if (cellIt == activeStaticObjectCells_map.end())
 		{
 			SortedOctree<LevelStaticObjectType, LevelStaticObject> cell(nullptr);
-			cell.cellCoords = cellCoords;
 			cell.cellBB = {{cellCoordX * float(LEVEL_CELL_SIZE), cellCoordY * float(LEVEL_CELL_SIZE), cellCoordZ * float(LEVEL_CELL_SIZE)}, {cellCoordX * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE), cellCoordY * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE), cellCoordZ * float(LEVEL_CELL_SIZE) + float(LEVEL_CELL_SIZE)}};
 
 			activeStaticObjectCells.push_back(cell);

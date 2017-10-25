@@ -86,6 +86,11 @@ class BoundingBox
 		{
 			return max.z - min.z;
 		}
+
+		inline glm::vec3 getCenter ()
+		{
+			return glm::vec3((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f, (min.z + max.z) * 0.5f);
+		}
 };
 
 #endif /* WORLD_BOUNDINGBOX_H_ */

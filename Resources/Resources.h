@@ -174,7 +174,13 @@ typedef struct ResourceStaticMeshObject
 {
 		std::string defUniqueName;
 
-		ResourceMesh mesh;
+		/*
+		 * A list of meshes for this static object, sorted by LOD distance.
+		 * Each element contains a max LOD dist, and it's corresponding mesh.
+		 * The elements are sorted from smallest LOD dist to greatest, so you
+		 * can easily iterate upwards to find the appropriate LOD>
+		 */
+		std::vector<std::pair<float, ResourceMesh> > meshLODs;
 
 } *ResourceStaticMesh;
 
@@ -254,11 +260,18 @@ typedef struct ResourceStaticMeshDefinition
 		// The unique name/identifier of mesh, MUST be the only loaded mesh definition with this uniqueName
 		char uniqueName[RESOURCE_DEF_MAX_NAME_LENGTH];
 
-		// The file the mesh is to be loaded file
-		char meshFile[RESOURCE_DEF_MAX_FILE_LENGTH];
+		/*
+		 * -- All of these vectors below are GUARANTEED to have the same size() --
+		 */
 
-		// The name of the mesh within the file to load, is ignored for custom binary formats w/ only one mesh per file
-		char meshName[RESOURCE_DEF_MAX_NAME_LENGTH];
+		// The list of files for each LOD
+		std::vector<std::string> meshLODFiles;
+
+		// The list of mesh names for each LOD, ignored for custom binary formats w/ only one mesh per file
+		std::vector<std::string> meshLODNames;
+
+		// The list of max LOD dists for each LOD, not necessarily sorted
+		std::vector<float> meshLODMaxDists;
 
 } StaticMeshDef;
 
