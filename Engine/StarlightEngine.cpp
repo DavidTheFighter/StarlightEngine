@@ -40,8 +40,6 @@
 
 #include <World/WorldHandler.h>
 
-#include <GLFW/glfw3.h>
-
 StarlightEngine::StarlightEngine (const std::vector<std::string> &launchArgs, uint32_t engineUpdateFrequencyCap)
 {
 	engineIsRunning = false;

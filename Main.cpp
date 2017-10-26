@@ -30,7 +30,6 @@
 #include <Game/Events/EventHandler.h>
 
 #include <assimp/version.h>
-#include <GLFW/glfw3.h>
 
 #include <Engine/StarlightEngine.h>
 #include <Engine/GameStateTitleScreen.h>

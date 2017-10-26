@@ -189,13 +189,13 @@ void Window::glfwWindowKeyCallback (GLFWwindow* window, int key, int scancode, i
 	{
 		case GLFW_PRESS:
 		{
-			windowInstance->keysPressed[key] = true;
+			windowInstance->keysPressed[key] = 1;
 
 			break;
 		}
 		case GLFW_RELEASE:
 		{
-			windowInstance->keysPressed[key] = false;
+			windowInstance->keysPressed[key] = 0;
 
 			break;
 		}

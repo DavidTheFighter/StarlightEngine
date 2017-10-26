@@ -259,8 +259,6 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 	nk_clear(&ctx);
 }
 
-#include <GLFW/glfw3.h>
-
 void GUIRenderer::init ()
 {
 	testGUICommandPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);

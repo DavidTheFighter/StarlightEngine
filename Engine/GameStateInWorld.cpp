@@ -216,9 +216,9 @@ void GameStateInWorld::init ()
 	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("slate");
 	testObjType.meshDefUniqueNameHash = std::hash<std::string> {} ("LOD Test");
 
-	for (size_t i = 0; i < 1; i ++)
+	for (size_t i = 0; i < 2048; i ++)
 	{
-		testObjInstance.position_scale = {(float) (4096), (float) (rand() % 8), (float) (4096), 32.0f};
+		testObjInstance.position_scale = {(float) (rand() % 8192), (float) (rand() % 8), (float) (rand() % 8192), 32.0f};
 		testObjInstance.rotation = {0, 0, 0, 1};
 
 		testObjs.push_back(testObjInstance);
