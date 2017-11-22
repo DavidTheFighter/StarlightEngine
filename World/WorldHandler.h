@@ -49,6 +49,8 @@ class WorldHandler
 		LevelDef *getActiveLevel ();
 		LevelData *getActiveLevelData ();
 
+		std::unique_ptr<uint16_t> getCellHeightmapMipData (uint32_t cellX, uint32_t cellY, uint32_t mipLevel);
+
 	private:
 
 		LevelDef *activeLevel;

@@ -39,6 +39,7 @@
 
 class WorldHandler;
 class StarlightEngine;
+class TerrainRenderer;
 
 struct LevelStaticObject;
 struct LevelStaticObjectType;
@@ -64,8 +65,20 @@ class WorldRenderer
 		TextureView gbuffer_NormalMetalnessView;
 		TextureView gbuffer_DepthView;
 
+		PipelineInputLayout materialPipelineInputLayout;
+		Pipeline defaultMaterialPipeline;
+
+		RenderPass gbufferRenderPass;
+		Framebuffer gbufferFramebuffer;
+
+		Texture gbuffer_AlbedoRoughness; // RGB - Albedo, A - Roughness
+		Texture gbuffer_NormalMetalness; // RGB - World Normal, A - Metalness
+		Texture gbuffer_Depth;
+
 		StarlightEngine *engine;
 		WorldHandler *world;
+
+		TerrainRenderer *terrainRenderer;
 
 		CommandPool testCommandPool;
 
@@ -79,7 +92,11 @@ class WorldRenderer
 		void init (suvec2 gbufferDimensions);
 		void destroy ();
 
-		void render ();
+		void update ();
+
+		void render3DWorld ();
+		void renderWorldStaticMeshes ();
+		void renderTerrain ();
 
 		void setGBufferDimensions (suvec2 gbufferDimensions);
 		suvec2 getGBufferDimensions ();
@@ -93,7 +110,7 @@ class WorldRenderer
 		void createRenderPasses ();
 		void createTestMaterialPipeline ();
 
-		LevelStaticObjectStreamingData getStaticObjStreamingData();
+		LevelStaticObjectStreamingData getStaticObjStreamingData ();
 
 		bool isDestroyed; // So that when an instance is deleted, destroy() is always called, either by the user or by the destructor
 
@@ -102,16 +119,6 @@ class WorldRenderer
 		size_t worldStreamingBufferOffset;
 		Buffer worldStreamingBuffer;
 		void *worldStreamingBufferData;
-
-		PipelineInputLayout materialPipelineInputLayout;
-		Pipeline defaultMaterialPipeline;
-
-		RenderPass gbufferRenderPass;
-		Framebuffer gbufferFramebuffer;
-
-		Texture gbuffer_AlbedoRoughness; // RGB - Albedo, A - Roughness
-		Texture gbuffer_NormalMetalness; // RGB - World Normal, A - Metalness
-		Texture gbuffer_Depth;
 
 		Sampler testSampler;
 };

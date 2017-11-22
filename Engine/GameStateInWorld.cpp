@@ -273,11 +273,13 @@ void GameStateInWorld::update ()
 
 	worldRenderer->camViewMat = glm::lookAt(testGame->mainCamera.position, testGame->mainCamera.position + playerLookDir, playerLookUp);
 	worldRenderer->cameraPosition = testGame->mainCamera.position;
+
+	worldRenderer->update();
 }
 
 void GameStateInWorld::render ()
 {
-	worldRenderer->render();
+	worldRenderer->render3DWorld();
 }
 
 void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, void *usrPtr)

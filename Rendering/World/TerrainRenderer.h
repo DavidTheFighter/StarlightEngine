@@ -21,61 +21,53 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * WorldHandler.cpp
+ * TerrainRenderer.h
  * 
- * Created on: Oct 10, 2017
+ * Created on: Oct 28, 2017
  *     Author: david
  */
 
-#include "World/WorldHandler.h"
+#ifndef RENDERING_WORLD_TERRAINRENDERER_H_
+#define RENDERING_WORLD_TERRAINRENDERER_H_
 
-#include <Engine/StarlightEngine.h>
+#include <common.h>
+#include <Rendering/Renderer/RendererEnums.h>
+#include <Rendering/Renderer/RendererObjects.h>
 
-WorldHandler::WorldHandler (StarlightEngine *enginePtr)
+class StarlightEngine;
+class WorldHandler;
+class WorldRenderer;
+
+class TerrainRenderer
 {
-	engine = enginePtr;
-	activeLevel = nullptr;
-	activeLevelData = nullptr;
-}
+	public:
 
-WorldHandler::~WorldHandler ()
-{
+		StarlightEngine *engine;
+		WorldHandler *world;
+		WorldRenderer *worldRenderer;
 
-}
+		Texture testHeightmap;
+		TextureView testHeightmapView;
+		Sampler testSampler;
 
-std::unique_ptr<uint16_t> WorldHandler::getCellHeightmapMipData (uint32_t cellX, uint32_t cellY, uint32_t mipLevel)
-{
-	std::ifstream file("GameData/levels/TestLevel/heightmap.hmp", std::ios::in | std::ios::binary | std::ios::ate);
+		CommandPool testCommandPool;
 
-	size_t fileSize = file.tellg();
-	file.seekg(4 * 3 + 4 * 2 + 8, std::ios::beg);
+		Pipeline terrainPipeline;
+		PipelineInputLayout terrainPipelineInput;
 
-	std::unique_ptr<uint16_t> heightmapData(new uint16_t[513 * 513]);
-	file.read(reinterpret_cast<char*> (heightmapData.get()), 513 * 513 * 2);
+		TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr, WorldRenderer *worldRendererPtr);
+		virtual ~TerrainRenderer ();
 
-	file.close();
+		void update ();
 
-	return heightmapData;
-}
+		void renderTerrain (CommandBuffer &cmdBuffer);
 
-void WorldHandler::setActiveLevel (LevelDef *level)
-{
-	activeLevel = level;
+		void init ();
+		void destroy ();
 
-	if (activeLevelData != nullptr)
-	{
-		delete activeLevelData;
-	}
+	private:
 
-	activeLevelData = new LevelData();
-}
+		void createGraphicsPipeline ();
+};
 
-LevelDef *WorldHandler::getActiveLevel ()
-{
-	return activeLevel;
-}
-
-LevelData *WorldHandler::getActiveLevelData ()
-{
-	return activeLevelData;
-}
+#endif /* RENDERING_WORLD_TERRAINRENDERER_H_ */

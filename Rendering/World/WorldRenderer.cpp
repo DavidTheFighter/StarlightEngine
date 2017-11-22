@@ -32,6 +32,7 @@
 #include <Engine/StarlightEngine.h>
 
 #include <Rendering/Renderer/Renderer.h>
+#include <Rendering/World/TerrainRenderer.h>
 
 #include <World/WorldHandler.h>
 
@@ -41,6 +42,7 @@ WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHan
 {
 	engine = enginePtr;
 	world = worldHandlerPtr;
+	terrainRenderer = nullptr;
 
 	isDestroyed = false;
 
@@ -72,7 +74,22 @@ WorldRenderer::~WorldRenderer ()
 		destroy();
 }
 
-void WorldRenderer::render ()
+void WorldRenderer::update ()
+{
+
+}
+
+void WorldRenderer::render3DWorld ()
+{
+
+}
+
+void WorldRenderer::renderTerrain ()
+{
+
+}
+
+void WorldRenderer::renderWorldStaticMeshes ()
 {
 	std::vector<ClearValue> clearValues = std::vector<ClearValue>(3);
 	clearValues[0].color =
@@ -242,6 +259,10 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 	createRenderPasses();
 	createTestMaterialPipeline();
 	createGBuffer();
+
+	terrainRenderer = new TerrainRenderer(engine, world, this);
+
+	terrainRenderer->init();
 }
 
 void WorldRenderer::createGBuffer ()
@@ -277,6 +298,9 @@ void WorldRenderer::destroyGBuffer ()
 void WorldRenderer::destroy ()
 {
 	isDestroyed = true;
+
+	terrainRenderer->destroy();
+	delete terrainRenderer;
 
 	destroyGBuffer();
 
