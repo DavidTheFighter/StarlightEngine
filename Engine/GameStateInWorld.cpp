@@ -64,11 +64,6 @@ void GameStateInWorld::init ()
 	worldRenderer = new WorldRenderer(engine, world);
 	testGame = new Game(engine->mainWindow);
 
-	worldRenderer->init({engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
-	testGame->init();
-
-	presentSampler = engine->renderer->createSampler();
-
 	// Setup a test material
 	{
 		MaterialDef dirt = {};
@@ -228,6 +223,10 @@ void GameStateInWorld::init ()
 	dat.insertStaticObjects(testObjType, testObjs);
 	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
 
+	worldRenderer->init({engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	testGame->init();
+
+	presentSampler = engine->renderer->createSampler();
 }
 
 void GameStateInWorld::destroy ()

@@ -95,6 +95,9 @@ class LevelData
 		std::map<sivec3, size_t> activeStaticObjectCells_map; // Maps cell coords to the index of a cell in member "activeStaticObjectCells"
 		std::vector<SortedOctree<LevelStaticObjectType, LevelStaticObject> > activeStaticObjectCells;
 
+		uint32_t heightmapFileCellCount;
+		std::vector<std::pair<sivec2, size_t> > heightmapFileLookupTable;
+
 		LevelData ();
 		virtual ~LevelData ();
 

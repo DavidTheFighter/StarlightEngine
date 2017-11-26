@@ -81,16 +81,6 @@ void WorldRenderer::update ()
 
 void WorldRenderer::render3DWorld ()
 {
-
-}
-
-void WorldRenderer::renderTerrain ()
-{
-
-}
-
-void WorldRenderer::renderWorldStaticMeshes ()
-{
 	std::vector<ClearValue> clearValues = std::vector<ClearValue>(3);
 	clearValues[0].color =
 	{	0, 0, 0, 0};
@@ -99,14 +89,24 @@ void WorldRenderer::renderWorldStaticMeshes ()
 	clearValues[2].depthStencil =
 	{	0, 0};
 
-	glm::mat4 camMVP = camProjMat * camViewMat;
-
 	CommandBuffer cmdBuffer = engine->renderer->beginSingleTimeCommand(testCommandPool);
 
-	cmdBuffer->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
 	cmdBuffer->beginRenderPass(gbufferRenderPass, gbufferFramebuffer, {0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}, clearValues, SUBPASS_CONTENTS_INLINE);
 	cmdBuffer->setScissors(0, {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}});
 	cmdBuffer->setViewports(0, {{0, 0, (float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 0.0f, 1.0f}});
+
+	renderWorldStaticMeshes(cmdBuffer);
+	terrainRenderer->renderTerrain(cmdBuffer);
+
+	cmdBuffer->endRenderPass();
+	engine->renderer->endSingleTimeCommand(cmdBuffer, testCommandPool, QUEUE_TYPE_GRAPHICS);
+}
+
+void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)
+{
+	glm::mat4 camMVP = camProjMat * camViewMat;
+
+	cmdBuffer->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
 
 	{
 		cmdBuffer->beginDebugRegion("Level Static Objects", glm::vec4(1.0f, 0.984f, 0.059f, 1.0f));
@@ -166,10 +166,7 @@ void WorldRenderer::renderWorldStaticMeshes ()
 		cmdBuffer->endDebugRegion();
 	}
 
-	cmdBuffer->endRenderPass();
 	cmdBuffer->endDebugRegion();
-
-	engine->renderer->endSingleTimeCommand(cmdBuffer, testCommandPool, QUEUE_TYPE_GRAPHICS);
 }
 
 void WorldRenderer::traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data)

@@ -51,6 +51,9 @@ TerrainRenderer::TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worl
 
 	terrainPipeline = nullptr;
 	terrainPipelineInput = nullptr;
+
+	heightmapDescriptorPool = nullptr;
+	heightmapDescriptorSet = nullptr;
 }
 
 TerrainRenderer::~TerrainRenderer ()
@@ -63,14 +66,25 @@ void TerrainRenderer::update ()
 
 }
 
-void TerrainRenderer::renderTerrain (CommandBuffer &buf)
-{
-	buf->beginDebugRegion("Terrain", glm::vec4(0, 0.5f, 0, 1));
-
-	buf->endDebugRegion();
-}
-
 ResourceMesh terrainGrid;
+
+void TerrainRenderer::renderTerrain (CommandBuffer &cmdBuffer)
+{
+	glm::mat4 camMVP = worldRenderer->camProjMat * worldRenderer->camViewMat;
+
+	cmdBuffer->beginDebugRegion("Terrain", glm::vec4(0, 0.5f, 0, 1));
+	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, terrainPipeline);
+	cmdBuffer->pushConstants(terrainPipelineInput, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVP[0][0]);
+
+	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineInput, 0, {heightmapDescriptorSet});
+
+	cmdBuffer->bindIndexBuffer(terrainGrid->meshBuffer, 0, false);
+	cmdBuffer->bindVertexBuffers(0, {terrainGrid->meshBuffer}, {terrainGrid->indexChunkSize});
+
+	cmdBuffer->drawIndexed(terrainGrid->faceCount * 3);
+
+	cmdBuffer->endDebugRegion();
+}
 
 void TerrainRenderer::init ()
 {
@@ -80,7 +94,7 @@ void TerrainRenderer::init ()
 
 	testHeightmap = engine->renderer->createTexture({513, 513, 1}, RESOURCE_FORMAT_R16_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
 	testHeightmapView = engine->renderer->createTextureView(testHeightmap);
-	testSampler = engine->renderer->createSampler();
+	testSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
 
 	StagingBuffer st = engine->renderer->createStagingBuffer(513 * 513 * 2);
 	engine->renderer->mapStagingBuffer(st, 513 * 513 * 2, heightmapData.get());
@@ -96,19 +110,43 @@ void TerrainRenderer::init ()
 	terrainGrid = engine->resources->loadMeshImmediate("GameData/meshes/test-terrain.dae", "cell_terrain_grid");
 
 	createGraphicsPipeline();
+
+	heightmapDescriptorPool = engine->renderer->createDescriptorPool({{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_VERTEX_BIT}, {1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_VERTEX_BIT}}, 8);
+	heightmapDescriptorSet = heightmapDescriptorPool->allocateDescriptorSet();
+
+	DescriptorImageInfo heightmapDescriptorImageInfo = {};
+	heightmapDescriptorImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	heightmapDescriptorImageInfo.sampler = testSampler;
+	heightmapDescriptorImageInfo.view = testHeightmapView;
+
+	DescriptorWriteInfo swrite = {}, iwrite = {};
+	swrite.descriptorCount = 1;
+	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
+	swrite.dstBinding = 0;
+	swrite.dstSet = heightmapDescriptorSet;
+	swrite.imageInfo = {heightmapDescriptorImageInfo};
+
+	iwrite.descriptorCount = 1;
+	iwrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	iwrite.dstBinding = 1;
+	iwrite.dstSet = heightmapDescriptorSet;
+	iwrite.imageInfo = {heightmapDescriptorImageInfo};
+
+	engine->renderer->writeDescriptorSets({swrite, iwrite});
 }
 
 void TerrainRenderer::destroy ()
 {
 	engine->renderer->destroyPipeline(terrainPipeline);
 	engine->renderer->destroyPipelineInputLayout(terrainPipelineInput);
+	engine->renderer->destroyDescriptorPool(heightmapDescriptorPool);
 }
 
 const uint32_t ivunt_vertexFormatSize = 44;
 
 void TerrainRenderer::createGraphicsPipeline ()
 {
-	terrainPipelineInput = engine->renderer->createPipelineInputLayout({{0, sizeof(glm::mat4), PIPELINE_STAGE_VERTEX_SHADER_BIT}}, {{{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_VERTEX_BIT}}});
+	terrainPipelineInput = engine->renderer->createPipelineInputLayout({{0, sizeof(glm::mat4), SHADER_STAGE_VERTEX_BIT}}, {{{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_VERTEX_BIT}, {1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_VERTEX_BIT}}});
 
 	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_VERTEX_BIT);
 	ShaderModule fragShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_FRAGMENT_BIT);

@@ -95,8 +95,7 @@ class WorldRenderer
 		void update ();
 
 		void render3DWorld ();
-		void renderWorldStaticMeshes ();
-		void renderTerrain ();
+		void renderWorldStaticMeshes (CommandBuffer &cmdBuffer);
 
 		void setGBufferDimensions (suvec2 gbufferDimensions);
 		suvec2 getGBufferDimensions ();

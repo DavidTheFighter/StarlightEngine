@@ -50,6 +50,9 @@ class TerrainRenderer
 		TextureView testHeightmapView;
 		Sampler testSampler;
 
+		DescriptorPool heightmapDescriptorPool;
+		DescriptorSet heightmapDescriptorSet;
+
 		CommandPool testCommandPool;
 
 		Pipeline terrainPipeline;
