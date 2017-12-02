@@ -76,7 +76,7 @@ WorldRenderer::~WorldRenderer ()
 
 void WorldRenderer::update ()
 {
-
+	terrainRenderer->update();
 }
 
 void WorldRenderer::render3DWorld ()
@@ -89,7 +89,8 @@ void WorldRenderer::render3DWorld ()
 	clearValues[2].depthStencil =
 	{	0, 0};
 
-	CommandBuffer cmdBuffer = engine->renderer->beginSingleTimeCommand(testCommandPool);
+	CommandBuffer cmdBuffer = testCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
+	cmdBuffer->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 	cmdBuffer->beginRenderPass(gbufferRenderPass, gbufferFramebuffer, {0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}, clearValues, SUBPASS_CONTENTS_INLINE);
 	cmdBuffer->setScissors(0, {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}});
@@ -99,7 +100,21 @@ void WorldRenderer::render3DWorld ()
 	terrainRenderer->renderTerrain(cmdBuffer);
 
 	cmdBuffer->endRenderPass();
-	engine->renderer->endSingleTimeCommand(cmdBuffer, testCommandPool, QUEUE_TYPE_GRAPHICS);
+
+	cmdBuffer->endCommands();
+
+	std::vector<Semaphore> waitSems = {};
+	std::vector<PipelineStageFlags> waitSemStages = {};
+
+	if (terrainRenderer->clipmapUpdated)
+	{
+		waitSems.push_back(terrainRenderer->clipmapUpdateSemaphore);
+		waitSemStages.push_back(PIPELINE_STAGE_VERTEX_SHADER_BIT);
+	}
+
+	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {cmdBuffer}, waitSems, waitSemStages);
+	engine->renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);
+	testCommandPool->freeCommandBuffer(cmdBuffer);
 }
 
 void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)

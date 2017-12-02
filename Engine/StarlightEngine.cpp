@@ -53,6 +53,8 @@ StarlightEngine::StarlightEngine (const std::vector<std::string> &launchArgs, ui
 	this->launchArgs = launchArgs;
 
 	lastUpdateTime = 0;
+	cpuTimer = 0;
+	lastLoopCPUTime = 0;
 }
 
 StarlightEngine::~StarlightEngine ()
@@ -114,6 +116,8 @@ void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &ev
 
 void StarlightEngine::handleEvents ()
 {
+	cpuTimer = glfwGetTime();
+
 	mainWindow->pollEvents();
 
 	if (mainWindow->userRequestedClose())
@@ -158,7 +162,7 @@ void StarlightEngine::update ()
 			windowTitleFrametimeUpdateTimer = 0;
 
 			char windowTitle[256];
-			sprintf(windowTitle, "%s (%.3f ms)", APP_NAME, (getTime() - lastUpdateTime) * 1000.0);
+			sprintf(windowTitle, "%s (delta-t - %.3f ms, cpu-t - %.3fms)", APP_NAME, (getTime() - lastUpdateTime) * 1000.0, lastLoopCPUTime * 1000.0);
 
 			mainWindow->setTitle(windowTitle);
 		}
@@ -172,9 +176,11 @@ void StarlightEngine::update ()
 
 void StarlightEngine::render ()
 {
+
 	if (!gameStates.empty())
 		gameStates.back()->render();
 
+	lastLoopCPUTime = (glfwGetTime() - cpuTimer);
 	renderer->presentToSwapchain(mainWindow);
 }
 

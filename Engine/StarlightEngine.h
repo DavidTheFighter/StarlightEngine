@@ -79,6 +79,8 @@ class StarlightEngine
 		std::string workingDir;
 
 		double lastUpdateTime;
+		float cpuTimer;
+		float lastLoopCPUTime;
 
 		bool engineIsRunning;
 

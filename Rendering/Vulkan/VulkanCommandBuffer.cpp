@@ -50,6 +50,11 @@ void VulkanCommandBuffer::endCommands ()
 	VK_CHECK_RESULT(vkEndCommandBuffer(bufferHandle));
 }
 
+void VulkanCommandBuffer::resetCommands ()
+{
+	VK_CHECK_RESULT(vkResetCommandBuffer(bufferHandle, 0));
+}
+
 void VulkanCommandBuffer::beginRenderPass (RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents)
 {
 	VkRenderPassBeginInfo beginInfo = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
@@ -309,20 +314,22 @@ void VulkanCommandBuffer::setTextureLayout (Texture texture, TextureLayout oldLa
 	vkCmdPipelineBarrier(bufferHandle, toVkPipelineStageFlags(srcStage), toVkPipelineStageFlags(dstStage), 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
 
-void VulkanCommandBuffer::stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture)
+void VulkanCommandBuffer::stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture, TextureSubresourceLayers subresource, sivec3 offset, suvec3 extent)
 {
 	VkBufferImageCopy imgCopyRegion = {};
 	imgCopyRegion.bufferOffset = 0;
 	imgCopyRegion.bufferRowLength = 0;
 	imgCopyRegion.bufferImageHeight = 0;
 	imgCopyRegion.imageSubresource.aspectMask = isDepthFormat(dstTexture->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-	imgCopyRegion.imageSubresource.mipLevel = 0;
-	imgCopyRegion.imageSubresource.baseArrayLayer = 0;
-	imgCopyRegion.imageSubresource.layerCount = 1;
+	imgCopyRegion.imageSubresource.mipLevel = subresource.mipLevel;
+	imgCopyRegion.imageSubresource.baseArrayLayer = subresource.baseArrayLayer;
+	imgCopyRegion.imageSubresource.layerCount = subresource.layerCount;
 	imgCopyRegion.imageOffset =
-	{	0, 0, 0};
+	{	offset.x, offset.y, offset.z};
 	imgCopyRegion.imageExtent =
-	{	dstTexture->width, dstTexture->height, dstTexture->depth};
+	{	extent.x == std::numeric_limits<uint32_t>::max() ? dstTexture->width : extent.x,
+		extent.y == std::numeric_limits<uint32_t>::max() ? dstTexture->height : extent.y,
+		extent.z == std::numeric_limits<uint32_t>::max() ? dstTexture->depth : extent.z};
 
 	vkCmdCopyBufferToImage(bufferHandle, static_cast<VulkanStagingBuffer*>(stagingBuffer)->bufferHandle, static_cast<VulkanTexture*>(dstTexture)->imageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imgCopyRegion);
 }

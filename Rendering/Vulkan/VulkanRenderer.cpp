@@ -714,7 +714,7 @@ Semaphore VulkanRenderer::createSemaphore ()
  }
  */
 
-Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, TextureType type)
+Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, uint32_t arrayLayerCount, TextureType type)
 {
 	VulkanTexture *tex = new VulkanTexture();
 	tex->imageFormat = toVkFormat(format);
@@ -727,7 +727,7 @@ Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, Text
 	imageCreateInfo.extent = toVkExtent(extent);
 	imageCreateInfo.imageType = toVkImageType(type);
 	imageCreateInfo.mipLevels = mipLevelCount;
-	imageCreateInfo.arrayLayers = 1;
+	imageCreateInfo.arrayLayers = arrayLayerCount;
 	imageCreateInfo.format = toVkFormat(format);
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -828,6 +828,24 @@ void VulkanRenderer::unmapBuffer(Buffer buffer)
 	VulkanBuffer *vkBuffer = static_cast<VulkanBuffer*>(buffer);
 
 	vmaUnmapMemory(memAllocator, &vkBuffer->bufferMemory);
+}
+
+void *VulkanRenderer::mapTexture (Texture texture)
+{
+	VulkanTexture *vulkanTexture = static_cast<VulkanTexture*> (texture);
+
+	void *mappedImageMemory = nullptr;
+
+	VK_CHECK_RESULT(vmaMapMemory(memAllocator, &vulkanTexture->imageMemory, &mappedImageMemory));
+
+	return mappedImageMemory;
+}
+
+void VulkanRenderer::unmapTexture (Texture texture)
+{
+	VulkanTexture *vulkanTexture = static_cast<VulkanTexture*> (texture);
+
+	vmaUnmapMemory(memAllocator, &vulkanTexture->imageMemory);
 }
 
 StagingBuffer VulkanRenderer::createStagingBuffer (size_t dataSize)

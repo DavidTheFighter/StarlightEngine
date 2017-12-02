@@ -186,6 +186,7 @@ ResourceStaticMesh ResourceManager::loadStaticMeshImmediate (const std::string &
 		StaticMeshDef *matDef = getMeshDef(defUniqueName);
 
 		ResourceStaticMeshObject *mesh = new ResourceStaticMeshObject();
+		mesh->defUniqueName = matDef->uniqueName;
 
 		DEBUG_ASSERT(matDef->meshLODFiles.size() == matDef->meshLODNames.size() && matDef->meshLODNames.size() == matDef->meshLODMaxDists.size());
 

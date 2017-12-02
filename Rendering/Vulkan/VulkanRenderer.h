@@ -68,13 +68,15 @@ class VulkanRenderer : public Renderer
 		Fence createFence (bool createAsSignaled);
 		Semaphore createSemaphore ();
 
-		Texture createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, TextureType type);
+		Texture createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, uint32_t arrayLayerCount, TextureType type);
 		TextureView createTextureView (Texture texture, TextureViewType viewType, TextureSubresourceRange subresourceRange, ResourceFormat viewFormat);
 		Sampler createSampler (SamplerAddressMode addressMode, SamplerFilter minFilter, SamplerFilter magFilter, float anisotropy, svec3 min_max_biasLod, SamplerMipmapMode mipmapMode);
 
 		Buffer createBuffer (size_t size, BufferUsageFlags usage, MemoryUsage memUsage, bool ownMemory);
 		void *mapBuffer (Buffer buffer);
 		void unmapBuffer (Buffer buffer);
+		void *mapTexture (Texture texture);
+		void unmapTexture (Texture texture);
 
 		StagingBuffer createStagingBuffer (size_t dataSize);
 		StagingBuffer createAndMapStagingBuffer (size_t dataSize, const void *data);

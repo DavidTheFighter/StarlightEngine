@@ -84,7 +84,7 @@ std::unique_ptr<uint16_t> WorldHandler::getCellHeightmapMipData (uint32_t cellX,
 			return std::unique_ptr<uint16_t> (nullptr);
 	}
 
-	std::ifstream file("GameData/levels/TestLevel/heightmap.hmp", std::ios::in | std::ios::binary | std::ios::ate);
+	std::ifstream file(std::string(engine->getWorkingDir() + "GameData/levels/TestLevel/heightmap.hmp").c_str(), std::ios::in | std::ios::binary | std::ios::ate);
 
 	size_t fileSize = file.tellg();
 	file.seekg(fileLookupPos + lookupMipOffset);
@@ -110,7 +110,7 @@ void WorldHandler::setActiveLevel (LevelDef *level)
 
 	// Load the lookup table for the heightmap
 	{
-		std::ifstream file("GameData/levels/TestLevel/heightmap.hmp", std::ios::in | std::ios::binary | std::ios::ate);
+		std::ifstream file(std::string(engine->getWorkingDir() + "GameData/levels/TestLevel/heightmap.hmp").c_str(), std::ios::in | std::ios::binary | std::ios::ate);
 		file.seekg(4 + 4);
 
 		file.read(reinterpret_cast<char*> (&activeLevelData->heightmapFileCellCount), 4);

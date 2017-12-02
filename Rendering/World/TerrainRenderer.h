@@ -46,17 +46,29 @@ class TerrainRenderer
 		WorldHandler *world;
 		WorldRenderer *worldRenderer;
 
-		Texture testHeightmap;
-		TextureView testHeightmapView;
-		Sampler testSampler;
-
 		DescriptorPool heightmapDescriptorPool;
 		DescriptorSet heightmapDescriptorSet;
 
-		CommandPool testCommandPool;
+		bool clipmapUpdated;
+		Semaphore clipmapUpdateSemaphore;
+		CommandPool clipmapUpdateCommandPool;
+		CommandBuffer clipmapUpdateCommandBuffer;
 
 		Pipeline terrainPipeline;
 		PipelineInputLayout terrainPipelineInput;
+
+		Texture transferClipmap_Elevation;
+		Texture terrainClipmap_Elevation;
+
+		TextureView terrainClipmapView_Elevation;
+
+		Sampler terrainClipmapSampler;
+
+		sivec2 clipmap0Regions[2][2];
+		sivec2 clipmap1Regions[4][4];
+		sivec2 clipmap2Regions[8][8];
+		sivec2 clipmap3Regions[16][16];
+		sivec2 clipmap4Regions[32][32];
 
 		TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr, WorldRenderer *worldRendererPtr);
 		virtual ~TerrainRenderer ();
@@ -69,6 +81,8 @@ class TerrainRenderer
 		void destroy ();
 
 	private:
+
+		std::vector<StagingBuffer> clipmapStagingBuffersToDelete;
 
 		void createGraphicsPipeline ();
 };

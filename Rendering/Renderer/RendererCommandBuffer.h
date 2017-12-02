@@ -40,12 +40,13 @@ class RendererCommandBuffer
 {
 	public:
 
-		virtual ~RendererCommandBuffer();
+		virtual ~RendererCommandBuffer ();
 
 		CommandBufferLevel level;
 
 		virtual void beginCommands (CommandBufferUsageFlags flags) = 0;
 		virtual void endCommands () = 0;
+		virtual void resetCommands () = 0;
 
 		virtual void beginRenderPass (RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents) = 0;
 		virtual void endRenderPass () = 0;
@@ -64,7 +65,7 @@ class RendererCommandBuffer
 
 		virtual void transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource = {0, 1, 0, 1}) = 0;
 		virtual void setTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource, PipelineStageFlags srcStage, PipelineStageFlags dstStage) = 0;
-		virtual void stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture) = 0;
+		virtual void stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture, TextureSubresourceLayers subresource = {0, 0, 1}, sivec3 offset = {0, 0, 0}, suvec3 extent = {std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max()}) = 0;
 		virtual void stageBuffer (StagingBuffer stagingBuffer, Buffer dstBuffer) = 0;
 
 		virtual void setViewports (uint32_t firstViewport, const std::vector<Viewport> &viewports) = 0;
@@ -77,9 +78,12 @@ class RendererCommandBuffer
 		virtual void endDebugRegion () = 0;
 		virtual void insertDebugMarker (const std::string &markerName, glm::vec4 color = glm::vec4(1)) = 0;
 #else
-		inline void beginDebugRegion (CommandBuffer cmdBuffer, const std::string &regionName, glm::vec4 color = glm::vec4(1)) {};
-		inline void endDebugRegion (CommandBuffer cmdBuffer) {};
-		inline void insertDebugMarker (CommandBuffer cmdBuffer, const std::string &markerName, glm::vec4 color = glm::vec4(1)) {};
+		inline void beginDebugRegion (CommandBuffer cmdBuffer, const std::string &regionName, glm::vec4 color = glm::vec4(1))
+		{};
+		inline void endDebugRegion (CommandBuffer cmdBuffer)
+		{};
+		inline void insertDebugMarker (CommandBuffer cmdBuffer, const std::string &markerName, glm::vec4 color = glm::vec4(1))
+		{};
 #endif
 };
 

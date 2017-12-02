@@ -45,6 +45,7 @@ class VulkanCommandBuffer : public RendererCommandBuffer
 
 		void beginCommands (CommandBufferUsageFlags flags);
 		void endCommands ();
+		void resetCommands ();
 
 		void beginRenderPass (RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents);
 		void endRenderPass ();
@@ -63,7 +64,8 @@ class VulkanCommandBuffer : public RendererCommandBuffer
 
 		void transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource);
 		void setTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource, PipelineStageFlags srcStage, PipelineStageFlags dstStage);
-		void stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture);
+
+		void stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture, TextureSubresourceLayers subresource, sivec3 offset, suvec3 extent);
 		void stageBuffer (StagingBuffer stagingBuffer, Buffer dstBuffer);
 
 		void setViewports (uint32_t firstViewport, const std::vector<Viewport> &viewports);
