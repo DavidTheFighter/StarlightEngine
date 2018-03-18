@@ -57,6 +57,9 @@ class TerrainRenderer
 		Pipeline terrainPipeline;
 		PipelineInputLayout terrainPipelineInput;
 
+		uint32_t terrainCellMeshVertexCount;
+		Buffer terrainCellMesh;
+
 		Texture transferClipmap_Elevation;
 		Texture terrainClipmap_Elevation;
 
@@ -84,6 +87,7 @@ class TerrainRenderer
 
 		std::vector<StagingBuffer> clipmapStagingBuffersToDelete;
 
+		void buildTerrainCellGrids ();
 		void createGraphicsPipeline ();
 };
 

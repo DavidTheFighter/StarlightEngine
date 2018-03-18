@@ -1182,6 +1182,8 @@ void VulkanRenderer::createLogicalDevice ()
 	VkPhysicalDeviceFeatures enabledDeviceFeatures = {};
 	enabledDeviceFeatures.samplerAnisotropy = deviceFeatures.samplerAnisotropy;
 	enabledDeviceFeatures.logicOp = true;
+	enabledDeviceFeatures.tessellationShader = true;
+	enabledDeviceFeatures.fillModeNonSolid = true;
 
 	VkDeviceCreateInfo deviceCreateInfo = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
 	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());

@@ -26,7 +26,7 @@
 		
 	void main()
 	{	
-		gl_Position = pushConsts.mvp * vec4(inVertex * inInstancePosition_Scale.w + inInstancePosition_Scale.xyz, 1);
+		gl_Position = pushConsts.mvp * vec4(inVertex * inInstancePosition_Scale.w / 10.0 + inInstancePosition_Scale.xyz, 1);
 		
 		outUV = inUV;
 		outNormal = inNormal;
