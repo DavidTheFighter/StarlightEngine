@@ -38,11 +38,11 @@
 #elif defined(SHADER_STAGE_FRAGMENT)
 
 	layout(set = 0, binding = 0) uniform sampler materialSampler;
-	layout(set = 0, binding = 1) uniform texture2D materialTex0; // Albedo
-	layout(set = 0, binding = 2) uniform texture2D materialTex1; // Normals
-	layout(set = 0, binding = 3) uniform texture2D materialTex2; // Roughness
-	layout(set = 0, binding = 4) uniform texture2D materialTex3; // Metalness
-	layout(set = 0, binding = 5) uniform texture2D materialTex4; // Unused for now (probably ao in the future)
+	layout(set = 0, binding = 1) uniform texture2DArray materialTex; // Albedo, Normals, Roughness, Metalness, Unusued (maybe AO or something)
+	//layout(set = 0, binding = 2) uniform texture2D materialTex1; // Normals
+	//layout(set = 0, binding = 3) uniform texture2D materialTex2; // Roughness
+	//layout(set = 0, binding = 4) uniform texture2D materialTex3; // Metalness
+	//layout(set = 0, binding = 5) uniform texture2D materialTex4; // Unused for now (probably ao in the future)
 
 	layout(location = 0) in vec2 inUV;
 	layout(location = 1) in vec3 inNormal;
@@ -58,13 +58,13 @@
 		vec3 B = cross(N, T);
 		mat3 tbn = mat3(T, B, N);
 		
-		return tbn * normalize(texture(sampler2D(materialTex1, materialSampler), inUV).rgb * 2.0f - 1.0f);
+		return tbn * normalize(texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 1)).rgb * 2.0f - 1.0f);
 	}
 
 	void main()
 	{	
-		albedo_roughness = vec4(texture(sampler2D(materialTex0, materialSampler), inUV).rgb, texture(sampler2D(materialTex2, materialSampler), inUV).r);
-		normal_metalness = vec4(calcNormal(), texture(sampler2D(materialTex3, materialSampler), inUV).r);
+		albedo_roughness = vec4(texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 0)).rgb, texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 2)).r);
+		normal_metalness = vec4(calcNormal(), texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 3)).r);
 	}
 
 #endif

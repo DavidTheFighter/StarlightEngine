@@ -147,9 +147,10 @@ typedef struct ResourceMeshObject
 typedef struct ResourceTextureObject
 {
 		std::atomic<bool> dataLoaded; // Used for multi-threaded texture loading
-		std::string file;
+		std::vector<std::string> files;
 		ResourceFormat textureFormat;
 		uint32_t mipmapLevels;
+		uint32_t arrayLayers;
 
 		RendererTexture *texture;
 		RendererTextureView *textureView; // A view for the whole texture, aka a default view
@@ -163,7 +164,7 @@ typedef struct ResourceMaterialObject
 {
 		std::string defUniqueName;
 
-		ResourceTexture textures[MATERIAL_DEF_MAX_TEXTURE_NUM];
+		ResourceTexture textures;
 
 		RendererDescriptorSet *descriptorSet;
 		RendererSampler *sampler;

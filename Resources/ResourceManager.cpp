@@ -43,10 +43,6 @@ ResourceManager::ResourceManager (Renderer *rendererInstance, const std::string 
 	std::vector<DescriptorSetLayoutBinding> layoutBindings;
 	layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
 	layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
-	layoutBindings.push_back({2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
-	layoutBindings.push_back({3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
-	layoutBindings.push_back({4, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
-	layoutBindings.push_back({5, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
 
 	mainThreadDescriptorPool = renderer->createDescriptorPool(layoutBindings, 16);
 }
@@ -78,36 +74,30 @@ ResourceMaterial ResourceManager::loadMaterialImmediate (const std::string &defU
 				matDef->linearMipmapFiltering ? SAMPLER_MIPMAP_MODE_LINEAR : SAMPLER_MIPMAP_MODE_NEAREST);
 		renderer->setObjectDebugName(mat->sampler, OBJECT_TYPE_SAMPLER, "Material: " + mat->defUniqueName + " sampler");
 
-		std::vector<DescriptorWriteInfo> writes(1);
+		std::vector<std::string> texFiles;
+
+		for (int i = 0; i < MATERIAL_DEF_MAX_TEXTURE_NUM; i ++)
+			if (std::string(matDef->textureFiles[i]).length() != 0)
+				texFiles.push_back(workingDir + std::string(matDef->textureFiles[i]));
+
+		mat->textures = loadTextureArrayImmediate(texFiles);
+
+		std::vector<DescriptorWriteInfo> writes(2);
 		writes[0].descriptorCount = 1;
 		writes[0].descriptorType = DESCRIPTOR_TYPE_SAMPLER;
 		writes[0].dstSet = mat->descriptorSet;
 		writes[0].imageInfo =
 		{
 			{	mat->sampler, nullptr, TEXTURE_LAYOUT_UNDEFINED}};
-		writes[0].dstArrayElement = writes[0].dstBinding = 0;
+		writes[0].dstBinding = 0;
+		writes[0].dstArrayElement = 0;
 
-		for (int i = 0; i < MATERIAL_DEF_MAX_TEXTURE_NUM; i ++)
-		{
-			mat->textures[i] = nullptr;
-
-			if (std::string(matDef->textureFiles[i]).length() != 0)
-			{
-				mat->textures[i] = loadTextureImmediate(workingDir + std::string(matDef->textureFiles[i]));
-
-				DescriptorWriteInfo writeInfo = {};
-				writeInfo.descriptorCount = 1;
-				writeInfo.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-				writeInfo.dstArrayElement = 0;
-				writeInfo.dstBinding = uint32_t(i) + 1;
-				writeInfo.dstSet = mat->descriptorSet;
-				writeInfo.imageInfo =
-				{
-					{	mat->sampler, mat->textures[i]->textureView, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
-
-				writes.push_back(writeInfo);
-			}
-		}
+		writes[1].descriptorCount = 1;
+		writes[1].descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		writes[1].dstSet = mat->descriptorSet;
+		writes[1].imageInfo = {{mat->sampler, mat->textures->textureView, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
+		writes[1].dstBinding = 1;
+		writes[1].dstArrayElement = 0;
 
 		renderer->writeDescriptorSets(writes);
 
@@ -157,13 +147,7 @@ void ResourceManager::returnMaterial (size_t defUniqueNameHash)
 			mainThreadDescriptorPool->freeDescriptorSet(mat->descriptorSet);
 			renderer->destroySampler(mat->sampler);
 
-			for (size_t i = 0; i < MATERIAL_DEF_MAX_TEXTURE_NUM; i ++)
-			{
-				if (mat->textures[i] != nullptr)
-				{
-					returnTexture(mat->textures[i]);
-				}
-			}
+			returnTexture(mat->textures);
 
 			delete mat;
 
@@ -230,7 +214,7 @@ ResourceStaticMesh ResourceManager::findStaticMesh (size_t defUniqueNameHash)
 
 void ResourceManager::returnStaticMesh (const std::string &defUniqueName)
 {
-	returnStaticMesh (stringHash(defUniqueName));
+	returnStaticMesh(stringHash(defUniqueName));
 }
 
 void ResourceManager::returnStaticMesh (size_t defUniqueNameHash)
@@ -447,8 +431,9 @@ ResourceTexture ResourceManager::loadTextureImmediate (const std::string &file, 
 	if (it == loadedTextures.end())
 	{
 		ResourceTextureObject *texRes = new ResourceTextureObject();
-		texRes->file = file;
+		texRes->files = {file};
 		texRes->dataLoaded = true;
+		texRes->arrayLayers = 1;
 
 		if (format == TEXTURE_FILE_FORMAT_MAX_ENUM)
 			format = inferFileFormat(file);
@@ -512,11 +497,86 @@ ResourceTexture ResourceManager::loadTextureImmediate (const std::string &file, 
 	}
 }
 
+ResourceTexture ResourceManager::loadTextureArrayImmediate (const std::vector<std::string> &files, TextureFileFormat format)
+{
+	std::unique_lock<std::mutex> lock(loadedTextures_mutex);
+
+	auto it = loadedTextures.find(files[0]);
+
+	if (it == loadedTextures.end())
+	{
+		ResourceTextureObject *texRes = new ResourceTextureObject();
+		texRes->files = files;
+		texRes->dataLoaded = true;
+		texRes->arrayLayers = 1;
+
+		if (format == TEXTURE_FILE_FORMAT_MAX_ENUM)
+			format = inferFileFormat(files[0]);
+
+		if (format == TEXTURE_FILE_FORMAT_MAX_ENUM)
+		{
+			// If it's still max enum, then we failed to specify/find the format we're supposed to load it in
+			// Therefore, we'll cancel and return a nullptr
+			printf("%s Failed to load texture: %s, couldn't find or isn't a supported file format", ERR_PREFIX, files[0].c_str());
+
+			return nullptr;
+		}
+
+		switch (format)
+		{
+			case TEXTURE_FILE_FORMAT_PNG:
+				loadPNGTextureData(texRes);
+				break;
+			default:
+				break;
+		}
+
+		/*
+		 * I'm formatting the debug name to trim it to the "GameData/textures/" directory. For example:
+		 * "GameData/textures/blah.png" would turn to ".../blah.png""
+		 */
+
+		size_t i = files[0].find("/textures/");
+
+		std::string debugMarkerName = ".../";
+
+		if (i != files[0].npos)
+			debugMarkerName += files[0].substr(i + 10);
+		else
+			debugMarkerName = files[0];
+
+		renderer->setObjectDebugName(texRes->texture, OBJECT_TYPE_TEXTURE, debugMarkerName);
+
+		texRes->textureView = renderer->createTextureView(texRes->texture, TEXTURE_VIEW_TYPE_2D_ARRAY, {0, texRes->mipmapLevels, 0, (uint32_t) files.size()});
+
+		// Probably don't need this here, but I'm putting here anyway. fight me
+		COMPILER_BARRIER();
+		loadedTextures[files[0]] = std::make_pair(texRes, 1);
+
+		return texRes;
+	}
+	else
+	{
+		// Increment the reference counter
+		it->second.second ++;
+
+		// If the texture object is loaded, but it's data isn't, then wait until it is
+		// This usually happens when one thread pushes loading to another thread, and so
+		// the object is created, but the loading hasn't finished yet
+		while (it->second.first->dataLoaded == false)
+		{
+			std::this_thread::yield();
+		}
+
+		return it->second.first;
+	}
+}
+
 void ResourceManager::returnTexture (ResourceTexture tex)
 {
 	std::unique_lock<std::mutex> lock(loadedTextures_mutex);
 
-	auto it = loadedTextures.find(tex->file);
+	auto it = loadedTextures.find(tex->files[0]);
 
 	if (it != loadedTextures.end())
 	{
@@ -537,72 +597,102 @@ void ResourceManager::returnTexture (ResourceTexture tex)
 
 void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 {
-	uint32_t width, height;
-	std::vector<uint8_t> textureData;
+	uint32_t width = 0, height = 0;
+	std::vector<std::vector<uint8_t>> textureData;
 
-	lodepng::decode(textureData, width, height, tex->file, LCT_RGBA, 8);
+	for (uint32_t f = 0; f < tex->files.size(); f ++)
+	{
+		textureData.push_back(std::vector<uint8_t> ());
+
+		uint32_t fwidth, fheight;
+
+		lodepng::decode(textureData[f], fwidth, fheight, tex->files[f], LCT_RGBA, 8);
+
+		// Make sure each texture has the same size
+		if (f > 0 && (fwidth != width || fheight != fheight))
+		{
+			printf("%s Couldn't load a texture array, one or more don't have consistent dimensions. Files: ", ERR_PREFIX);
+
+			for (uint32_t i = 0; i < tex->files.size(); i ++)
+			{
+				printf("%s%s", tex->files[i].c_str(), (i == tex->files.size() - 1 ? "" : ", "));
+			}
+			printf("\n");
+
+			return;
+		}
+
+		width = fwidth;
+		height = fheight;
+	}
+
+	StagingBuffer stagingBuffer = renderer->createStagingBuffer(textureData[0].size());
 
 	tex->mipmapLevels = (uint32_t) glm::floor(glm::log2(glm::max<float>(width, height))) + 1;
+	tex->texture = renderer->createTexture({(float) width, (float) height, 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_SRC_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels, tex->files.size());
 
-	tex->texture = renderer->createTexture({(float) width, (float) height, 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_SRC_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels);
-	StagingBuffer stagingBuffer = renderer->createAndMapStagingBuffer(textureData.size(), textureData.data());
-
-	CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
-
-	cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	cmdBuffer->stageBuffer(stagingBuffer, tex->texture);
-
-	if (tex->mipmapLevels > 1)
+	for (uint32_t f = 0; f < tex->files.size(); f ++)
 	{
+		renderer->mapStagingBuffer(stagingBuffer, textureData[f].size(), textureData[f].data());
+
+		CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
+
 		TextureSubresourceRange subresourceRange = {};
 		subresourceRange.baseMipLevel = 0;
-		subresourceRange.baseArrayLayer = 0;
+		subresourceRange.baseArrayLayer = f;
 		subresourceRange.levelCount = 1;
 		subresourceRange.layerCount = 1;
 
-		//cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-		cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresourceRange, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		//cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+		cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		cmdBuffer->stageBuffer(stagingBuffer, tex->texture, {0, f, 1});
 
-		for (uint32_t i = 1; i < tex->mipmapLevels; i ++)
+		if (tex->mipmapLevels > 1)
 		{
-			TextureSubresourceRange mipRange = {};
-			mipRange.baseMipLevel = i;
-			mipRange.baseArrayLayer = 0;
-			mipRange.levelCount = 1;
-			mipRange.layerCount = 1;
+			//cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, subresourceRange, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-			TextureBlitInfo blitInfo = {};
-			blitInfo.srcSubresource =
-			{	i - 1, 0, 1};
-			blitInfo.dstSubresource =
-			{	i, 0, 1};
-			blitInfo.srcOffsets[0] =
-			{	0, 0, 0};
-			blitInfo.dstOffsets[0] =
-			{	0, 0, 0};
-			blitInfo.srcOffsets[1] =
-			{	int32_t(width >> (i - 1)), int32_t(height >> (i - 1)), 1};
-			blitInfo.dstOffsets[1] =
-			{	int32_t(width >> i), int32_t(height >> i), 1};
+			for (uint32_t i = 1; i < tex->mipmapLevels; i ++)
+			{
+				TextureSubresourceRange mipRange = {};
+				mipRange.baseMipLevel = i;
+				mipRange.baseArrayLayer = f;
+				mipRange.levelCount = 1;
+				mipRange.layerCount = 1;
 
-			//cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, mipRange);
-			cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, mipRange, PIPELINE_STAGE_TRANSFER_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
-			cmdBuffer->blitTexture(tex->texture, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {blitInfo}, SAMPLER_FILTER_LINEAR);
-			cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, mipRange, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_TRANSFER_BIT);
+				TextureBlitInfo blitInfo = {};
+				blitInfo.srcSubresource =
+				{	i - 1, f, 1};
+				blitInfo.dstSubresource =
+				{	i, f, 1};
+				blitInfo.srcOffsets[0] =
+				{	0, 0, 0};
+				blitInfo.dstOffsets[0] =
+				{	0, 0, 0};
+				blitInfo.srcOffsets[1] =
+				{	int32_t(width >> (i - 1)), int32_t(height >> (i - 1)), 1};
+				blitInfo.dstOffsets[1] =
+				{	int32_t(width >> i), int32_t(height >> i), 1};
+
+				//cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, mipRange);
+				cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, mipRange, PIPELINE_STAGE_TRANSFER_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+				cmdBuffer->blitTexture(tex->texture, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {blitInfo}, SAMPLER_FILTER_LINEAR);
+				cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, mipRange, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_TRANSFER_BIT);
+			}
+
+			subresourceRange.levelCount = tex->mipmapLevels;
+
+			cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+			//cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
+		}
+		else
+		{
+			cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		}
 
-		subresourceRange.levelCount = tex->mipmapLevels;
-
-		cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
-
-		//cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
+		renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
 	}
-	else
-	{
-		cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	}
-
-	renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
 
 	renderer->destroyStagingBuffer(stagingBuffer);
 }

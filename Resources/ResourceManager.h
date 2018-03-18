@@ -54,6 +54,7 @@ class ResourceManager
 		void returnMesh (ResourceMesh mesh);
 
 		ResourceTexture loadTextureImmediate (const std::string &file, TextureFileFormat format = TEXTURE_FILE_FORMAT_MAX_ENUM);
+		ResourceTexture loadTextureArrayImmediate (const std::vector<std::string> &files, TextureFileFormat format = TEXTURE_FILE_FORMAT_MAX_ENUM);
 		void returnTexture (ResourceTexture tex);
 
 		ResourceMaterial loadMaterialImmediate (const std::string &defUniqueName);

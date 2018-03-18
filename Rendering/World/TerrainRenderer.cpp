@@ -63,6 +63,7 @@ TerrainRenderer::TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worl
 
 	terrainClipmapView_Elevation = nullptr;
 	terrainClipmapSampler = nullptr;
+	terrainTextureSampler = nullptr;
 
 	for (int i = 0; i < 4; i ++)
 	{
@@ -491,6 +492,7 @@ void TerrainRenderer::init ()
 	clipmapUpdateCommandBuffer = clipmapUpdateCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
 
 	terrainClipmapSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+	terrainTextureSampler = engine->renderer->createSampler();
 
 	transferClipmap_Elevation = engine->renderer->createTexture({513, 513, 1}, RESOURCE_FORMAT_R16_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_TRANSFER_SRC_BIT, MEMORY_USAGE_GPU_ONLY, true, 1, 1);
 	terrainClipmap_Elevation = engine->renderer->createTexture({1025, 1025, 1}, RESOURCE_FORMAT_R16_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, true, 1, 5);
@@ -574,6 +576,7 @@ void TerrainRenderer::init ()
 void TerrainRenderer::destroy ()
 {
 	engine->renderer->destroySampler(terrainClipmapSampler);
+	engine->renderer->destroySampler(terrainTextureSampler);
 
 	engine->renderer->destroyTexture(transferClipmap_Elevation);
 	engine->renderer->destroyTexture(terrainClipmap_Elevation);
@@ -626,7 +629,9 @@ void TerrainRenderer::createGraphicsPipeline ()
 {
 	terrainPipelineInput = engine->renderer->createPipelineInputLayout({{0, pcSize, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT}}, {{
 			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
-			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT}
+			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
+			//{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			//{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}});
 
 	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_VERTEX_BIT);

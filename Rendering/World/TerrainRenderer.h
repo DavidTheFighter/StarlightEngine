@@ -66,6 +66,7 @@ class TerrainRenderer
 		TextureView terrainClipmapView_Elevation;
 
 		Sampler terrainClipmapSampler;
+		Sampler terrainTextureSampler;
 
 		sivec2 clipmap0Regions[2][2];
 		sivec2 clipmap1Regions[4][4];

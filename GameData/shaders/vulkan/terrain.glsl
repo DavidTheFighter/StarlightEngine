@@ -257,7 +257,10 @@
 #elif defined(SHADER_STAGE_FRAGMENT)
 
 	layout(set = 0, binding = 0) uniform sampler heightmapSampler;
-	layout(set = 0, binding = 1) uniform texture2DArray heightmap;
+	layout(set = 0, binding = 1) uniform texture2DArray heightmap;	
+	
+	//layout(set = 0, binding = 2) uniform sampler textureSampler;
+	//layout(set = 0, binding = 3) uniform texture2DArray terrainTextures[1];
 
 	layout(location = 0) out vec4 albedo_roughness; // rgb - albedo, a - roughness
 	layout(location = 1) out vec4 normal_metalness; // rgb - normals, a - metalness
@@ -272,7 +275,7 @@
 	
 		vec3 heightmapTexcoord = vec3(inHeightmapTexcoord.x, inHeightmapTexcoord.y, inHeightmapTexcoord.z);
 		
-		float noffset = 1 / (256.0f * pow(2, heightmapTexcoord.z));
+		float noffset = 1 / (512.0f * pow(2, heightmapTexcoord.z));
 		float h01 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(-noffset, 0, 0)).x * 8192.0f - 4096.0f;
 		float h21 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(noffset, 0, 0)).x * 8192.0f - 4096.0f;
 		float h10 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(0, -noffset, 0)).x * 8192.0f - 4096.0f;
