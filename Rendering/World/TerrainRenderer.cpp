@@ -36,8 +36,6 @@
 
 #include <World/WorldHandler.h>
 
-#include <Resources/ResourceManager.h>
-
 TerrainRenderer::TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr, WorldRenderer *worldRendererPtr)
 {
 	engine = enginePtr;
@@ -64,6 +62,8 @@ TerrainRenderer::TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worl
 	terrainClipmapView_Elevation = nullptr;
 	terrainClipmapSampler = nullptr;
 	terrainTextureSampler = nullptr;
+
+	testTerrainTexture = nullptr;
 
 	for (int i = 0; i < 4; i ++)
 	{
@@ -511,11 +511,36 @@ void TerrainRenderer::init ()
 
 	terrainGrid = engine->resources->loadMeshImmediate(engine->getWorkingDir() + "GameData/meshes/test-terrain.dae", "cell_terrain_grid");
 
+	{
+		MaterialDef mossy = {};
+		strcpy(mossy.uniqueName, "mossy0");
+		strcpy(mossy.pipelineUniqueName, "engine.defaultMaterial");
+		strcpy(mossy.textureFiles[0], "GameData/textures/terrain/mossy0/mossy-albedo.png");
+		strcpy(mossy.textureFiles[1], "GameData/textures/terrain/mossy0/mossy-normals.png");
+		strcpy(mossy.textureFiles[2], "GameData/textures/terrain/mossy0/mossy-roughness.png");
+		strcpy(mossy.textureFiles[3], "GameData/textures/terrain/mossy0/mossy-metalness.png");
+		strcpy(mossy.textureFiles[4], "");
+
+		mossy.enableAnisotropy = true;
+		mossy.linearFiltering = true;
+		mossy.linearMipmapFiltering = true;
+		mossy.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
+
+		engine->resources->addMaterialDef(mossy);
+
+		testTerrainTexture = engine->resources->loadMaterialImmediate(mossy.uniqueName);
+	}
+
 	buildTerrainCellGrids();
 
 	createGraphicsPipeline();
 
-	heightmapDescriptorPool = engine->renderer->createDescriptorPool({{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT}, {1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT}}, 8);
+	heightmapDescriptorPool = engine->renderer->createDescriptorPool({
+		{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
+		{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
+		{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+	}, 8);
 	heightmapDescriptorSet = heightmapDescriptorPool->allocateDescriptorSet();
 
 	DescriptorImageInfo heightmapDescriptorImageInfo = {};
@@ -523,7 +548,12 @@ void TerrainRenderer::init ()
 	heightmapDescriptorImageInfo.sampler = terrainClipmapSampler;
 	heightmapDescriptorImageInfo.view = terrainClipmapView_Elevation;
 
-	DescriptorWriteInfo swrite = {}, iwrite = {};
+	DescriptorImageInfo testTerrainTextureDescriptorImageInfo = {};
+	testTerrainTextureDescriptorImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	testTerrainTextureDescriptorImageInfo.sampler = testTerrainTexture->sampler;
+	testTerrainTextureDescriptorImageInfo.view = testTerrainTexture->textures->textureView;
+
+	DescriptorWriteInfo swrite = {}, iwrite = {}, s1write = {}, i1write = {};
 	swrite.descriptorCount = 1;
 	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
 	swrite.dstBinding = 0;
@@ -538,7 +568,21 @@ void TerrainRenderer::init ()
 	iwrite.imageInfo =
 	{	heightmapDescriptorImageInfo};
 
-	engine->renderer->writeDescriptorSets({swrite, iwrite});
+	s1write.descriptorCount = 1;
+	s1write.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
+	s1write.dstBinding = 2;
+	s1write.dstSet = heightmapDescriptorSet;
+	s1write.imageInfo =
+	{	testTerrainTextureDescriptorImageInfo};
+
+	i1write.descriptorCount = 1;
+	i1write.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	i1write.dstBinding = 3;
+	i1write.dstSet = heightmapDescriptorSet;
+	i1write.imageInfo =
+	{	testTerrainTextureDescriptorImageInfo};
+
+	engine->renderer->writeDescriptorSets({swrite, iwrite, s1write, i1write});
 
 	TextureBlitInfo blitInfo = {};
 	blitInfo.srcSubresource =
@@ -575,6 +619,8 @@ void TerrainRenderer::init ()
 
 void TerrainRenderer::destroy ()
 {
+	engine->resources->returnMaterial(testTerrainTexture->defUniqueName);
+
 	engine->renderer->destroySampler(terrainClipmapSampler);
 	engine->renderer->destroySampler(terrainTextureSampler);
 
@@ -630,8 +676,8 @@ void TerrainRenderer::createGraphicsPipeline ()
 	terrainPipelineInput = engine->renderer->createPipelineInputLayout({{0, pcSize, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT}}, {{
 			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
-			//{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			//{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+			{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}});
 
 	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_VERTEX_BIT);

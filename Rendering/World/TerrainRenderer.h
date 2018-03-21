@@ -33,6 +33,7 @@
 #include <common.h>
 #include <Rendering/Renderer/RendererEnums.h>
 #include <Rendering/Renderer/RendererObjects.h>
+#include <Resources/ResourceManager.h>
 
 class StarlightEngine;
 class WorldHandler;
@@ -67,6 +68,8 @@ class TerrainRenderer
 
 		Sampler terrainClipmapSampler;
 		Sampler terrainTextureSampler;
+
+		ResourceMaterial testTerrainTexture;
 
 		sivec2 clipmap0Regions[2][2];
 		sivec2 clipmap1Regions[4][4];

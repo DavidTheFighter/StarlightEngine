@@ -77,7 +77,7 @@
 		const float dmax = 4096.0f;
 		const float dmin = 256.0f;
 		const float smult = 32.0f;
-		const float spow = 1;
+		const float spow = 6;
 		const float lvlInc = 4.0f;
 	
 		float lvl = floor(smult * pow((dmax - clamp(distToCamera, dmin, dmax) - dmin) / (dmax - dmin), spow));
@@ -109,66 +109,25 @@
 	layout(location = 0) in vec3 inVertex[];
 
 	layout(location = 0) out vec3 outTest;
-	layout(location = 1) out vec3 outNormal;
+	layout(location = 1) out vec2 outTerrainTexcoord;
 	layout(location = 2) out vec3 outHeightmapTexcoord;
 
 	float getClipmapArrayLayer (float dist);
+
+	float cameraCellCoordOffsetArray[5] = {0, -1, -3, -7, -15};
 
 	void main()
 	{
 		vec3 meshVertex = mix(mix(inVertex[0], inVertex[3], gl_TessCoord.x), mix(inVertex[1], inVertex[2], gl_TessCoord.x), gl_TessCoord.y);
 		vec3 vertex = vec3(meshVertex.x, 0, meshVertex.y);
-				
-		float cameraCellCoordOffset;
-	
+					
 		vec2 cellCoordOffset = pushConsts.cellCoordStart + vec2(int(meshVertex.z) % pushConsts.instanceCountWidth, int(meshVertex.z) / pushConsts.instanceCountWidth);
 		float distToCamera = distance(cellCoordOffset * 256.0f, pushConsts.cameraCellCoord * 256.0f + 128.0f);
-		//float distToCamera = max(abs(cellCoordOffset.x * 256.0f - (pushConsts.cameraCellCoord.y * 256.0f + 128.0f)), abs(cellCoordOffset.y * 256.0f - (pushConsts.cameraCellCoord.y * 256.0f + 128.0f)));
 		float clipmapArrayLayer = getClipmapArrayLayer(distToCamera);
-		
-		switch (int(clipmapArrayLayer))
-		{
-			case 0:
-				outTest = vec3(0, 0.95f, 0);
-				break;
-			case 1:
-				outTest = vec3(1, 1, 0.1f);
-				break;
-			case 2:
-				outTest = vec3(0.4f, 0.4f, 1);
-				break;
-			case 3:
-				outTest = vec3(1, 0.6f, 0.6f);
-				break;
-			case 4:
-				if (distToCamera < 4096.0f)
-					outTest = vec3(1, 0.5f, 0.05f);
-				else
-					outTest = vec3(0.9f, 0, 0);
-				
-				break;
-		}
-		
-		switch (int(clipmapArrayLayer))
-		{
-			case 0:
-				cameraCellCoordOffset = 0;
-				break;
-			case 1:
-				cameraCellCoordOffset = -1;
-				break;
-			case 2:
-				cameraCellCoordOffset = -3;
-				break;
-			case 3:
-				cameraCellCoordOffset = -7;
-				break;
-			case 4:
-				cameraCellCoordOffset = -15;
-				break;
-		}
-		
+		float cameraCellCoordOffset = cameraCellCoordOffsetArray[int(clipmapArrayLayer)];
+
 		outHeightmapTexcoord = vec3((vertex.xz + cellCoordOffset * 256.0f - (pushConsts.cameraCellCoord + vec2(cameraCellCoordOffset)) * 256.0f) / (512.0f * pow(2, clipmapArrayLayer)), clipmapArrayLayer);
+		outTerrainTexcoord = (vertex.xz + cellCoordOffset * 256.0f) * 0.5f;
 		
 		if (vertex.x < 1e-6)
 		{
@@ -195,30 +154,11 @@
 			clipmapArrayLayer = getClipmapArrayLayer(distance(cellCoordOffset * 256.0f, pushConsts.cameraCellCoord * 256.0f + 128.0f));
 		}
 		
-		switch (int(clipmapArrayLayer))
-		{
-			case 0:
-				cameraCellCoordOffset = 0;
-				break;
-			case 1:
-				cameraCellCoordOffset = -1;
-				break;
-			case 2:
-				cameraCellCoordOffset = -3;
-				break;
-			case 3:
-				cameraCellCoordOffset = -7;
-				break;
-			case 4:
-				cameraCellCoordOffset = -15;
-				break;
-		}
+		cameraCellCoordOffset = cameraCellCoordOffsetArray[int(clipmapArrayLayer)];
 		
 		vec3 heightmapTexcoord = vec3((vertex.xz + cellCoordOffset * 256.0f - (pushConsts.cameraCellCoord + vec2(cameraCellCoordOffset)) * 256.0f) / (512.0f * pow(2, clipmapArrayLayer)), clipmapArrayLayer);
-		//outHeightmapTexcoord = heightmapTexcoord;
 		
 		float heightmapValue = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord).x;
-		
 
 		vertex.xz += cellCoordOffset * 256.0f;
 		vertex.y += heightmapValue * 8192.0f - 4096.0f;
@@ -259,15 +199,25 @@
 	layout(set = 0, binding = 0) uniform sampler heightmapSampler;
 	layout(set = 0, binding = 1) uniform texture2DArray heightmap;	
 	
-	//layout(set = 0, binding = 2) uniform sampler textureSampler;
-	//layout(set = 0, binding = 3) uniform texture2DArray terrainTextures[1];
+	layout(set = 0, binding = 2) uniform sampler textureSampler;
+	layout(set = 0, binding = 3) uniform texture2DArray terrainTextures[1]; // Albedo, normals, roughness, metalness, unused
 
 	layout(location = 0) out vec4 albedo_roughness; // rgb - albedo, a - roughness
 	layout(location = 1) out vec4 normal_metalness; // rgb - normals, a - metalness
 
 	layout(location = 0) in vec3 inTest;
-	//layout(location = 1) in vec3 inNormal;
+	layout(location = 1) in vec2 inTerrainTexcoord;
 	layout(location = 2) in vec3 inHeightmapTexcoord;
+
+	vec3 calcNormal(vec3 inNormal, vec3 texNormals)
+	{
+		vec3 N = normalize(inNormal);
+		vec3 T = normalize(cross(N, vec3(1, 0, 0)));
+		vec3 B = cross(N, T);
+		mat3 tbn = mat3(T, B, N);
+		
+		return tbn * normalize(texNormals * 2.0f - 1.0f);
+	}
 
 	void main()
 	{
@@ -281,14 +231,21 @@
 		float h10 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(0, -noffset, 0)).x * 8192.0f - 4096.0f;
 		float h12 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(0, noffset, 0)).x * 8192.0f - 4096.0f;
 		
+		vec3 malbedo = texture(sampler2DArray(terrainTextures[0], textureSampler), vec3(inTerrainTexcoord.xy, 0)).rgb;
+		vec3 mnormals = normalize(texture(sampler2DArray(terrainTextures[0], textureSampler), vec3(inTerrainTexcoord.xy, 1)).rgb);
+		float mroughness = texture(sampler2DArray(terrainTextures[0], textureSampler), vec3(inTerrainTexcoord.xy, 2)).r;
+		float mmetalness = texture(sampler2DArray(terrainTextures[0], textureSampler), vec3(inTerrainTexcoord.xy, 3)).r;
+		
 		float nsize = 16;
 		vec3 va = normalize(vec3(nsize, h21 - h01, 0));
 		vec3 vb = normalize(vec3(0, h12 - h10, -nsize));
 		vec3 inNormal = cross(va, vb);
+		vec3 fragNormal = calcNormal(inNormal, mnormals);
 	
-		float h = clamp(dot(normalize(inNormal), normalize(vec3(0, 1, 0))), 0.3f, 1.0f);
-		albedo_roughness = vec4(vec3(0, 0.75f, 0) * h, 1.0f);
-		normal_metalness = vec4(inNormal, 0.0f);
+		float h = clamp(dot(fragNormal, normalize(vec3(0, 1, 0))), 0.3f, 1.0f);
+		
+		albedo_roughness = vec4(malbedo * h, mroughness);
+		normal_metalness = vec4(fragNormal, mmetalness);
 	}
 
 #endif
