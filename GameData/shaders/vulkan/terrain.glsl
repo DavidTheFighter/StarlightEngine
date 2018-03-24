@@ -81,9 +81,8 @@
 		const float lvlInc = 4.0f;
 	
 		float lvl = floor(smult * pow((dmax - clamp(distToCamera, dmin, dmax) - dmin) / (dmax - dmin), spow));
-		
-	
-		return max(floor(lvl / lvlInc) * lvlInc, 1);
+
+		return max(floor(lvl / lvlInc) * lvlInc, 2);
 	}
 
 #elif defined(SHADER_STAGE_TESSELLATION_EVALUATION)
@@ -108,7 +107,7 @@
 	
 	layout(location = 0) in vec3 inVertex[];
 
-	layout(location = 0) out vec3 outTest;
+	layout(location = 0) out vec3 outVertex;
 	layout(location = 1) out vec2 outTerrainTexcoord;
 	layout(location = 2) out vec3 outHeightmapTexcoord;
 
@@ -163,6 +162,8 @@
 		vertex.xz += cellCoordOffset * 256.0f;
 		vertex.y += heightmapValue * 8192.0f - 4096.0f;
 		
+		outVertex = vertex;
+		
 		gl_Position = pushConsts.mvp * vec4(vertex, 1);
 	}
 
@@ -200,12 +201,12 @@
 	layout(set = 0, binding = 1) uniform texture2DArray heightmap;	
 	
 	layout(set = 0, binding = 2) uniform sampler textureSampler;
-	layout(set = 0, binding = 3) uniform texture2DArray terrainTextures[1]; // Albedo, normals, roughness, metalness, unused
+	layout(set = 0, binding = 3) uniform texture2DArray terrainTextures[32]; // TexArray order: Albedo, normals, roughness, metalness, unused
 
 	layout(location = 0) out vec4 albedo_roughness; // rgb - albedo, a - roughness
 	layout(location = 1) out vec4 normal_metalness; // rgb - normals, a - metalness
 
-	layout(location = 0) in vec3 inTest;
+	layout(location = 0) in vec3 inVertex;
 	layout(location = 1) in vec2 inTerrainTexcoord;
 	layout(location = 2) in vec3 inHeightmapTexcoord;
 
@@ -219,32 +220,92 @@
 		return tbn * normalize(texNormals * 2.0f - 1.0f);
 	}
 
+	const float uvScale = 1;
+	const float tightenFactor = 0.5f;
+	
+	vec3 triplanarSample (in int texIndex, in vec3 vertex, in vec3 normal, in float arrayLayer, in float blendSharpness)
+	{		
+		vec2 uvX = vertex.zy / uvScale;
+		vec2 uvY = vertex.xz / uvScale;
+		vec2 uvZ = vertex.xy / uvScale;
+		
+		vec3 blend = pow(abs(normal), vec3(blendSharpness)) - vec3(tightenFactor);
+		blend = max(blend, vec3(0));
+		
+		blend = blend / (blend.x + blend.y + blend.z);
+		
+		vec3 ttexX = vec3(0);
+		vec3 ttexY = vec3(0);
+		vec3 ttexZ = vec3(0);
+				
+		if (blend.x > 0)
+			ttexX = texture(sampler2DArray(terrainTextures[texIndex], textureSampler), vec3(uvX, arrayLayer)).rgb;
+		if (blend.y > 0)
+			ttexY = texture(sampler2DArray(terrainTextures[texIndex], textureSampler), vec3(uvY, arrayLayer)).rgb;
+		if (blend.z > 0)
+			ttexZ = texture(sampler2DArray(terrainTextures[texIndex], textureSampler), vec3(uvZ, arrayLayer)).rgb;
+		
+		return ttexX * blend.x + ttexY * blend.y + ttexZ * blend.z;
+	}
+
 	void main()
 	{
 		//vec3 inNormal = vec3(0, 1, 0);
 	
 		vec3 heightmapTexcoord = vec3(inHeightmapTexcoord.x, inHeightmapTexcoord.y, inHeightmapTexcoord.z);
 		
-		float noffset = 1 / (512.0f * pow(2, heightmapTexcoord.z));
+		float noffset = 1 / (256.0f * pow(2, heightmapTexcoord.z));
 		float h01 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(-noffset, 0, 0)).x * 8192.0f - 4096.0f;
 		float h21 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(noffset, 0, 0)).x * 8192.0f - 4096.0f;
 		float h10 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(0, -noffset, 0)).x * 8192.0f - 4096.0f;
 		float h12 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(0, noffset, 0)).x * 8192.0f - 4096.0f;
 		
-		vec3 malbedo = texture(sampler2DArray(terrainTextures[0], textureSampler), vec3(inTerrainTexcoord.xy, 0)).rgb;
-		vec3 mnormals = normalize(texture(sampler2DArray(terrainTextures[0], textureSampler), vec3(inTerrainTexcoord.xy, 1)).rgb);
-		float mroughness = texture(sampler2DArray(terrainTextures[0], textureSampler), vec3(inTerrainTexcoord.xy, 2)).r;
-		float mmetalness = texture(sampler2DArray(terrainTextures[0], textureSampler), vec3(inTerrainTexcoord.xy, 3)).r;
-		
-		float nsize = 16;
+		const float nsize = 16;
 		vec3 va = normalize(vec3(nsize, h21 - h01, 0));
 		vec3 vb = normalize(vec3(0, h12 - h10, -nsize));
 		vec3 inNormal = cross(va, vb);
+		
+		const int backgroundIndex = 0;
+		const int overlayIndex = 1;
+		
+		float lerpFactor = smoothstep(0.8f, 1.0f, clamp(inNormal.y, 0.8f, 1.0f));
+		
+		vec3 background_albedo = vec3(0);
+		vec3 background_normals = vec3(0);
+		float background_roughness = 0;
+		float background_metalness = 0;
+		
+		vec3 overlay_albedo = vec3(0);
+		vec3 overlay_normals = vec3(0);
+		float overlay_roughness = 0;
+		float overlay_metalness = 0;
+		
+		if (lerpFactor < 1)
+		{
+			background_albedo = triplanarSample(backgroundIndex, inVertex, inNormal, 0, 1);
+			background_normals = triplanarSample(backgroundIndex, inVertex, inNormal, 1, 1);
+			background_roughness = triplanarSample(backgroundIndex, inVertex, inNormal, 2, 1).r;
+			background_metalness = triplanarSample(backgroundIndex, inVertex, inNormal, 3, 1).r;
+		}
+		
+		if (lerpFactor > 0)
+		{
+			overlay_albedo = triplanarSample(overlayIndex, inVertex, inNormal, 0, 1);
+			overlay_normals = triplanarSample(overlayIndex, inVertex, inNormal, 1, 1);
+			overlay_roughness = triplanarSample(overlayIndex, inVertex, inNormal, 2, 1).r;
+			overlay_metalness = triplanarSample(overlayIndex, inVertex, inNormal, 3, 1).r;
+		}
+		
+		vec3 malbedo = mix(background_albedo, overlay_albedo, lerpFactor);
+		vec3 mnormals = mix(background_normals, overlay_normals, lerpFactor);
+		float mroughness = mix(background_roughness, overlay_roughness, lerpFactor);
+		float mmetalness = mix(background_metalness, overlay_roughness, lerpFactor);
+		
 		vec3 fragNormal = calcNormal(inNormal, mnormals);
 	
-		float h = clamp(dot(fragNormal, normalize(vec3(0, 1, 0))), 0.3f, 1.0f);
+		float h = clamp(dot(fragNormal, normalize(vec3(0.5f, 0.5f, 0))), 0.3f, 1.0f);
 		
-		albedo_roughness = vec4(malbedo * h, mroughness);
+		albedo_roughness = vec4(malbedo , mroughness);
 		normal_metalness = vec4(fragNormal, mmetalness);
 	}
 

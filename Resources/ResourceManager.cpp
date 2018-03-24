@@ -602,11 +602,20 @@ void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 
 	for (uint32_t f = 0; f < tex->files.size(); f ++)
 	{
+		if (tex->files[f].length() == 0)
+			continue;
+
 		textureData.push_back(std::vector<uint8_t> ());
 
 		uint32_t fwidth, fheight;
 
-		lodepng::decode(textureData[f], fwidth, fheight, tex->files[f], LCT_RGBA, 8);
+		unsigned err = lodepng::decode(textureData[f], fwidth, fheight, tex->files[f], LCT_RGBA, 8);
+
+		if (err)
+		{
+			printf("%s Encountered an error while loading PNG file: %s, lodepng returned: %u\n", ERR_PREFIX, tex->files[f].c_str(), err);
+					continue;
+		}
 
 		// Make sure each texture has the same size
 		if (f > 0 && (fwidth != width || fheight != fheight))

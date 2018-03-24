@@ -69,8 +69,6 @@ class TerrainRenderer
 		Sampler terrainClipmapSampler;
 		Sampler terrainTextureSampler;
 
-		ResourceMaterial testTerrainTexture;
-
 		sivec2 clipmap0Regions[2][2];
 		sivec2 clipmap1Regions[4][4];
 		sivec2 clipmap2Regions[8][8];

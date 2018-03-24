@@ -63,8 +63,6 @@ TerrainRenderer::TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worl
 	terrainClipmapSampler = nullptr;
 	terrainTextureSampler = nullptr;
 
-	testTerrainTexture = nullptr;
-
 	for (int i = 0; i < 4; i ++)
 	{
 		clipmap0Regions[i % 2][i / 2] =
@@ -435,9 +433,9 @@ void TerrainRenderer::update ()
 		clipmapStagingBuffersToDelete.push_back(dirtyClipmap4Regions[i].stagingData);
 }
 
-ResourceMesh terrainGrid;
-
 const size_t pcSize = sizeof(glm::mat4) + sizeof(svec2) * 2 + sizeof(glm::vec4) + sizeof(int32_t);
+ResourceMaterial testTerrainGraniteMaterial = nullptr;
+ResourceMaterial testTerrainGrassMaterial = nullptr;
 
 inline void seqmemcpy (char *to, const void *from, size_t size, size_t &offset)
 {
@@ -509,26 +507,41 @@ void TerrainRenderer::init ()
 
 	engine->renderer->endSingleTimeCommand(buf, clipmapUpdateCommandPool, QUEUE_TYPE_GRAPHICS);
 
-	terrainGrid = engine->resources->loadMeshImmediate(engine->getWorkingDir() + "GameData/meshes/test-terrain.dae", "cell_terrain_grid");
-
 	{
-		MaterialDef mossy = {};
-		strcpy(mossy.uniqueName, "mossy0");
-		strcpy(mossy.pipelineUniqueName, "engine.defaultMaterial");
-		strcpy(mossy.textureFiles[0], "GameData/textures/terrain/mossy0/mossy-albedo.png");
-		strcpy(mossy.textureFiles[1], "GameData/textures/terrain/mossy0/mossy-normals.png");
-		strcpy(mossy.textureFiles[2], "GameData/textures/terrain/mossy0/mossy-roughness.png");
-		strcpy(mossy.textureFiles[3], "GameData/textures/terrain/mossy0/mossy-metalness.png");
-		strcpy(mossy.textureFiles[4], "");
+		MaterialDef granite = {};
+		strcpy(granite.uniqueName, "granite1");
+		strcpy(granite.pipelineUniqueName, "engine.defaultMaterial");
+		strcpy(granite.textureFiles[0], "GameData/textures/terrain/granite1/granite-albedo.png");
+		strcpy(granite.textureFiles[1], "GameData/textures/terrain/granite1/granite-normals.png");
+		strcpy(granite.textureFiles[2], "GameData/textures/terrain/granite1/granite-roughness.png");
+		strcpy(granite.textureFiles[3], "GameData/textures/terrain/granite1/granite-metalness.png");
+		strcpy(granite.textureFiles[4], "");
 
-		mossy.enableAnisotropy = true;
-		mossy.linearFiltering = true;
-		mossy.linearMipmapFiltering = true;
-		mossy.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
+		granite.enableAnisotropy = true;
+		granite.linearFiltering = true;
+		granite.linearMipmapFiltering = true;
+		granite.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
 
-		engine->resources->addMaterialDef(mossy);
+		engine->resources->addMaterialDef(granite);
 
-		testTerrainTexture = engine->resources->loadMaterialImmediate(mossy.uniqueName);
+		MaterialDef grass = {};
+		strcpy(grass.uniqueName, "grass1");
+		strcpy(grass.pipelineUniqueName, "engine.defaultMaterial");
+		strcpy(grass.textureFiles[0], "GameData/textures/terrain/grass1/grass-albedo.png");
+		strcpy(grass.textureFiles[1], "GameData/textures/terrain/grass1/grass-normals.png");
+		strcpy(grass.textureFiles[2], "GameData/textures/terrain/grass1/grass-roughness.png");
+		strcpy(grass.textureFiles[3], "GameData/textures/terrain/grass1/grass-metalness.png");
+		strcpy(grass.textureFiles[4], "");
+
+		grass.enableAnisotropy = true;
+		grass.linearFiltering = true;
+		grass.linearMipmapFiltering = true;
+		grass.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
+
+		engine->resources->addMaterialDef(grass);
+
+		testTerrainGraniteMaterial = engine->resources->loadMaterialImmediate(granite.uniqueName);
+		testTerrainGrassMaterial = engine->resources->loadMaterialImmediate(grass.uniqueName);
 	}
 
 	buildTerrainCellGrids();
@@ -539,7 +552,7 @@ void TerrainRenderer::init ()
 		{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 		{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 		{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+		{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, SHADER_STAGE_FRAGMENT_BIT}
 	}, 8);
 	heightmapDescriptorSet = heightmapDescriptorPool->allocateDescriptorSet();
 
@@ -548,11 +561,16 @@ void TerrainRenderer::init ()
 	heightmapDescriptorImageInfo.sampler = terrainClipmapSampler;
 	heightmapDescriptorImageInfo.view = terrainClipmapView_Elevation;
 
-	DescriptorImageInfo testTerrainTextureDescriptorImageInfo = {};
-	testTerrainTextureDescriptorImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	testTerrainTextureDescriptorImageInfo.sampler = testTerrainTexture->sampler;
-	testTerrainTextureDescriptorImageInfo.view = testTerrainTexture->textures->textureView;
+	DescriptorImageInfo testTerrainGraniteMaterialDescriptorImageInfo = {};
+	testTerrainGraniteMaterialDescriptorImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	testTerrainGraniteMaterialDescriptorImageInfo.sampler = testTerrainGraniteMaterial->sampler;
+	testTerrainGraniteMaterialDescriptorImageInfo.view = testTerrainGraniteMaterial->textures->textureView;
 
+	DescriptorImageInfo testTerrainGrassMaterialDescriptorImageInfo = {};
+	testTerrainGrassMaterialDescriptorImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	testTerrainGrassMaterialDescriptorImageInfo.sampler = testTerrainGrassMaterial->sampler;
+	testTerrainGrassMaterialDescriptorImageInfo.view = testTerrainGrassMaterial->textures->textureView;
+	
 	DescriptorWriteInfo swrite = {}, iwrite = {}, s1write = {}, i1write = {};
 	swrite.descriptorCount = 1;
 	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
@@ -573,14 +591,17 @@ void TerrainRenderer::init ()
 	s1write.dstBinding = 2;
 	s1write.dstSet = heightmapDescriptorSet;
 	s1write.imageInfo =
-	{	testTerrainTextureDescriptorImageInfo};
+	{	testTerrainGraniteMaterialDescriptorImageInfo};
 
-	i1write.descriptorCount = 1;
+	i1write.descriptorCount = 32;
 	i1write.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 	i1write.dstBinding = 3;
 	i1write.dstSet = heightmapDescriptorSet;
 	i1write.imageInfo =
-	{	testTerrainTextureDescriptorImageInfo};
+	{	testTerrainGraniteMaterialDescriptorImageInfo, testTerrainGrassMaterialDescriptorImageInfo};
+
+	std::vector<DescriptorImageInfo> testFiller(30, testTerrainGrassMaterialDescriptorImageInfo);
+	i1write.imageInfo.insert(i1write.imageInfo.end(), testFiller.begin(), testFiller.end());
 
 	engine->renderer->writeDescriptorSets({swrite, iwrite, s1write, i1write});
 
@@ -619,7 +640,7 @@ void TerrainRenderer::init ()
 
 void TerrainRenderer::destroy ()
 {
-	engine->resources->returnMaterial(testTerrainTexture->defUniqueName);
+	engine->resources->returnMaterial(testTerrainGraniteMaterial->defUniqueName);
 
 	engine->renderer->destroySampler(terrainClipmapSampler);
 	engine->renderer->destroySampler(terrainTextureSampler);
@@ -677,7 +698,7 @@ void TerrainRenderer::createGraphicsPipeline ()
 			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 			{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, SHADER_STAGE_FRAGMENT_BIT}
 	}});
 
 	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_VERTEX_BIT);
