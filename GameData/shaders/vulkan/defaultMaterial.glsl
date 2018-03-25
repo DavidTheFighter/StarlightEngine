@@ -24,13 +24,18 @@
 		vec4 gl_Position;
 	};
 		
+	vec3 rotateByQuaternion(in vec3 point, in vec4 quat)
+	{
+		return 2.0f * cross(quat.xyz, quat.w * point + cross(quat.xyz, point)) + point;
+	}
+		
 	void main()
 	{	
-		gl_Position = pushConsts.mvp * vec4(inVertex * inInstancePosition_Scale.w / 10.0 + inInstancePosition_Scale.xyz, 1);
+		gl_Position = pushConsts.mvp * vec4(rotateByQuaternion(inVertex * inInstancePosition_Scale.w / 10.0, inInstanceRotation) + inInstancePosition_Scale.xyz, 1);
 		
 		outUV = inUV;
-		outNormal = inNormal;
-		outTangent = inTangent;
+		outNormal = rotateByQuaternion(inNormal, inInstanceRotation);
+		outTangent = rotateByQuaternion(inTangent, inInstanceRotation);
 		
 		//texcoord = inPosition;
 	}
@@ -64,7 +69,7 @@
 	void main()
 	{	
 		albedo_roughness = vec4(texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 0)).rgb, texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 2)).r);
-		normal_metalness = vec4(calcNormal(), texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 3)).r);
+		normal_metalness = vec4(calcNormal() * 0.5f + 0.5f, texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 3)).r);
 	}
 
 #endif

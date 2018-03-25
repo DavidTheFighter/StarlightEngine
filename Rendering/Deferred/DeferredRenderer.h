@@ -21,55 +21,68 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  * 
- * GameStateInWorld.h
+ * DeferredRenderer.h
  * 
- * Created on: Oct 10, 2017
+ * Created on: Mar 24, 2018
  *     Author: david
  */
 
-#ifndef ENGINE_GAMESTATEINWORLD_H_
-#define ENGINE_GAMESTATEINWORLD_H_
+#ifndef RENDERING_DEFERRED_DEFERREDRENDERER_H_
+#define RENDERING_DEFERRED_DEFERREDRENDERER_H_
 
 #include <common.h>
-
-#include <Engine/GameState.h>
-#include <Game/Events/EventHandler.h>
 #include <Rendering/Renderer/RendererEnums.h>
 #include <Rendering/Renderer/RendererObjects.h>
+#include <Resources/ResourceManager.h>
 
-class WorldHandler;
-class WorldRenderer;
-class DeferredRenderer;
-class Game;
+class StarlightEngine;
 
-class GameStateInWorld : public GameState
+class DeferredRenderer
 {
 	public:
 
-		StarlightEngine *engine;
-		WorldHandler *world;
-		WorldRenderer *worldRenderer;
-		DeferredRenderer *deferredRenderer;
-		Game *testGame; // Probably a temp, probably will restructure this later
+		TextureView deferredOutputView;
 
-		GameStateInWorld (StarlightEngine *enginePtr);
-		virtual ~GameStateInWorld ();
+		DeferredRenderer (StarlightEngine *enginePtr);
+		virtual ~DeferredRenderer ();
 
 		void init ();
 		void destroy ();
 
-		void pause ();
-		void resume ();
+		void renderDeferredLighting ();
+		void setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, suvec2 gbufferSize);
 
-		void handleEvents ();
-		void update ();
-		void render ();
-
-		static void windowResizedCallback(EventWindowResizeData &eventData, void *usrPtr);
+		TextureView getGBuffer_AlbedoRoughness ();
+		TextureView getGBuffer_NormalsMetalness ();
 
 	private:
 
-		Sampler presentSampler;
+		bool destroyed;
+
+		StarlightEngine *engine;
+
+		RenderPass deferredRenderPass;
+		Pipeline deferredPipeline;
+		PipelineInputLayout deferredPipelineInputLayout;
+		Framebuffer deferredFramebuffer;
+
+		CommandPool deferredCommandPool;
+		CommandBuffer deferredCommandBuffer;
+
+		bool gbufferDirty;
+		TextureView gbuffer_AlbedoRoughnessView; // rgb - albedo, a - roughness
+		TextureView gbuffer_NormalsMetalnessView; // rgb - normals, a - metalness
+
+		DescriptorPool deferredInputsDescriptorPool;
+		DescriptorSet deferredInputDescriptorSet;
+
+		svec2 gbufferSize;
+		Texture deferredOutput;
+
+		Sampler deferredInputsSampler;
+
+		void createDeferredLightingRenderPass ();
+		void createDeferredLightingPipeline ();
 };
 
-#endif /* ENGINE_GAMESTATEINWORLD_H_ */
+#endif /* RENDERING_DEFERRED_DEFERREDRENDERER_H_ */

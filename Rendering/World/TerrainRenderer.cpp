@@ -641,6 +641,7 @@ void TerrainRenderer::init ()
 void TerrainRenderer::destroy ()
 {
 	engine->resources->returnMaterial(testTerrainGraniteMaterial->defUniqueName);
+	engine->resources->returnMaterial(testTerrainGrassMaterial->defUniqueName);
 
 	engine->renderer->destroySampler(terrainClipmapSampler);
 	engine->renderer->destroySampler(terrainTextureSampler);

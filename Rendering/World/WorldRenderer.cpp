@@ -502,8 +502,6 @@ void WorldRenderer::setGBufferDimensions (suvec2 gbufferDimensions)
 	destroyGBuffer();
 	createGBuffer();
 
-	engine->renderer->setSwapchainTexture(engine->mainWindow, gbuffer_AlbedoRoughnessView, testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
 	camProjMat = glm::perspective<float>(60 * (M_PI / 180.0f), gbufferDimensions.x / float(gbufferDimensions.y), 100000.0f, 0.1f);
 	camProjMat[1][1] *= -1;
 }

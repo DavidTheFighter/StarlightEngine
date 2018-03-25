@@ -74,6 +74,7 @@ class WorldRenderer
 		Texture gbuffer_AlbedoRoughness; // RGB - Albedo, A - Roughness
 		Texture gbuffer_NormalMetalness; // RGB - World Normal, A - Metalness
 		Texture gbuffer_Depth;
+		Sampler testSampler;
 
 		StarlightEngine *engine;
 		WorldHandler *world;
@@ -118,8 +119,6 @@ class WorldRenderer
 		size_t worldStreamingBufferOffset;
 		Buffer worldStreamingBuffer;
 		void *worldStreamingBufferData;
-
-		Sampler testSampler;
 };
 
 #endif /* RENDERING_WORLD_WORLDRENDERER_H_ */

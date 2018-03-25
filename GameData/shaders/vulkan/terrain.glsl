@@ -230,6 +230,9 @@
 		vec2 uvZ = vertex.xy / uvScale;
 		
 		vec3 blend = pow(abs(normal), vec3(blendSharpness)) - vec3(tightenFactor);
+		if (max(blend.x, 0) + max(blend.y, 0) + max(blend.z, 0) < 1e-3)
+			blend += vec3(tightenFactor);
+		
 		blend = max(blend, vec3(0));
 		
 		blend = blend / (blend.x + blend.y + blend.z);
@@ -254,7 +257,7 @@
 	
 		vec3 heightmapTexcoord = vec3(inHeightmapTexcoord.x, inHeightmapTexcoord.y, inHeightmapTexcoord.z);
 		
-		float noffset = 1 / (256.0f * pow(2, heightmapTexcoord.z));
+		float noffset = 1 / (512.0f * pow(2, heightmapTexcoord.z));
 		float h01 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(-noffset, 0, 0)).x * 8192.0f - 4096.0f;
 		float h21 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(noffset, 0, 0)).x * 8192.0f - 4096.0f;
 		float h10 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(0, -noffset, 0)).x * 8192.0f - 4096.0f;
@@ -305,8 +308,8 @@
 	
 		float h = clamp(dot(fragNormal, normalize(vec3(0.5f, 0.5f, 0))), 0.3f, 1.0f);
 		
-		albedo_roughness = vec4(malbedo , mroughness);
-		normal_metalness = vec4(fragNormal, mmetalness);
+		albedo_roughness = vec4(malbedo, mroughness);
+		normal_metalness = vec4(fragNormal * 0.5f + 0.5f, mmetalness);
 	}
 
 #endif
