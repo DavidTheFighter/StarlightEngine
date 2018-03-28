@@ -553,7 +553,7 @@ Framebuffer VulkanRenderer::createFramebuffer (RenderPass renderPass, const std:
 	return framebuffer;
 }
 
-ShaderModule VulkanRenderer::createShaderModule (std::string file, ShaderStageFlagBits stage)
+ShaderModule VulkanRenderer::createShaderModule (const std::string &file, ShaderStageFlagBits stage)
 {
 	VulkanShaderModule *vulkanShader = new VulkanShaderModule();
 
@@ -571,6 +571,30 @@ ShaderModule VulkanRenderer::createShaderModule (std::string file, ShaderStageFl
 
 	if (i != file.npos)
 		debugMarkerName += file.substr(i + 9);
+
+	debugMarkerSetName(device, vulkanShader->module, VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT, debugMarkerName);
+
+	return vulkanShader;
+}
+
+ShaderModule VulkanRenderer::createShaderModuleFromSource (const std::string &source, const std::string &referenceName, ShaderStageFlagBits stage)
+{
+	VulkanShaderModule *vulkanShader = new VulkanShaderModule();
+
+	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSLFromSource(*defaultCompiler, source, referenceName, toVkShaderStageFlagBits(stage)));
+	vulkanShader->stage = stage;
+
+	/*
+	 * I'm formatting the debug name to trim it to the "GameData/shaders/" directory. For example:
+	 * "GameData/shaders/vulkan/temp-swapchain.glsl" would turn to ".../vulkan/temp-swapchain.glsl"
+	 */
+
+	size_t i = referenceName.find("/shaders/");
+
+	std::string debugMarkerName = ".../";
+
+	if (i != referenceName.npos)
+		debugMarkerName += referenceName.substr(i + 9);
 
 	debugMarkerSetName(device, vulkanShader->module, VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT, debugMarkerName);
 

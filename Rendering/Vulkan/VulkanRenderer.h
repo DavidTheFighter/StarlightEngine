@@ -60,7 +60,8 @@ class VulkanRenderer : public Renderer
 
 		RenderPass createRenderPass(const std::vector<AttachmentDescription> &attachments, const std::vector<SubpassDescription> &subpasses, const std::vector<SubpassDependency> &dependencies);
 		Framebuffer createFramebuffer(RenderPass renderPass, const std::vector<TextureView> &attachments, uint32_t width, uint32_t height, uint32_t layers);
-		ShaderModule createShaderModule (std::string file, ShaderStageFlagBits stage);
+		ShaderModule createShaderModule (const std::string &file, ShaderStageFlagBits stage);
+		ShaderModule createShaderModuleFromSource (const std::string &source, const std::string &referenceName, ShaderStageFlagBits stage);
 		PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts);
 		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass);
 		DescriptorPool createDescriptorPool (const std::vector<DescriptorSetLayoutBinding> &layoutBindings, uint32_t poolBlockAllocSize);

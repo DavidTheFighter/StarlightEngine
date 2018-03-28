@@ -12,33 +12,43 @@
 
 #include "Rendering/Vulkan/VulkanShaderLoader.h"
 
-shaderc_shader_kind getShaderKindFromShaderStage(VkShaderStageFlagBits stage);
+shaderc_shader_kind getShaderKindFromShaderStage (VkShaderStageFlagBits stage);
 std::string getShaderStageMacroString (VkShaderStageFlagBits stage);
 
 std::vector<uint32_t> VulkanShaderLoader::compileGLSL (shaderc::Compiler &compiler, const std::string &file, VkShaderStageFlagBits stages)
 {
 	std::vector<char> glslSource = readFile(file);
 
+	return compileGLSLFromSource(compiler, glslSource, file, stages);
+}
+
+std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (shaderc::Compiler &compiler, const std::string &source, const std::string &sourceName, VkShaderStageFlagBits stages)
+{
+	return compileGLSLFromSource (compiler, std::vector<char> (source.data(), source.data() + source.length()), sourceName, stages);
+}
+
+std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (shaderc::Compiler &compiler, const std::vector<char> &glslSource, const std::string &sourceName, VkShaderStageFlagBits stages)
+{
 	shaderc::CompileOptions opts;
 	opts.AddMacroDefinition(getShaderStageMacroString(stages));
 
-	shaderc::SpvCompilationResult spvComp = compiler.CompileGlslToSpv(std::string(glslSource.data(), glslSource.data() + glslSource.size()), getShaderKindFromShaderStage(stages), file.c_str(), opts);
+	shaderc::SpvCompilationResult spvComp = compiler.CompileGlslToSpv(std::string(glslSource.data(), glslSource.data() + glslSource.size()), getShaderKindFromShaderStage(stages), sourceName.c_str(), opts);
 
 	if (spvComp.GetCompilationStatus() != shaderc_compilation_status_success)
 	{
-		printf("%s Failed to compile GLSL shader: %s, shaderc returned: %u, gave message: %s\n", ERR_PREFIX, file.c_str(), spvComp.GetCompilationStatus(), spvComp.GetErrorMessage().c_str());
+		printf("%s Failed to compile GLSL shader: %s, shaderc returned: %u, gave message: %s\n", ERR_PREFIX, sourceName.c_str(), spvComp.GetCompilationStatus(), spvComp.GetErrorMessage().c_str());
 
 		throw std::runtime_error("shaderc error - failed compilation");
 	}
 
-	return std::vector<uint32_t> (spvComp.cbegin(), spvComp.cend());
+	return std::vector<uint32_t>(spvComp.cbegin(), spvComp.cend());
 }
 
 VkShaderModule VulkanShaderLoader::createVkShaderModule (const VkDevice &device, const std::vector<uint32_t> &spirv)
 {
 	VkShaderModuleCreateInfo moduleCreateInfo = {};
 	moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	moduleCreateInfo.codeSize = static_cast<uint32_t> (spirv.size());
+	moduleCreateInfo.codeSize = static_cast<uint32_t>(spirv.size());
 	moduleCreateInfo.pCode = spirv.data();
 
 	VkShaderModule module;
@@ -47,7 +57,7 @@ VkShaderModule VulkanShaderLoader::createVkShaderModule (const VkDevice &device,
 	return module;
 }
 
-shaderc_shader_kind getShaderKindFromShaderStage(VkShaderStageFlagBits stage)
+shaderc_shader_kind getShaderKindFromShaderStage (VkShaderStageFlagBits stage)
 {
 	switch (stage)
 	{
