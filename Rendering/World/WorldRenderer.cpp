@@ -127,6 +127,7 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)
 		cmdBuffer->beginDebugRegion("Level Static Objects", glm::vec4(1.0f, 0.984f, 0.059f, 1.0f));
 		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, defaultMaterialPipeline);
 		cmdBuffer->pushConstants(materialPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVP[0][0]);
+		cmdBuffer->pushConstants(materialPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::vec3), &cameraPosition.x);
 
 		//double sT = engine->getTime();
 		LevelStaticObjectStreamingData streamData = getStaticObjStreamingData();
@@ -485,7 +486,7 @@ void WorldRenderer::createTestMaterialPipeline ()
 	layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
 	layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
 
-	materialPipelineInputLayout = engine->renderer->createPipelineInputLayout({{0, sizeof(glm::mat4), SHADER_STAGE_VERTEX_BIT}}, {layoutBindings});
+	materialPipelineInputLayout = engine->renderer->createPipelineInputLayout({{0, sizeof(glm::mat4) + sizeof(glm::vec3), SHADER_STAGE_VERTEX_BIT}}, {layoutBindings});
 
 	defaultMaterialPipeline = engine->renderer->createGraphicsPipeline(info, materialPipelineInputLayout, gbufferRenderPass, 0);
 

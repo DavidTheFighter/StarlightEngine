@@ -302,7 +302,7 @@
 		vec3 malbedo = mix(background_albedo, overlay_albedo, lerpFactor);
 		vec3 mnormals = mix(background_normals, overlay_normals, lerpFactor);
 		float mroughness = mix(background_roughness, overlay_roughness, lerpFactor);
-		float mmetalness = mix(background_metalness, overlay_roughness, lerpFactor);
+		float mmetalness = mix(background_metalness, overlay_metalness, lerpFactor);
 		
 		vec3 fragNormal = calcNormal(inNormal, mnormals);
 	

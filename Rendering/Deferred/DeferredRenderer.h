@@ -36,21 +36,26 @@
 #include <Resources/ResourceManager.h>
 
 class StarlightEngine;
+class AtmosphereRenderer;
+class Game;
+class WorldRenderer;
 
 class DeferredRenderer
 {
 	public:
 
+		Game *game;
 		TextureView deferredOutputView;
+		glm::mat4 invCamMVPMat;
 
-		DeferredRenderer (StarlightEngine *enginePtr);
+		DeferredRenderer (StarlightEngine *enginePtr, WorldRenderer *worldRendererPtr);
 		virtual ~DeferredRenderer ();
 
 		void init ();
 		void destroy ();
 
 		void renderDeferredLighting ();
-		void setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, suvec2 gbufferSize);
+		void setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, TextureView gbuffer_DepthView, suvec2 gbufferSize);
 
 		TextureView getGBuffer_AlbedoRoughness ();
 		TextureView getGBuffer_NormalsMetalness ();
@@ -60,6 +65,8 @@ class DeferredRenderer
 		bool destroyed;
 
 		StarlightEngine *engine;
+		WorldRenderer *worldRenderer;
+		AtmosphereRenderer *atmosphere;
 
 		RenderPass deferredRenderPass;
 		Pipeline deferredPipeline;
@@ -72,6 +79,7 @@ class DeferredRenderer
 		bool gbufferDirty;
 		TextureView gbuffer_AlbedoRoughnessView; // rgb - albedo, a - roughness
 		TextureView gbuffer_NormalsMetalnessView; // rgb - normals, a - metalness
+		TextureView gbuffer_DepthView;
 
 		DescriptorPool deferredInputsDescriptorPool;
 		DescriptorSet deferredInputDescriptorSet;
@@ -80,6 +88,7 @@ class DeferredRenderer
 		Texture deferredOutput;
 
 		Sampler deferredInputsSampler;
+		Sampler atmosphereTextureSampler;
 
 		void createDeferredLightingRenderPass ();
 		void createDeferredLightingPipeline ();

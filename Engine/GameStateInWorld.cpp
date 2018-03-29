@@ -66,7 +66,8 @@ void GameStateInWorld::init ()
 	testGame = new Game(engine->mainWindow);
 
 	worldRenderer = new WorldRenderer(engine, world);
-	deferredRenderer = new DeferredRenderer(engine);
+	deferredRenderer = new DeferredRenderer(engine, worldRenderer);
+	deferredRenderer->game = testGame;
 
 	// Setup a test material
 	{
@@ -231,7 +232,7 @@ void GameStateInWorld::init ()
 
 	worldRenderer->init({engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
 	deferredRenderer->init();
-	deferredRenderer->setGBuffer(worldRenderer->gbuffer_AlbedoRoughnessView, worldRenderer->gbuffer_NormalMetalnessView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	deferredRenderer->setGBuffer(worldRenderer->gbuffer_AlbedoRoughnessView, worldRenderer->gbuffer_NormalMetalnessView, worldRenderer->gbuffer_DepthView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
 
 	presentSampler = engine->renderer->createSampler();
 }
@@ -281,6 +282,7 @@ void GameStateInWorld::update ()
 
 	worldRenderer->camViewMat = glm::lookAt(testGame->mainCamera.position, testGame->mainCamera.position + playerLookDir, playerLookUp);
 	worldRenderer->cameraPosition = testGame->mainCamera.position;
+	deferredRenderer->invCamMVPMat = glm::inverse(worldRenderer->camProjMat * worldRenderer->camViewMat);
 
 	worldRenderer->update();
 }
@@ -298,7 +300,7 @@ void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, 
 	if (eventData.window == gameState->engine->mainWindow)
 	{
 		gameState->worldRenderer->setGBufferDimensions({eventData.width, eventData.height});
-		gameState->deferredRenderer->setGBuffer(gameState->worldRenderer->gbuffer_AlbedoRoughnessView, gameState->worldRenderer->gbuffer_NormalMetalnessView, {gameState->engine->mainWindow->getWidth(), gameState->engine->mainWindow->getHeight()});
+		gameState->deferredRenderer->setGBuffer(gameState->worldRenderer->gbuffer_AlbedoRoughnessView, gameState->worldRenderer->gbuffer_NormalMetalnessView, gameState->worldRenderer->gbuffer_DepthView, {gameState->engine->mainWindow->getWidth(), gameState->engine->mainWindow->getHeight()});
 		gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->deferredRenderer->deferredOutputView, gameState->worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		//gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->worldRenderer->gbuffer_AlbedoRoughnessView, gameState->presentSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

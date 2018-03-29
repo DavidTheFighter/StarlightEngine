@@ -6,6 +6,7 @@
 	layout(push_constant) uniform PushConsts
 	{
 		mat4 mvp;
+		vec3 cameraPosition;
 	} pushConsts;
 	
 	layout(location = 0) in vec3 inVertex;
@@ -18,6 +19,9 @@
 	layout(location = 0) out vec2 outUV;
 	layout(location = 1) out vec3 outNormal;
 	layout(location = 2) out vec3 outTangent;
+	layout(location = 3) out float px;
+	layout(location = 4) out vec3 vertex;
+	layout(location = 5) out vec3 camPos;
 
 	out gl_PerVertex
 	{
@@ -32,10 +36,13 @@
 	void main()
 	{	
 		gl_Position = pushConsts.mvp * vec4(rotateByQuaternion(inVertex * inInstancePosition_Scale.w / 10.0, inInstanceRotation) + inInstancePosition_Scale.xyz, 1);
+		vertex = rotateByQuaternion(inVertex * inInstancePosition_Scale.w / 10.0, inInstanceRotation) + inInstancePosition_Scale.xyz;
+		camPos = pushConsts.cameraPosition;
 		
 		outUV = inUV;
 		outNormal = rotateByQuaternion(inNormal, inInstanceRotation);
 		outTangent = rotateByQuaternion(inTangent, inInstanceRotation);
+		px = gl_Position.x;
 		
 		//texcoord = inPosition;
 	}
@@ -52,24 +59,68 @@
 	layout(location = 0) in vec2 inUV;
 	layout(location = 1) in vec3 inNormal;
 	layout(location = 2) in vec3 inTangent;
+	layout(location = 3) in float px;
+	layout(location = 4) in vec3 vertex;
+	layout(location = 5) in vec3 camPos;
 	
 	layout(location = 0) out vec4 albedo_roughness; // rgb - albedo, a - roughness
 	layout(location = 1) out vec4 normal_metalness; // rgb - normals, a - metalness
 
-	vec3 calcNormal()
+	vec3 calcNormal(in vec2 texcoords)
 	{
 		vec3 N = normalize(inNormal);
 		vec3 T = normalize(inTangent);
 		vec3 B = cross(N, T);
 		mat3 tbn = mat3(T, B, N);
 		
-		return tbn * normalize(texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 1)).rgb * 2.0f - 1.0f);
+		return tbn * normalize(texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 1)).rgb * 2.0f - 1.0f);
 	}
 
 	void main()
 	{	
-		albedo_roughness = vec4(texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 0)).rgb, texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 2)).r);
-		normal_metalness = vec4(calcNormal() * 0.5f + 0.5f, texture(sampler2DArray(materialTex, materialSampler), vec3(inUV, 3)).r);
+		vec2 texcoords = inUV;
+	
+		/*
+		if (px > -1 && false)
+		{
+			vec3 N = normalize(inNormal);
+			vec3 T = normalize(inTangent);
+			vec3 B = cross(N, T);
+			mat3 TBN = mat3(T, B, N);
+		
+			vec3 viewDir = normalize(TBN * camPos - TBN * vertex);
+			float height_scale = 0.1f;
+			
+			const float numLayers = 16;
+			float layerDepth = 1 / numLayers;
+			float currentLayerDepth = 0;
+		
+			vec2 P = viewDir.xy * height_scale;
+			vec2 deltaTexCoords = P / numLayers;
+		
+			vec2 currentTexCoords = inUV;
+			float currentDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(currentTexCoords, 4)).r;
+			
+			while (currentLayerDepth < currentDepth)
+			{
+				currentTexCoords -= deltaTexCoords;
+				currentDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(currentTexCoords, 4)).r;
+				currentLayerDepth += layerDepth;
+			}
+			
+			vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
+			
+			float afterDepth = currentDepth - currentLayerDepth;
+			float beforeDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(prevTexCoords, 4)).r - currentLayerDepth + layerDepth;
+			
+			float weight = afterDepth / (afterDepth - beforeDepth);
+			
+			texcoords = prevTexCoords * weight + currentTexCoords * (1 - weight);
+		}
+		*/
+		
+		albedo_roughness = vec4(texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 0)).rgb, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 2)).r);
+		normal_metalness = vec4(calcNormal(texcoords) * 0.5f + 0.5f, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 3)).r);
 	}
 
 #endif

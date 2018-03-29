@@ -31,13 +31,21 @@
 
 #include <Engine/StarlightEngine.h>
 
-#include <Rendering/Renderer/Renderer.h>
+#include <Game/Game.h>
 
-DeferredRenderer::DeferredRenderer (StarlightEngine *enginePtr)
+#include <Rendering/Renderer/Renderer.h>
+#include <Rendering/World/WorldRenderer.h>
+#include <Rendering/Deferred/AtmosphereRenderer.h>
+
+DeferredRenderer::DeferredRenderer (StarlightEngine *enginePtr, WorldRenderer *worldRendererPtr)
 {
 	engine = enginePtr;
+	worldRenderer = worldRendererPtr;
+	atmosphere = nullptr;
+
 	gbuffer_AlbedoRoughnessView = nullptr;
 	gbuffer_NormalsMetalnessView = nullptr;
+	gbuffer_DepthView = nullptr;
 	gbufferDirty = false;
 	destroyed = false;
 
@@ -52,9 +60,11 @@ DeferredRenderer::DeferredRenderer (StarlightEngine *enginePtr)
 	deferredOutput = nullptr;
 	deferredOutputView = nullptr;
 	deferredInputsSampler = nullptr;
+	atmosphereTextureSampler = nullptr;
 
 	deferredInputsDescriptorPool = nullptr;
 	deferredInputDescriptorSet = nullptr;
+	game = nullptr;
 }
 
 DeferredRenderer::~DeferredRenderer ()
@@ -63,11 +73,25 @@ DeferredRenderer::~DeferredRenderer ()
 		destroy();
 }
 
+uint32_t lightingPcSize = (uint32_t) (sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4) + sizeof(glm::vec2));
+
 void DeferredRenderer::renderDeferredLighting ()
 {
 	std::vector<ClearValue> clearValues = std::vector<ClearValue>(1);
 	clearValues[0].color =
 	{	0, 0, 0, 0};
+
+	char pushConstData[lightingPcSize];
+	size_t seqOffset = 0;
+	memset(pushConstData, 0, sizeof(pushConstData));
+
+	glm::vec3 playerLookDir = glm::normalize(glm::vec3(cos(game->mainCamera.lookAngles.y) * sin(game->mainCamera.lookAngles.x), sin(game->mainCamera.lookAngles.y), cos(game->mainCamera.lookAngles.y) * cos(game->mainCamera.lookAngles.x)));
+	glm::vec2 prjMat = glm::vec2(worldRenderer->camProjMat[2][2], worldRenderer->camProjMat[3][2]);
+
+	seqmemcpy(pushConstData, &invCamMVPMat[0][0], sizeof(glm::mat4), seqOffset);
+	seqmemcpy(pushConstData, &game->mainCamera.position.x, sizeof(glm::vec4), seqOffset);
+	seqmemcpy(pushConstData, &playerLookDir.x, sizeof(glm::vec4), seqOffset);
+	seqmemcpy(pushConstData, &prjMat, sizeof(glm::vec2), seqOffset);
 
 	CommandBuffer cmdBuffer = deferredCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
 	cmdBuffer->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -79,6 +103,7 @@ void DeferredRenderer::renderDeferredLighting ()
 
 	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, deferredPipeline);
 	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, deferredPipelineInputLayout, 0, {deferredInputDescriptorSet});
+	cmdBuffer->pushConstants(deferredPipelineInputLayout, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT, 0, lightingPcSize, pushConstData);
 
 	// Vertex positions contained in the shader as constants
 	cmdBuffer->draw(6);
@@ -96,16 +121,25 @@ void DeferredRenderer::renderDeferredLighting ()
 
 void DeferredRenderer::init ()
 {
+	atmosphere = new AtmosphereRenderer (engine);
+	atmosphere->init();
+
 	createDeferredLightingRenderPass();
 	createDeferredLightingPipeline();
 
 	deferredCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
-	deferredInputsSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST, 1);
+	deferredInputsSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST);
+	atmosphereTextureSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_LINEAR, SAMPLER_FILTER_LINEAR);
 
 	deferredInputsDescriptorPool = engine->renderer->createDescriptorPool({{
 		{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+		{2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{4, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}}, 1);
 
 	deferredInputDescriptorSet = deferredInputsDescriptorPool->allocateDescriptorSet();
@@ -114,7 +148,28 @@ void DeferredRenderer::init ()
 	deferredInputSamplerImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	deferredInputSamplerImageInfo.sampler = deferredInputsSampler;
 
-	DescriptorWriteInfo swrite = {};
+	DescriptorImageInfo transmittanceImageInfo = {};
+	transmittanceImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	transmittanceImageInfo.sampler = atmosphereTextureSampler;
+	transmittanceImageInfo.view = atmosphere->transmittanceTV;
+
+	DescriptorImageInfo scatteringImageInfo = {};
+	scatteringImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	scatteringImageInfo.sampler = atmosphereTextureSampler;
+	scatteringImageInfo.view = atmosphere->scatteringTV;
+
+	// Need to upload something or the validation layer will have a coronary, even if we don't use this texture
+	DescriptorImageInfo singleMieScatteringImageInfo = {};
+	singleMieScatteringImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	singleMieScatteringImageInfo.sampler = atmosphereTextureSampler;
+	singleMieScatteringImageInfo.view = atmosphere->scatteringTV;
+
+	DescriptorImageInfo irradianceImageInfo = {};
+	irradianceImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	irradianceImageInfo.sampler = atmosphereTextureSampler;
+	irradianceImageInfo.view = atmosphere->irradianceTV;
+
+	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {};
 	swrite.descriptorCount = 1;
 	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
 	swrite.dstBinding = 0;
@@ -122,16 +177,45 @@ void DeferredRenderer::init ()
 	swrite.imageInfo =
 	{	deferredInputSamplerImageInfo};
 
-	engine->renderer->writeDescriptorSets({swrite});
+	twrite.descriptorCount = 1;
+	twrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	twrite.dstBinding = 4;
+	twrite.dstSet = deferredInputDescriptorSet;
+	twrite.imageInfo =
+	{	transmittanceImageInfo};
+
+	stwrite.descriptorCount = 1;
+	stwrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	stwrite.dstBinding = 5;
+	stwrite.dstSet = deferredInputDescriptorSet;
+	stwrite.imageInfo =
+	{	scatteringImageInfo};
+
+	smswrite.descriptorCount = 1;
+	smswrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	smswrite.dstBinding = 6;
+	smswrite.dstSet = deferredInputDescriptorSet;
+	smswrite.imageInfo =
+	{	singleMieScatteringImageInfo};
+
+	iwrite.descriptorCount = 1;
+	iwrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	iwrite.dstBinding = 7;
+	iwrite.dstSet = deferredInputDescriptorSet;
+	iwrite.imageInfo =
+	{	irradianceImageInfo};
+
+	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite});
 }
 
-void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, suvec2 gbufferDim)
+void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, TextureView gbuffer_DepthView, suvec2 gbufferDim)
 {
 	gbufferDirty = true;
 
 	this->gbufferSize = {(float) gbufferDim.x, (float) gbufferDim.y};
 	this->gbuffer_AlbedoRoughnessView = gbuffer_AlbedoRoughnessView;
 	this->gbuffer_NormalsMetalnessView = gbuffer_NormalsMetalnessView;
+	this->gbuffer_DepthView = gbuffer_DepthView;
 
 	if (deferredOutput != nullptr)
 		engine->renderer->destroyTexture(deferredOutput);
@@ -152,7 +236,11 @@ void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, Text
 	gbufferNormalsMetalnessImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	gbufferNormalsMetalnessImageInfo.view = gbuffer_NormalsMetalnessView;
 
-	DescriptorWriteInfo garWrite = {}, gnmWrite = {};
+	DescriptorImageInfo gbufferDepthImageInfo = {};
+	gbufferDepthImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	gbufferDepthImageInfo.view = gbuffer_DepthView;
+
+	DescriptorWriteInfo garWrite = {}, gnmWrite = {}, dwrite = {};
 	garWrite.descriptorCount = 1;
 	garWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 	garWrite.dstBinding = 1;
@@ -167,7 +255,14 @@ void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, Text
 	gnmWrite.imageInfo =
 	{	gbufferNormalsMetalnessImageInfo};
 
-	engine->renderer->writeDescriptorSets({garWrite, gnmWrite});
+	dwrite.descriptorCount = 1;
+	dwrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	dwrite.dstBinding = 3;
+	dwrite.dstSet = deferredInputDescriptorSet;
+	dwrite.imageInfo =
+	{	gbufferDepthImageInfo};
+
+	engine->renderer->writeDescriptorSets({garWrite, gnmWrite, dwrite});
 
 	engine->renderer->setObjectDebugName(deferredOutput, OBJECT_TYPE_TEXTURE, "Deferred Output");
 }
@@ -178,6 +273,7 @@ void DeferredRenderer::destroy ()
 
 	engine->renderer->destroyDescriptorPool(deferredInputsDescriptorPool);
 	engine->renderer->destroySampler(deferredInputsSampler);
+	engine->renderer->destroySampler(atmosphereTextureSampler);
 	engine->renderer->destroyTexture(deferredOutput);
 	engine->renderer->destroyTextureView(deferredOutputView);
 
@@ -187,6 +283,10 @@ void DeferredRenderer::destroy ()
 	engine->renderer->destroyPipelineInputLayout(deferredPipelineInputLayout);
 	engine->renderer->destroyPipeline(deferredPipeline);
 	engine->renderer->destroyRenderPass(deferredRenderPass);
+
+	atmosphere->destroy();
+
+	delete atmosphere;
 }
 
 void DeferredRenderer::createDeferredLightingRenderPass ()
@@ -212,14 +312,36 @@ void DeferredRenderer::createDeferredLightingRenderPass ()
 
 void DeferredRenderer::createDeferredLightingPipeline ()
 {
-	deferredPipelineInputLayout = engine->renderer->createPipelineInputLayout({}, {{
+	deferredPipelineInputLayout = engine->renderer->createPipelineInputLayout({{0, lightingPcSize, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT}}, {{
 			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+			{2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{4, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}});
 
-	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/lighting.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/lighting.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	const std::string insertMarker = "#SE_BUILTIN_INCLUDE_ATMOSPHERE_LIB";
+	const std::string shaderSourceFile = engine->getWorkingDir() + "GameData/shaders/vulkan/lighting.glsl";
+
+	std::string lightingSource = readFileStr(shaderSourceFile);
+	size_t insertPos = lightingSource.find(insertMarker);
+
+	if (insertPos != std::string::npos)
+	{
+		lightingSource.replace(insertPos, insertMarker.length(), atmosphere->getAtmosphericShaderLib());
+	}
+	else
+	{
+		printf("%s Didn't find location to insert atmopsheric shader lib into the deferred lighting shader\n", WARN_PREFIX);
+
+		lightingSource.replace(insertPos, insertMarker.length(), "");
+	}
+
+	ShaderModule vertShader = engine->renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_VERTEX_BIT);
+	ShaderModule fragShader = engine->renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_FRAGMENT_BIT);
 
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";

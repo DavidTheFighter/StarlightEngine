@@ -437,12 +437,6 @@ const size_t pcSize = sizeof(glm::mat4) + sizeof(svec2) * 2 + sizeof(glm::vec4) 
 ResourceMaterial testTerrainGraniteMaterial = nullptr;
 ResourceMaterial testTerrainGrassMaterial = nullptr;
 
-inline void seqmemcpy (char *to, const void *from, size_t size, size_t &offset)
-{
-	memcpy(to + offset, from, size);
-	offset += size;
-}
-
 void TerrainRenderer::renderTerrain (CommandBuffer &cmdBuffer)
 {
 	svec2 cameraCellCoords = {(float) floor((worldRenderer->cameraPosition.x - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE)), (float) floor((worldRenderer->cameraPosition.z - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE))};

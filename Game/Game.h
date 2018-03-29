@@ -34,12 +34,6 @@
 #include <Game/Events/EventHandler.h>
 #include <Input/Window.h>
 
-struct Camera
-{
-		glm::vec3 position;
-		glm::vec2 lookAngles;
-};
-
 class Game
 {
 	public:

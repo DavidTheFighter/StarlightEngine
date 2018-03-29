@@ -169,6 +169,12 @@ typedef struct simple_unsigned_integer_vector_4
 		uint32_t x, y, z, w;
 } suvec4;
 
+struct Camera
+{
+		glm::vec3 position;
+		glm::vec2 lookAngles;
+};
+
 template<typename T0>
 inline std::string toString (T0 arg)
 {
@@ -222,6 +228,34 @@ inline std::vector<char> readFile (const std::string& filename)
 	file.close();
 
 	return buffer;
+}
+
+inline std::string readFileStr (const std::string &filename)
+{
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+	if (!file.is_open())
+	{
+		printf("%s Failed to open file: %s\n", ERR_PREFIX, filename.c_str());
+
+		throw std::runtime_error("failed to open file!");
+	}
+
+	size_t fileSize = (size_t) file.tellg();
+	std::vector<char> buffer(fileSize);
+
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
+
+	file.close();
+
+	return std::string(buffer.data(), buffer.data() + buffer.size());
+}
+
+inline void seqmemcpy (char *to, const void *from, size_t size, size_t &offset)
+{
+	memcpy(to + offset, from, size);
+	offset += size;
 }
 
 inline uint64_t secondsToNanoseconds (const uint64_t& nanoseconds)
