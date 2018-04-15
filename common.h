@@ -35,7 +35,8 @@
 
 #ifdef __linux__
 #include <unistd.h>
-#elif defined(__WIN32)
+#include <libshaderc/shaderc.hpp>
+#elif defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -46,12 +47,6 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-
-#ifdef _WIN32
-#include <shaderc/shaderc.hpp>
-#elif defined(__linux__)
-#include <libshaderc/shaderc.hpp>
-#endif
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -230,6 +225,36 @@ inline std::vector<char> readFile (const std::string& filename)
 	return buffer;
 }
 
+inline void writeFile (const std::string &filename, const std::vector<char> &data)
+{
+	std::ofstream file(filename, std::ios::out | std::ios::binary);
+
+	if (!file.is_open())
+	{
+		printf("%s Failed to open file: %s for writing\n", ERR_PREFIX, filename.c_str());
+
+		throw std::runtime_error("failed to open file for writing!");
+	}
+
+	file.write(reinterpret_cast<const char*> (data.data()), data.size());
+	file.close();
+}
+
+inline void writeFileStr (const std::string &filename, const std::string &data)
+{
+	std::ofstream file(filename, std::ios::out | std::ios::binary);
+
+	if (!file.is_open())
+	{
+		printf("%s Failed to open file: %s for writing\n", ERR_PREFIX, filename.c_str());
+
+		throw std::runtime_error("failed to open file for writing!");
+	}
+
+	file.write(data.c_str(), data.length());
+	file.close();
+}
+
 inline std::string readFileStr (const std::string &filename)
 {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -268,25 +293,27 @@ inline uint64_t millisecondsToNanoseconds (const uint64_t& nanoseconds)
 	return nanoseconds * uint64_t(1e6);
 }
 
-inline std::string getShaderCCompilationStatusString (shaderc_compilation_status status)
-{
-	switch (status)
+#ifdef __linux__
+	inline std::string getShaderCCompilationStatusString (shaderc_compilation_status status)
 	{
-		case shaderc_compilation_status_success:
-			return "shaderc_compilation_status_success";
-		case shaderc_compilation_status_invalid_stage:
-			return "shaderc_compilation_status_invalid_stage";
-		case shaderc_compilation_status_compilation_error:
-			return "shaderc_compilation_status_compilation_error";
-		case shaderc_compilation_status_internal_error:
-			return "shaderc_compilation_status_internal_error";
-		case shaderc_compilation_status_null_result_object:
-			return "shaderc_compilation_status_null_result_object";
-		case shaderc_compilation_status_invalid_assembly:
-			return "shaderc_compilation_status_invalid_assembly";
-		default:
-			return "Dunno";
+		switch (status)
+		{
+			case shaderc_compilation_status_success:
+				return "shaderc_compilation_status_success";
+			case shaderc_compilation_status_invalid_stage:
+				return "shaderc_compilation_status_invalid_stage";
+			case shaderc_compilation_status_compilation_error:
+				return "shaderc_compilation_status_compilation_error";
+			case shaderc_compilation_status_internal_error:
+				return "shaderc_compilation_status_internal_error";
+			case shaderc_compilation_status_null_result_object:
+				return "shaderc_compilation_status_null_result_object";
+			case shaderc_compilation_status_invalid_assembly:
+				return "shaderc_compilation_status_invalid_assembly";
+			default:
+				return "Dunno";
+		}
 	}
-}
+#endif
 
 #endif /* COMMON_H_ */

@@ -234,6 +234,10 @@ void GameStateInWorld::init ()
 	deferredRenderer->init();
 	deferredRenderer->setGBuffer(worldRenderer->gbuffer_AlbedoRoughnessView, worldRenderer->gbuffer_NormalMetalnessView, worldRenderer->gbuffer_DepthView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
 
+	worldRenderer->setGBufferDimensions({engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	deferredRenderer->setGBuffer(worldRenderer->gbuffer_AlbedoRoughnessView, worldRenderer->gbuffer_NormalMetalnessView, worldRenderer->gbuffer_DepthView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	engine->renderer->setSwapchainTexture(engine->mainWindow, deferredRenderer->deferredOutputView, worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 	presentSampler = engine->renderer->createSampler();
 }
 

@@ -53,7 +53,7 @@ std::vector<RendererCommandBuffer*> D3D11CommandPool::allocateCommandBuffers (Co
 
 	for (uint32_t i = 0; i < commandBufferCount; i ++)
 	{
-		cmdBuffers.push_back(new D3D11CommandBuffer());
+		cmdBuffers.push_back(nullptr);
 	}
 
 	return cmdBuffers;

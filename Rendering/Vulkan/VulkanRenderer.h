@@ -34,8 +34,10 @@ class VulkanRenderer : public Renderer
 		VkPhysicalDeviceProperties deviceProps;
 
 		VmaAllocator memAllocator;
-		shaderc::Compiler *defaultCompiler;
 
+#ifdef __linux__
+		shaderc::Compiler *defaultCompiler;
+#endif
 		VulkanSwapchain *swapchains;
 		VulkanPipelines *pipelineHandler; // Does all the pipeline handling (creation, caching, etc)
 

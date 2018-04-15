@@ -116,7 +116,9 @@ void VulkanRenderer::initRenderer ()
 
 	VK_CHECK_RESULT(vmaCreateAllocator(&allocCreateInfo, &memAllocator));
 
+#ifdef __linux__
 	defaultCompiler = new shaderc::Compiler();
+#endif
 
 	swapchains->init();
 	initSwapchain(onAllocInfo.mainWindow);
@@ -557,7 +559,11 @@ ShaderModule VulkanRenderer::createShaderModule (const std::string &file, Shader
 {
 	VulkanShaderModule *vulkanShader = new VulkanShaderModule();
 
+#ifdef __linux__
 	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSL(*defaultCompiler, file, toVkShaderStageFlagBits(stage)));
+#elif defined(_WIN32)
+	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSL(file, toVkShaderStageFlagBits(stage)));
+#endif
 	vulkanShader->stage = stage;
 
 	/*
@@ -581,7 +587,11 @@ ShaderModule VulkanRenderer::createShaderModuleFromSource (const std::string &so
 {
 	VulkanShaderModule *vulkanShader = new VulkanShaderModule();
 
+#ifdef __linux__
 	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSLFromSource(*defaultCompiler, source, referenceName, toVkShaderStageFlagBits(stage)));
+#elif defined(_WIN32)
+	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSLFromSource(source, referenceName, toVkShaderStageFlagBits(stage)));
+#endif
 	vulkanShader->stage = stage;
 
 	/*

@@ -61,9 +61,9 @@ Renderer* Renderer::allocateRenderer (const RendererAllocInfo& allocInfo)
 		{
 			printf("%s Allocating renderer w/ D3D11 backend\n", INFO_PREFIX);
 
-			D3D11Renderer *renderer = new D3D11Renderer(allocInfo);
+			//D3D11Renderer *renderer = new D3D11Renderer(allocInfo);
 
-			return renderer;
+			return nullptr;
 		}
 #endif
 		default:

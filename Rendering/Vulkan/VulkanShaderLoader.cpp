@@ -12,9 +12,10 @@
 
 #include "Rendering/Vulkan/VulkanShaderLoader.h"
 
-shaderc_shader_kind getShaderKindFromShaderStage (VkShaderStageFlagBits stage);
 std::string getShaderStageMacroString (VkShaderStageFlagBits stage);
 
+#ifdef __linux__
+shaderc_shader_kind getShaderKindFromShaderStage (VkShaderStageFlagBits stage);
 std::vector<uint32_t> VulkanShaderLoader::compileGLSL (shaderc::Compiler &compiler, const std::string &file, VkShaderStageFlagBits stages)
 {
 	std::vector<char> glslSource = readFile(file);
@@ -43,12 +44,77 @@ std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (shaderc::Compil
 
 	return std::vector<uint32_t>(spvComp.cbegin(), spvComp.cend());
 }
+#elif defined(_WIN32)
+
+std::vector<uint32_t> VulkanShaderLoader::compileGLSL (const std::string &file, VkShaderStageFlagBits stages)
+{
+	std::vector<char> glslSource = readFile(file);
+
+	return compileGLSLFromSource(glslSource, file, stages);
+}
+
+std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (const std::string &source, const std::string &sourceName, VkShaderStageFlagBits stages)
+{
+	return compileGLSLFromSource(std::vector<char>(source.data(), source.data() + source.length()), sourceName, stages);
+}
+
+std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (const std::vector<char> &source, const std::string &sourceName, VkShaderStageFlagBits stages)
+{
+	char tempDir[MAX_PATH];
+	GetTempPath(MAX_PATH, tempDir);
+
+	std::string stage = "vert";
+
+	switch (stages)
+	{
+		case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+			stage = "tesc";
+			break;
+		case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+			stage = "tese";
+			break;
+		case VK_SHADER_STAGE_GEOMETRY_BIT:
+			stage = "geom";
+			break;
+		case VK_SHADER_STAGE_FRAGMENT_BIT:
+			stage = "frag";
+			break;
+		case VK_SHADER_STAGE_COMPUTE_BIT:
+			stage = "comp";
+			break;
+		default:
+			stage = "vert";
+	}
+
+
+	std::string tempShaderSourceFile = std::string(tempDir) + "starlightengine-shader-" + toString(stringHash(toString(&tempDir) + toString(std::this_thread::get_id()))) + ".glsl." + stage + ".tmp";
+	std::string tempShaderOutputFile = std::string(tempDir) + "starlightengine-shader-" + toString(stringHash(toString(&tempDir) + toString(std::this_thread::get_id()))) + ".spv." + stage + ".tmp";
+
+	writeFile(tempShaderSourceFile, source);
+
+	char cmd[512];
+	sprintf(cmd, "glslangValidator -V -D%s -S %s -o %s %s", getShaderStageMacroString(stages).c_str(), stage.c_str(), tempShaderOutputFile.c_str(), tempShaderSourceFile.c_str());
+
+	system(cmd);
+
+	std::vector<char> binary = readFile(tempShaderOutputFile);
+	std::vector<uint32_t> spvBinary = std::vector<uint32_t> (binary.size() / 4);
+
+	memcpy(spvBinary.data(), binary.data(), binary.size());
+
+	remove(tempShaderSourceFile.c_str());
+	remove(tempShaderOutputFile.c_str());
+
+	return spvBinary;
+}
+
+#endif
 
 VkShaderModule VulkanShaderLoader::createVkShaderModule (const VkDevice &device, const std::vector<uint32_t> &spirv)
 {
 	VkShaderModuleCreateInfo moduleCreateInfo = {};
 	moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	moduleCreateInfo.codeSize = static_cast<uint32_t>(spirv.size());
+	moduleCreateInfo.codeSize = static_cast<uint32_t>(spirv.size() * 4);
 	moduleCreateInfo.pCode = spirv.data();
 
 	VkShaderModule module;
@@ -57,26 +123,28 @@ VkShaderModule VulkanShaderLoader::createVkShaderModule (const VkDevice &device,
 	return module;
 }
 
+#ifdef __linux__
 shaderc_shader_kind getShaderKindFromShaderStage (VkShaderStageFlagBits stage)
 {
 	switch (stage)
 	{
 		case VK_SHADER_STAGE_VERTEX_BIT:
-			return shaderc_vertex_shader;
+		return shaderc_vertex_shader;
 		case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
-			return shaderc_tess_control_shader;
+		return shaderc_tess_control_shader;
 		case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
-			return shaderc_tess_evaluation_shader;
+		return shaderc_tess_evaluation_shader;
 		case VK_SHADER_STAGE_GEOMETRY_BIT:
-			return shaderc_geometry_shader;
+		return shaderc_geometry_shader;
 		case VK_SHADER_STAGE_FRAGMENT_BIT:
-			return shaderc_fragment_shader;
+		return shaderc_fragment_shader;
 		case VK_SHADER_STAGE_COMPUTE_BIT:
-			return shaderc_compute_shader;
+		return shaderc_compute_shader;
 		default:
-			return shaderc_glsl_infer_from_source;
+		return shaderc_glsl_infer_from_source;
 	}
 }
+#endif
 
 std::string getShaderStageMacroString (VkShaderStageFlagBits stage)
 {

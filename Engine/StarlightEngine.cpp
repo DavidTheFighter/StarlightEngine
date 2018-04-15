@@ -66,7 +66,11 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 {
 	engineIsRunning = true;
 
+#ifdef __linux__
 	workingDir = "/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/";
+#elif defined(_WIN32)
+	workingDir = "A:\\Programming\\StarlightEngineDev-win\\StarlightEngine\\";
+#endif
 
 	mainWindow = new Window(rendererBackendType);
 	mainWindow->initWindow(0, 0, APP_NAME);

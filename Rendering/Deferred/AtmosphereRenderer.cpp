@@ -278,7 +278,7 @@ void AtmosphereRenderer::loadScatteringSourceInclude ()
 		std::to_string(b) + ")";
 	};
 
-	std::function<std::string (const glm::vec3&)> glsl_header_factory_ = [=](const glm::vec3& lambdas)
+	auto glsl_header_factory_ = [=](const glm::vec3& lambdas)
 	{
 		return
 		"#define IN(x) const in x\n"
