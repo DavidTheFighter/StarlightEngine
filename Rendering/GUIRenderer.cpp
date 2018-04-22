@@ -45,11 +45,9 @@
 
 #include <Input/Window.h>
 
-GUIRenderer::GUIRenderer (Renderer *engineRenderer)
-{
+GUIRenderer::GUIRenderer(Renderer *engineRenderer) {
 	renderer = engineRenderer;
 
-	guiGraphicsPipelineInputLayout = nullptr;
 	guiGraphicsPipeline = nullptr;
 	guiRenderPass = nullptr;
 
@@ -72,8 +70,7 @@ GUIRenderer::GUIRenderer (Renderer *engineRenderer)
 	temp_engine = nullptr;
 }
 
-GUIRenderer::~GUIRenderer ()
-{
+GUIRenderer::~GUIRenderer() {
 
 }
 
@@ -81,27 +78,29 @@ GUIRenderer::~GUIRenderer ()
 struct nk_context ctx;
 struct nk_color background;
 
-void GUIRenderer::writeTestGUI ()
-{
+void GUIRenderer::writeTestGUI() {
 	nk_input_begin(&ctx);
-	int cursorX = (int) temp_engine->mainWindow->getCursorX(), cursorY = (int) temp_engine->mainWindow->getCursorY();
+	int cursorX = (int) temp_engine->mainWindow->getCursorX(), cursorY =
+			(int) temp_engine->mainWindow->getCursorY();
 	nk_input_motion(&ctx, cursorX, cursorY);
-	nk_input_button(&ctx, NK_BUTTON_LEFT, cursorX, cursorY, temp_engine->mainWindow->isMouseButtonPressed(0));
-	nk_input_button(&ctx, NK_BUTTON_MIDDLE, cursorX, cursorY, temp_engine->mainWindow->isMouseButtonPressed(1));
-	nk_input_button(&ctx, NK_BUTTON_RIGHT, cursorX, cursorY, temp_engine->mainWindow->isMouseButtonPressed(2));
+	nk_input_button(&ctx, NK_BUTTON_LEFT, cursorX, cursorY,
+			temp_engine->mainWindow->isMouseButtonPressed(0));
+	nk_input_button(&ctx, NK_BUTTON_MIDDLE, cursorX, cursorY,
+			temp_engine->mainWindow->isMouseButtonPressed(1));
+	nk_input_button(&ctx, NK_BUTTON_RIGHT, cursorX, cursorY,
+			temp_engine->mainWindow->isMouseButtonPressed(2));
 	//
 	nk_input_end(&ctx);
 
-	float windowHeight = std::max((float) temp_engine->mainWindow->getHeight(), 1.0f);
+	float windowHeight = std::max((float) temp_engine->mainWindow->getHeight(),
+			1.0f);
 
 	nk_window_set_bounds(&ctx, "Hello!", nk_rect(0, 0, 250.0f, windowHeight));
 
-	if (nk_begin(&ctx, "Hello!", nk_rect(0, 0, 250, 250), NK_WINDOW_BORDER | NK_WINDOW_SCALABLE | NK_WINDOW_TITLE))
-	{
-		enum
-		{
-			EASY,
-			HARD
+	if (nk_begin(&ctx, "Hello!", nk_rect(0, 0, 250, 250),
+			NK_WINDOW_BORDER | NK_WINDOW_SCALABLE | NK_WINDOW_TITLE)) {
+		enum {
+			EASY, HARD
 		};
 		static int op = EASY;
 		static int property = 20;
@@ -125,18 +124,21 @@ void GUIRenderer::writeTestGUI ()
  * A draw command plus some extra data for this engine to batch/order the
  * draw commands in an efficient manner.
  */
-struct nk_draw_command_extended
-{
-		struct nk_draw_command nkCmd; // The original nk_draw_command
-		uint32_t indexOffset;  // The offset to the index buffer given
-		uint32_t cmdIndex;     // The index of when the command was given
+struct nk_draw_command_extended {
+	struct nk_draw_command nkCmd; // The original nk_draw_command
+	uint32_t indexOffset;  // The offset to the index buffer given
+	uint32_t cmdIndex;     // The index of when the command was given
 };
 
-const struct nk_draw_vertex_layout_element vertex_layout[] = {{NK_VERTEX_POSITION, NK_FORMAT_FLOAT, offsetof(nk_vertex, vertex)}, {NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT, offsetof(nk_vertex, uv)}, {NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, offsetof(nk_vertex, color)}, {NK_VERTEX_LAYOUT_END}};
+const struct nk_draw_vertex_layout_element vertex_layout[] = { {
+		NK_VERTEX_POSITION, NK_FORMAT_FLOAT, offsetof(nk_vertex, vertex) }, {
+		NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT, offsetof(nk_vertex, uv) }, {
+		NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, offsetof(nk_vertex,
+				color) }, { NK_VERTEX_LAYOUT_END } };
 
-void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuffer framebuffer, uint32_t renderWidth, uint32_t renderHeight)
-{
-	nk_convert_config cfg = {};
+void GUIRenderer::recordGUIRenderCommandList(CommandBuffer cmdBuffer,
+		Framebuffer framebuffer, uint32_t renderWidth, uint32_t renderHeight) {
+	nk_convert_config cfg = { };
 	cfg.shape_AA = NK_ANTI_ALIASING_ON;
 	cfg.line_AA = NK_ANTI_ALIASING_ON;
 	cfg.vertex_layout = vertex_layout;
@@ -169,18 +171,22 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 	clearValues[1].depthStencil =
 	{	1, 0};
 
-	cmdBuffer->beginDebugRegion("Render GUI", glm::vec4(0.929f, 0.22f, 1.0f, 1.0f));
-	cmdBuffer->beginRenderPass(guiRenderPass, framebuffer, {0, 0, renderWidth, renderHeight}, clearValues, SUBPASS_CONTENTS_INLINE);
+	cmdBuffer->beginDebugRegion("Render GUI",
+			glm::vec4(0.929f, 0.22f, 1.0f, 1.0f));
+	cmdBuffer->beginRenderPass(guiRenderPass, framebuffer, { 0, 0, renderWidth,
+			renderHeight }, clearValues, SUBPASS_CONTENTS_INLINE);
 	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipeline);
 
-	cmdBuffer->setViewports(0, {{0, 0, (float) renderWidth, (float) renderHeight}});
+	cmdBuffer->setViewports(0, { { 0, 0, (float) renderWidth,
+			(float) renderHeight } });
 
 	glm::mat4 orthoProj = glm::ortho<float>(0, renderWidth, 0, renderHeight);
 
-	cmdBuffer->pushConstants(guiGraphicsPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &orthoProj[0][0]);
+	cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+			&orthoProj[0][0]);
 
 	cmdBuffer->bindIndexBuffer(guiIndexStreamBuffer, 0, false);
-	cmdBuffer->bindVertexBuffers(0, {guiVertexStreamBuffer}, {0});
+	cmdBuffer->bindVertexBuffers(0, { guiVertexStreamBuffer }, { 0 });
 
 	// The list of draw commands, immediately sorted by texture
 	std::map<void*, std::vector<nk_draw_command_extended> > drawCommands;
@@ -202,18 +208,18 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 		drawCommands[cmd->texture.ptr].push_back(cmd_extended);
 
 		offset += cmd->elem_count;
-		cmdIndex ++;
+		cmdIndex++;
 	}
 
 	uint32_t drawCommandCount = cmdIndex;
 
 	DescriptorSet *currentDrawCommandTexture = nullptr;
-	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {whiteTextureDescriptor});
+	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {
+			whiteTextureDescriptor });
 
-	for (auto drawCommandIt = drawCommands.begin(); drawCommandIt != drawCommands.end(); drawCommandIt ++)
-	{
-		for (size_t i = 0; i < drawCommandIt->second.size(); i ++)
-		{
+	for (auto drawCommandIt = drawCommands.begin();
+			drawCommandIt != drawCommands.end(); drawCommandIt++) {
+		for (size_t i = 0; i < drawCommandIt->second.size(); i++) {
 			cmd = &drawCommandIt->second[i].nkCmd;
 			offset = drawCommandIt->second[i].indexOffset;
 			cmdIndex = drawCommandIt->second[i].cmdIndex;
@@ -221,29 +227,34 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 			//printf("Cmd - %p %u %u\n", cmd->texture.ptr, offset, cmd->elem_count);
 
 			Scissor cmdScissor;
-			cmdScissor.x = (int32_t) glm::clamp(cmd->clip_rect.x, 0.0f, (float) renderWidth);
-			cmdScissor.y = (int32_t) glm::clamp(cmd->clip_rect.y, 0.0f, (float) renderHeight);
-			cmdScissor.width = (uint32_t) glm::clamp(cmd->clip_rect.w, 0.0f, (float) renderWidth);
-			cmdScissor.height = (uint32_t) glm::clamp(cmd->clip_rect.h, 0.0f, (float) renderHeight);
+			cmdScissor.x = (int32_t) glm::clamp(cmd->clip_rect.x, 0.0f,
+					(float) renderWidth);
+			cmdScissor.y = (int32_t) glm::clamp(cmd->clip_rect.y, 0.0f,
+					(float) renderHeight);
+			cmdScissor.width = (uint32_t) glm::clamp(cmd->clip_rect.w, 0.0f,
+					(float) renderWidth);
+			cmdScissor.height = (uint32_t) glm::clamp(cmd->clip_rect.h, 0.0f,
+					(float) renderHeight);
 
 			float depth = 1.0f - (cmdIndex / float(drawCommandCount));
 
-			if (currentDrawCommandTexture != cmd->texture.ptr)
-			{
-				if (cmd->texture.ptr == nullptr)
-				{
-					cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {whiteTextureDescriptor});
-				}
-				else
-				{
-					cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, guiGraphicsPipelineInputLayout, 0, {static_cast<DescriptorSet> (cmd->texture.ptr)});
+			if (currentDrawCommandTexture != cmd->texture.ptr) {
+				if (cmd->texture.ptr == nullptr) {
+					cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS,
+							0, { whiteTextureDescriptor });
+				} else {
+					cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS,
+							0,
+							{ static_cast<DescriptorSet>(cmd->texture.ptr) });
 				}
 
-				currentDrawCommandTexture = static_cast<DescriptorSet*> (cmd->texture.ptr);
+				currentDrawCommandTexture =
+						static_cast<DescriptorSet*>(cmd->texture.ptr);
 			}
 
-			cmdBuffer->setScissors(0, {cmdScissor});
-			cmdBuffer->pushConstants( guiGraphicsPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(float), &depth);
+			cmdBuffer->setScissors(0, { cmdScissor });
+			cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4),
+					sizeof(float), &depth);
 
 			cmdBuffer->drawIndexed(cmd->elem_count, 1, offset, 0, 0);
 		}
@@ -259,12 +270,14 @@ void GUIRenderer::recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuff
 	nk_clear(&ctx);
 }
 
-void GUIRenderer::init ()
-{
-	testGUICommandPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
+void GUIRenderer::init() {
+	testGUICommandPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS,
+			COMMAND_POOL_TRANSIENT_BIT);
 
 	testSampler = renderer->createSampler();
-	guiTextureDescriptorPool = renderer->createDescriptorPool({{0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}}, 8);
+	guiTextureDescriptorPool = renderer->createDescriptorPool( {
+			{ 0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+					SHADER_STAGE_FRAGMENT_BIT } }, 8);
 
 	nk_init_default(&ctx, NULL);
 	//clipboard stuff
@@ -274,33 +287,47 @@ void GUIRenderer::init ()
 	nk_font_atlas_init_default(&atlas);
 	nk_font_atlas_begin(&atlas);
 
-    struct nk_font_config cfg = nk_font_config(512);
-    cfg.oversample_h = 4;
-    cfg.oversample_v = 4;
-	nk_font *font_clean = nk_font_atlas_add_from_file(&atlas, std::string(temp_engine->getWorkingDir() + "GameData/fonts/Cousine-Regular.ttf").c_str(), 18, &cfg);
+	struct nk_font_config cfg = nk_font_config(512);
+	cfg.oversample_h = 4;
+	cfg.oversample_v = 4;
+	nk_font *font_clean = nk_font_atlas_add_from_file(&atlas,
+			std::string(
+					temp_engine->getWorkingDir()
+							+ "GameData/fonts/Cousine-Regular.ttf").c_str(), 18,
+			&cfg);
 
 	int atlasWidth, atlasHeight;
-	const void *imageData = nk_font_atlas_bake(&atlas, &atlasWidth, &atlasHeight, NK_FONT_ATLAS_RGBA32);
+	const void *imageData = nk_font_atlas_bake(&atlas, &atlasWidth,
+			&atlasHeight, NK_FONT_ATLAS_RGBA32);
 
 	{
-		fontAtlas = renderer->createTexture({(float) atlasWidth, (float) atlasHeight, 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false);
+		fontAtlas = renderer->createTexture( { (float) atlasWidth,
+				(float) atlasHeight, 1.0f }, RESOURCE_FORMAT_R8G8B8A8_UNORM,
+				TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT,
+				MEMORY_USAGE_GPU_ONLY, false);
 		fontAtlasView = renderer->createTextureView(fontAtlas);
 
-		StagingBuffer stagingBuffer = renderer->createAndMapStagingBuffer(atlasWidth * atlasHeight * sizeof(uint8_t) * 4, imageData);
+		StagingBuffer stagingBuffer = renderer->createAndMapStagingBuffer(
+				atlasWidth * atlasHeight * sizeof(uint8_t) * 4, imageData);
 
-		CommandBuffer fontAtlasUploadCommandBuffer = renderer->beginSingleTimeCommand(testGUICommandPool);
+		CommandBuffer fontAtlasUploadCommandBuffer =
+				renderer->beginSingleTimeCommand(testGUICommandPool);
 
-		fontAtlasUploadCommandBuffer->transitionTextureLayout(fontAtlas, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		fontAtlasUploadCommandBuffer->transitionTextureLayout(fontAtlas,
+				TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		fontAtlasUploadCommandBuffer->stageBuffer(stagingBuffer, fontAtlas);
-		fontAtlasUploadCommandBuffer->transitionTextureLayout(fontAtlas, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		fontAtlasUploadCommandBuffer->transitionTextureLayout(fontAtlas,
+				TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-		renderer->endSingleTimeCommand(fontAtlasUploadCommandBuffer, testGUICommandPool, QUEUE_TYPE_GRAPHICS);
+		renderer->endSingleTimeCommand(fontAtlasUploadCommandBuffer,
+				testGUICommandPool, QUEUE_TYPE_GRAPHICS);
 
 		renderer->destroyStagingBuffer(stagingBuffer);
 
 		fontAtlasDescriptor = guiTextureDescriptorPool->allocateDescriptorSet();
 
-		RendererDescriptorWriteInfo write0 = {};
+		RendererDescriptorWriteInfo write0 = { };
 		write0.dstSet = fontAtlasDescriptor;
 		write0.descriptorCount = 1;
 		write0.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -308,16 +335,19 @@ void GUIRenderer::init ()
 		{
 			{	testSampler, fontAtlasView, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
 
-		renderer->writeDescriptorSets({write0});
+		renderer->writeDescriptorSets( { write0 });
 	}
 
 	{
-		whiteTexture = temp_engine->resources->loadTextureImmediate(temp_engine->getWorkingDir() + "GameData/textures/test-png.png");
+		whiteTexture = temp_engine->resources->loadTextureImmediate(
+				temp_engine->getWorkingDir()
+						+ "GameData/textures/test-png.png");
 		whiteTextureView = renderer->createTextureView(whiteTexture->texture);
 
-		whiteTextureDescriptor = guiTextureDescriptorPool->allocateDescriptorSet();
+		whiteTextureDescriptor =
+				guiTextureDescriptorPool->allocateDescriptorSet();
 
-		RendererDescriptorWriteInfo write0 = {};
+		RendererDescriptorWriteInfo write0 = { };
 		write0.dstSet = whiteTextureDescriptor;
 		write0.descriptorCount = 1;
 		write0.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -325,7 +355,7 @@ void GUIRenderer::init ()
 		{
 			{	testSampler, whiteTextureView, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
 
-		renderer->writeDescriptorSets({write0});
+		renderer->writeDescriptorSets( { write0 });
 	}
 
 	{
@@ -338,12 +368,13 @@ void GUIRenderer::init ()
 	createRenderPass();
 	createGraphicsPipeline();
 
-	guiVertexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_VERTEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, false);
-	guiIndexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_INDEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, false);
+	guiVertexStreamBuffer = renderer->createBuffer(512 * 1024,
+			BUFFER_USAGE_VERTEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, false);
+	guiIndexStreamBuffer = renderer->createBuffer(512 * 1024,
+			BUFFER_USAGE_INDEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, false);
 }
 
-void GUIRenderer::destroy ()
-{
+void GUIRenderer::destroy() {
 	renderer->destroyBuffer(guiVertexStreamBuffer);
 	renderer->destroyBuffer(guiIndexStreamBuffer);
 
@@ -360,16 +391,14 @@ void GUIRenderer::destroy ()
 
 	renderer->destroySampler(testSampler);
 
-	renderer->destroyPipelineInputLayout(guiGraphicsPipelineInputLayout);
 	renderer->destroyPipeline(guiGraphicsPipeline);
 	renderer->destroyRenderPass(guiRenderPass);
 
 	nk_free(&ctx);
 }
 
-void GUIRenderer::createRenderPass ()
-{
-	AttachmentDescription colorAttachment0 = {}, depthAttachment = {};
+void GUIRenderer::createRenderPass() {
+	AttachmentDescription colorAttachment0 = { }, depthAttachment = { };
 	colorAttachment0.format = RESOURCE_FORMAT_R8G8B8A8_UNORM;
 	colorAttachment0.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
 	colorAttachment0.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -378,44 +407,52 @@ void GUIRenderer::createRenderPass ()
 
 	depthAttachment.format = RESOURCE_FORMAT_D32_SFLOAT;
 	depthAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-	depthAttachment.finalLayout = TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	depthAttachment.finalLayout =
+			TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 	depthAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
 
-	AttachmentReference colorAttachment0Ref = {}, depthAttachmentRef;
+	AttachmentReference colorAttachment0Ref = { }, depthAttachmentRef;
 	colorAttachment0Ref.attachment = 0;
 	colorAttachment0Ref.layout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	depthAttachmentRef.attachment = 1;
 	depthAttachmentRef.layout = TEXTURE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	SubpassDescription subpass0 = {};
+	SubpassDescription subpass0 = { };
 	subpass0.bindPoint = PIPELINE_BIND_POINT_GRAPHICS;
 	subpass0.colorAttachments =
 	{	colorAttachment0Ref};
 	subpass0.depthStencilAttachment = &depthAttachmentRef;
 
-	guiRenderPass = renderer->createRenderPass({colorAttachment0, depthAttachment}, {subpass0}, {});
+	guiRenderPass = renderer->createRenderPass( { colorAttachment0,
+			depthAttachment }, { subpass0 }, { });
 }
 
-void GUIRenderer::createGraphicsPipeline ()
-{
-	ShaderModule vertShader = renderer->createShaderModule(temp_engine->getWorkingDir() + "GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = renderer->createShaderModule(temp_engine->getWorkingDir() + "GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_FRAGMENT_BIT);
+void GUIRenderer::createGraphicsPipeline() {
+	ShaderModule vertShader = renderer->createShaderModule(
+			temp_engine->getWorkingDir()
+					+ "GameData/shaders/vulkan/nuklear-gui.glsl",
+			SHADER_STAGE_VERTEX_BIT);
+	ShaderModule fragShader = renderer->createShaderModule(
+			temp_engine->getWorkingDir()
+					+ "GameData/shaders/vulkan/nuklear-gui.glsl",
+			SHADER_STAGE_FRAGMENT_BIT);
 
 	VertexInputBinding bindingDesc;
 	bindingDesc.binding = 0;
 	bindingDesc.stride = static_cast<uint32_t>(sizeof(nk_vertex));
 	bindingDesc.inputRate = VERTEX_INPUT_RATE_VERTEX;
 
-	PipelineShaderStage vertShaderStage = {};
+	PipelineShaderStage vertShaderStage = { };
 	vertShaderStage.entry = "main";
 	vertShaderStage.module = vertShader;
 
-	PipelineShaderStage fragShaderStage = {};
+	PipelineShaderStage fragShaderStage = { };
 	fragShaderStage.entry = "main";
 	fragShaderStage.module = fragShader;
 
-	std::vector<VertexInputAttrib> attribDesc = std::vector<VertexInputAttrib>(3);
+	std::vector<VertexInputAttrib> attribDesc = std::vector<VertexInputAttrib>(
+			3);
 	attribDesc[0].binding = 0;
 	attribDesc[0].location = 0;
 	attribDesc[0].format = RESOURCE_FORMAT_R32G32_SFLOAT;
@@ -431,16 +468,16 @@ void GUIRenderer::createGraphicsPipeline ()
 	attribDesc[2].format = RESOURCE_FORMAT_R32G32B32A32_SFLOAT;
 	attribDesc[2].offset = static_cast<uint32_t>(offsetof(nk_vertex, color));
 
-	PipelineVertexInputInfo vertexInput = {};
+	PipelineVertexInputInfo vertexInput = { };
 	vertexInput.vertexInputAttribs = attribDesc;
 	vertexInput.vertexInputBindings =
 	{	bindingDesc};
 
-	PipelineInputAssemblyInfo inputAssembly = {};
+	PipelineInputAssemblyInfo inputAssembly = { };
 	inputAssembly.primitiveRestart = false;
 	inputAssembly.topology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-	PipelineViewportInfo viewportInfo = {};
+	PipelineViewportInfo viewportInfo = { };
 	viewportInfo.scissors =
 	{
 		{	0, 0, 1920, 1080}};
@@ -448,23 +485,25 @@ void GUIRenderer::createGraphicsPipeline ()
 	{
 		{	0, 0, 1920, 1080}};
 
-	PipelineRasterizationInfo rastInfo = {};
+	PipelineRasterizationInfo rastInfo = { };
 	rastInfo.clockwiseFrontFace = true;
 	rastInfo.cullMode = CULL_MODE_BACK_BIT;
 	rastInfo.lineWidth = 1;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;
 	rastInfo.rasterizerDiscardEnable = false;
 
-	PipelineDepthStencilInfo depthInfo = {};
+	PipelineDepthStencilInfo depthInfo = { };
 	depthInfo.enableDepthTest = true;
 	depthInfo.enableDepthWrite = true;
 	depthInfo.minDepthBounds = 0;
 	depthInfo.maxDepthBounds = 1;
 	depthInfo.depthCompareOp = COMPARE_OP_LESS_OR_EQUAL;
 
-	PipelineColorBlendAttachment colorBlendAttachment = {};
+	PipelineColorBlendAttachment colorBlendAttachment = { };
 	colorBlendAttachment.blendEnable = true;
-	colorBlendAttachment.colorWriteMask = COLOR_COMPONENT_R_BIT | COLOR_COMPONENT_G_BIT | COLOR_COMPONENT_B_BIT | COLOR_COMPONENT_A_BIT;
+	colorBlendAttachment.colorWriteMask = COLOR_COMPONENT_R_BIT
+			| COLOR_COMPONENT_G_BIT | COLOR_COMPONENT_B_BIT
+			| COLOR_COMPONENT_A_BIT;
 
 	colorBlendAttachment.colorBlendOp = BLEND_OP_ADD;
 	colorBlendAttachment.alphaBlendOp = BLEND_OP_ADD;
@@ -475,7 +514,7 @@ void GUIRenderer::createGraphicsPipeline ()
 	colorBlendAttachment.srcColorBlendFactor = BLEND_FACTOR_SRC_ALPHA;
 	colorBlendAttachment.dstColorBlendFactor = BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 
-	PipelineColorBlendInfo colorBlend = {};
+	PipelineColorBlendInfo colorBlend = { };
 	colorBlend.attachments =
 	{	colorBlendAttachment};
 	colorBlend.logicOpEnable = false;
@@ -485,11 +524,11 @@ void GUIRenderer::createGraphicsPipeline ()
 	colorBlend.blendConstants[2] = 1.0f;
 	colorBlend.blendConstants[3] = 1.0f;
 
-	PipelineDynamicStateInfo dynamicState = {};
+	PipelineDynamicStateInfo dynamicState = { };
 	dynamicState.dynamicStates =
 	{	DYNAMIC_STATE_VIEWPORT, DYNAMIC_STATE_SCISSOR};
 
-	PipelineInfo info = {};
+	PipelineInfo info = { };
 	info.stages =
 	{	vertShaderStage, fragShaderStage};
 	info.vertexInputInfo = vertexInput;
@@ -500,8 +539,11 @@ void GUIRenderer::createGraphicsPipeline ()
 	info.colorBlendInfo = colorBlend;
 	info.dynamicStateInfo = dynamicState;
 
-	guiGraphicsPipelineInputLayout = renderer->createPipelineInputLayout({{	0, sizeof(glm::mat4) + sizeof(float), SHADER_STAGE_VERTEX_BIT}}, {{{0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}}});
-	guiGraphicsPipeline = renderer->createGraphicsPipeline(info, guiGraphicsPipelineInputLayout, guiRenderPass, 0);
+	info.inputPushConstantRanges = { {0, sizeof(glm::mat4) + sizeof(float), SHADER_STAGE_VERTEX_BIT}};
+	info.inputSetLayouts = { { {0, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}}};
+
+	guiGraphicsPipeline = renderer->createGraphicsPipeline(info, guiRenderPass,
+			0);
 
 	renderer->destroyShaderModule(vertShader);
 	renderer->destroyShaderModule(fragShader);

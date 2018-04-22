@@ -23,7 +23,7 @@ VulkanPipelines::~VulkanPipelines ()
 	}
 }
 
-Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass)
+Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass)
 {
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 
@@ -149,9 +149,37 @@ Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineIn
 	pipelineCreateInfo.pDynamicState = &dynamicState;
 	pipelineCreateInfo.renderPass = static_cast<VulkanRenderPass*>(renderPass)->renderPassHandle;
 	pipelineCreateInfo.subpass = subpass;
-	pipelineCreateInfo.layout = static_cast<VulkanPipelineInputLayout*>(inputLayout)->layoutHandle;
 	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCreateInfo.basePipelineIndex = -1;
+
+	std::vector<VkPushConstantRange> vulkanPushConstantRanges;
+	std::vector<VkDescriptorSetLayout> vulkanSetLayouts;
+
+	for (size_t i = 0; i < pipelineInfo.inputPushConstantRanges.size(); i ++)
+	{
+		const PushConstantRange &genericPushRange = pipelineInfo.inputPushConstantRanges[i];
+		VkPushConstantRange vulkanPushRange = {};
+		vulkanPushRange.stageFlags = genericPushRange.stageFlags;
+		vulkanPushRange.size = genericPushRange.size;
+		vulkanPushRange.offset = genericPushRange.offset;
+
+		vulkanPushConstantRanges.push_back(vulkanPushRange);
+	}
+
+	for (size_t i = 0; i < pipelineInfo.inputSetLayouts.size(); i ++)
+	{
+		vulkanSetLayouts.push_back(createDescriptorSetLayout(pipelineInfo.inputSetLayouts[i]));
+	}
+
+	VkPipelineLayoutCreateInfo layoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+	layoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(pipelineInfo.inputPushConstantRanges.size());
+	layoutCreateInfo.setLayoutCount = static_cast<uint32_t>(pipelineInfo.inputSetLayouts.size());
+	layoutCreateInfo.pPushConstantRanges = vulkanPushConstantRanges.data();
+	layoutCreateInfo.pSetLayouts = vulkanSetLayouts.data();
+
+	VK_CHECK_RESULT(vkCreatePipelineLayout(renderer->device, &layoutCreateInfo, nullptr, &vulkanPipeline->pipelineLayoutHandle));
+
+	pipelineCreateInfo.layout = vulkanPipeline->pipelineLayoutHandle;
 
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(renderer->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &vulkanPipeline->pipelineHandle));
 

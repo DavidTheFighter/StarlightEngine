@@ -51,7 +51,6 @@ DeferredRenderer::DeferredRenderer (StarlightEngine *enginePtr, WorldRenderer *w
 
 	deferredRenderPass = nullptr;
 	deferredPipeline = nullptr;
-	deferredPipelineInputLayout = nullptr;
 	deferredFramebuffer = nullptr;
 
 	deferredCommandPool = nullptr;
@@ -102,8 +101,8 @@ void DeferredRenderer::renderDeferredLighting ()
 	cmdBuffer->beginDebugRegion("Deferred Lighting", glm::vec4(0.9f, 0.85f, 0.1f, 1.0f));
 
 	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, deferredPipeline);
-	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, deferredPipelineInputLayout, 0, {deferredInputDescriptorSet});
-	cmdBuffer->pushConstants(deferredPipelineInputLayout, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT, 0, lightingPcSize, pushConstData);
+	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {deferredInputDescriptorSet});
+	cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT, 0, lightingPcSize, pushConstData);
 
 	// Vertex positions contained in the shader as constants
 	cmdBuffer->draw(6);
@@ -280,7 +279,6 @@ void DeferredRenderer::destroy ()
 	engine->renderer->destroyFramebuffer(deferredFramebuffer);
 	engine->renderer->destroyCommandPool(deferredCommandPool);
 
-	engine->renderer->destroyPipelineInputLayout(deferredPipelineInputLayout);
 	engine->renderer->destroyPipeline(deferredPipeline);
 	engine->renderer->destroyRenderPass(deferredRenderPass);
 
@@ -312,17 +310,6 @@ void DeferredRenderer::createDeferredLightingRenderPass ()
 
 void DeferredRenderer::createDeferredLightingPipeline ()
 {
-	deferredPipelineInputLayout = engine->renderer->createPipelineInputLayout({{0, lightingPcSize, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT}}, {{
-			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{4, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
-	}});
-
 	const std::string insertMarker = "#SE_BUILTIN_INCLUDE_ATMOSPHERE_LIB";
 	const std::string shaderSourceFile = engine->getWorkingDir() + "GameData/shaders/vulkan/lighting.glsl";
 
@@ -412,7 +399,19 @@ void DeferredRenderer::createDeferredLightingPipeline ()
 	info.colorBlendInfo = colorBlend;
 	info.dynamicStateInfo = dynamicState;
 
-	deferredPipeline = engine->renderer->createGraphicsPipeline(info, deferredPipelineInputLayout, deferredRenderPass, 0);
+	info.inputPushConstantRanges = {{0, lightingPcSize, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT}};
+	info.inputSetLayouts = {{
+			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{4, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
+	}};
+
+	deferredPipeline = engine->renderer->createGraphicsPipeline(info, deferredRenderPass, 0);
 
 	engine->renderer->destroyShaderModule(vertShaderStage.module);
 	engine->renderer->destroyShaderModule(fragShaderStage.module);

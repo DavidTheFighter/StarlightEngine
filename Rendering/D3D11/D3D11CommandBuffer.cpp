@@ -75,10 +75,10 @@ void D3D11CommandBuffer::drawIndexed (uint32_t indexCount, uint32_t instanceCoun
 {
 }
 
-void D3D11CommandBuffer::pushConstants (PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
+void D3D11CommandBuffer::pushConstants (ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
 {
 }
-void D3D11CommandBuffer::bindDescriptorSets (PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets)
+void D3D11CommandBuffer::bindDescriptorSets (PipelineBindPoint point, uint32_t firstSet, std::vector<DescriptorSet> sets)
 {
 }
 

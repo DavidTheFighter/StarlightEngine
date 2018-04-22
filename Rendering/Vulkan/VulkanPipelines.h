@@ -22,7 +22,7 @@ class VulkanPipelines
 		VulkanPipelines (VulkanRenderer *parentVulkanRenderer);
 		virtual ~VulkanPipelines ();
 
-		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass);
+		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass);
 
 		VkDescriptorSetLayout createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &layoutBindings);
 		VkDescriptorSetLayout createDescriptorSetLayout (const VkDescriptorSetLayoutCreateInfo &setLayoutInfo);

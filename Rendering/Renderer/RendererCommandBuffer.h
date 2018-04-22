@@ -44,8 +44,16 @@ class RendererCommandBuffer
 
 		CommandBufferLevel level;
 
+		/*
+		 * Begins recording to the command buffer. Will fail if it's already being written to. Note writing is single-threaded only.
+		 */
 		virtual void beginCommands (CommandBufferUsageFlags flags) = 0;
+
+		/*
+		 * Ends recording to the command buffer. Must have began to end.
+		 */
 		virtual void endCommands () = 0;
+
 		virtual void resetCommands () = 0;
 
 		virtual void beginRenderPass (RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents) = 0;
@@ -60,8 +68,15 @@ class RendererCommandBuffer
 		virtual void draw (uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0) = 0;
 		virtual void drawIndexed (uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0, int32_t vertexOffset = 0, uint32_t firstInstance = 0) = 0;
 
-		virtual void pushConstants (PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) = 0;
-		virtual void bindDescriptorSets (PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets) = 0;
+		/*
+		 * Sets the push constants to the currently bound pipeline.
+		 */
+		virtual void pushConstants (ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data) = 0;
+
+		/*
+		 * Binds one or more descriptor sets to the currently bound pipeline.
+		 */
+		virtual void bindDescriptorSets (PipelineBindPoint point, uint32_t firstSet, std::vector<DescriptorSet> sets) = 0;
 
 		virtual void transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource = {0, 1, 0, 1}) = 0;
 		virtual void setTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource, PipelineStageFlags srcStage, PipelineStageFlags dstStage) = 0;

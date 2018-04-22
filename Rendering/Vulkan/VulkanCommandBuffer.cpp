@@ -32,6 +32,12 @@
 #include <Rendering/Vulkan/VulkanEnums.h>
 #include <Rendering/Vulkan/VulkanObjects.h>
 
+VulkanCommandBuffer::VulkanCommandBuffer()
+{
+	bufferHandle = nullptr;
+	context_currentBoundPipeline = nullptr;
+}
+
 VulkanCommandBuffer::~VulkanCommandBuffer ()
 {
 
@@ -83,6 +89,8 @@ void VulkanCommandBuffer::nextSubpass (SubpassContents contents)
 void VulkanCommandBuffer::bindPipeline (PipelineBindPoint point, Pipeline pipeline)
 {
 	vkCmdBindPipeline(bufferHandle, toVkPipelineBindPoint(point), static_cast<VulkanPipeline*>(pipeline)->pipelineHandle);
+
+	context_currentBoundPipeline = pipeline;
 }
 
 void VulkanCommandBuffer::bindIndexBuffer (Buffer buffer, size_t offset, bool uses32BitIndices)
@@ -116,12 +124,12 @@ void VulkanCommandBuffer::drawIndexed (uint32_t indexCount, uint32_t instanceCou
 	vkCmdDrawIndexed(bufferHandle, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
-void VulkanCommandBuffer::pushConstants (PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
+void VulkanCommandBuffer::pushConstants (ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
 {
-	vkCmdPushConstants(bufferHandle, static_cast<VulkanPipelineInputLayout*>(inputLayout)->layoutHandle, toVkShaderStageFlags(stages), offset, size, data);
+	vkCmdPushConstants(bufferHandle, static_cast<VulkanPipeline*>(context_currentBoundPipeline)->pipelineLayoutHandle, toVkShaderStageFlags(stages), offset, size, data);
 }
 
-void VulkanCommandBuffer::bindDescriptorSets (PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets)
+void VulkanCommandBuffer::bindDescriptorSets (PipelineBindPoint point, uint32_t firstSet, std::vector<DescriptorSet> sets)
 {
 	std::vector<VkDescriptorSet> vulkanSets;
 
@@ -130,8 +138,7 @@ void VulkanCommandBuffer::bindDescriptorSets (PipelineBindPoint point, PipelineI
 		vulkanSets.push_back(static_cast<VulkanDescriptorSet*>(sets[i])->setHandle);
 	}
 
-	vkCmdBindDescriptorSets(bufferHandle, toVkPipelineBindPoint(point), static_cast<VulkanPipelineInputLayout*>(inputLayout)->layoutHandle, firstSet, static_cast<uint32_t>(sets.size()), vulkanSets.data(), 0, nullptr);
-
+	vkCmdBindDescriptorSets(bufferHandle, toVkPipelineBindPoint(point), static_cast<VulkanPipeline*>(context_currentBoundPipeline)->pipelineLayoutHandle, firstSet, static_cast<uint32_t>(sets.size()), vulkanSets.data(), 0, nullptr);
 }
 
 void VulkanCommandBuffer::transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource)

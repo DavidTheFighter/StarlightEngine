@@ -65,7 +65,6 @@ class WorldRenderer
 		TextureView gbuffer_NormalMetalnessView;
 		TextureView gbuffer_DepthView;
 
-		PipelineInputLayout materialPipelineInputLayout;
 		Pipeline defaultMaterialPipeline;
 
 		RenderPass gbufferRenderPass;

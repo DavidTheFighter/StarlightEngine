@@ -48,7 +48,6 @@ TerrainRenderer::TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worl
 	clipmapUpdateCommandBuffer = nullptr;
 
 	terrainPipeline = nullptr;
-	terrainPipelineInput = nullptr;
 
 	terrainCellMeshVertexCount = 0;
 	terrainCellMesh = nullptr;
@@ -459,9 +458,9 @@ void TerrainRenderer::renderTerrain (CommandBuffer &cmdBuffer)
 
 	cmdBuffer->beginDebugRegion("Terrain", glm::vec4(0, 0.5f, 0, 1));
 	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, terrainPipeline);
-	cmdBuffer->pushConstants(terrainPipelineInput, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0, pcSize, pushConstData);
+	cmdBuffer->pushConstants(SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0, pcSize, pushConstData);
 
-	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineInput, 0, {heightmapDescriptorSet});
+	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {heightmapDescriptorSet});
 
 	//cmdBuffer->bindIndexBuffer(terrainGrid->meshBuffer, 0, false);
 	//cmdBuffer->bindVertexBuffers(0, {terrainGrid->meshBuffer}, {terrainGrid->indexChunkSize});
@@ -648,7 +647,6 @@ void TerrainRenderer::destroy ()
 	engine->renderer->destroyBuffer(terrainCellMesh);
 
 	engine->renderer->destroyPipeline(terrainPipeline);
-	engine->renderer->destroyPipelineInputLayout(terrainPipelineInput);
 	engine->renderer->destroyDescriptorPool(heightmapDescriptorPool);
 
 	engine->renderer->destroySemaphore(clipmapUpdateSemaphore);
@@ -689,13 +687,6 @@ void TerrainRenderer::buildTerrainCellGrids()
 
 void TerrainRenderer::createGraphicsPipeline ()
 {
-	terrainPipelineInput = engine->renderer->createPipelineInputLayout({{0, pcSize, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT}}, {{
-			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
-			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
-			{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, SHADER_STAGE_FRAGMENT_BIT}
-	}});
-
 	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_VERTEX_BIT);
 	ShaderModule tessCtrlShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_TESSELLATION_CONTROL_BIT);
 	ShaderModule tessEvalShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
@@ -792,7 +783,15 @@ void TerrainRenderer::createGraphicsPipeline ()
 	info.dynamicStateInfo = dynamicState;
 	info.tessellationInfo = tessInfo;
 
-	terrainPipeline = engine->renderer->createGraphicsPipeline(info, terrainPipelineInput, worldRenderer->gbufferRenderPass, 0);
+	info.inputPushConstantRanges = {{0, pcSize, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT}};
+	info.inputSetLayouts = {{
+			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
+			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
+			{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, SHADER_STAGE_FRAGMENT_BIT}
+	}};
+
+	terrainPipeline = engine->renderer->createGraphicsPipeline(info, worldRenderer->gbufferRenderPass, 0);
 
 	engine->renderer->destroyShaderModule(vertShaderStage.module);
 	engine->renderer->destroyShaderModule(fragShaderStage.module);

@@ -56,7 +56,6 @@ class TerrainRenderer
 		CommandBuffer clipmapUpdateCommandBuffer;
 
 		Pipeline terrainPipeline;
-		PipelineInputLayout terrainPipelineInput;
 
 		uint32_t terrainCellMeshVertexCount;
 		Buffer terrainCellMesh;

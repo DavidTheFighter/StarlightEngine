@@ -57,8 +57,8 @@ class D3D11CommandBuffer : public RendererCommandBuffer
 		void draw (uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
 		void drawIndexed (uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
 
-		void pushConstants (PipelineInputLayout inputLayout, ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data);
-		void bindDescriptorSets (PipelineBindPoint point, PipelineInputLayout inputLayout, uint32_t firstSet, std::vector<DescriptorSet> sets);
+		void pushConstants (ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data);
+		void bindDescriptorSets (PipelineBindPoint point, uint32_t firstSet, std::vector<DescriptorSet> sets);
 
 		void transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout);
 		void stageBuffer (StagingBuffer stagingBuffer, Texture dstTexture);

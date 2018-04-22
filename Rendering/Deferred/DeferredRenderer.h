@@ -70,7 +70,6 @@ class DeferredRenderer
 
 		RenderPass deferredRenderPass;
 		Pipeline deferredPipeline;
-		PipelineInputLayout deferredPipelineInputLayout;
 		Framebuffer deferredFramebuffer;
 
 		CommandPool deferredCommandPool;

@@ -133,11 +133,7 @@ ShaderModule D3D11Renderer::createShaderModule (std::string file, ShaderStageFla
 {
 }
 
-PipelineInputLayout D3D11Renderer::createPipelineInputLayout (const std::vector<PushConstantRange>& pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> >& setLayouts)
-{
-}
-
-Pipeline D3D11Renderer::createGraphicsPipeline (const PipelineInfo& pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass)
+Pipeline D3D11Renderer::createGraphicsPipeline (const PipelineInfo& pipelineInfo, RenderPass renderPass, uint32_t subpass)
 {
 }
 
@@ -233,10 +229,6 @@ void D3D11Renderer::destroyRenderPass (RenderPass renderPass)
 }
 
 void D3D11Renderer::destroyFramebuffer (Framebuffer framebuffer)
-{
-}
-
-void D3D11Renderer::destroyPipelineInputLayout (PipelineInputLayout layout)
 {
 }
 

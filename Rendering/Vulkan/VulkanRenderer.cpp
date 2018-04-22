@@ -611,43 +611,10 @@ ShaderModule VulkanRenderer::createShaderModuleFromSource (const std::string &so
 	return vulkanShader;
 }
 
-PipelineInputLayout VulkanRenderer::createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts)
+
+Pipeline VulkanRenderer::createGraphicsPipeline (const PipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass)
 {
-	std::vector<VkPushConstantRange> vulkanPushConstantRanges;
-	std::vector<VkDescriptorSetLayout> vulkanSetLayouts;
-
-	for (size_t i = 0; i < pushConstantRanges.size(); i ++)
-	{
-		const PushConstantRange &genericPushRange = pushConstantRanges[i];
-		VkPushConstantRange vulkanPushRange = {};
-		vulkanPushRange.stageFlags = genericPushRange.stageFlags;
-		vulkanPushRange.size = genericPushRange.size;
-		vulkanPushRange.offset = genericPushRange.offset;
-
-		vulkanPushConstantRanges.push_back(vulkanPushRange);
-	}
-
-	for (size_t i = 0; i < setLayouts.size(); i ++)
-	{
-		vulkanSetLayouts.push_back(pipelineHandler->createDescriptorSetLayout(setLayouts[i]));
-	}
-
-	VkPipelineLayoutCreateInfo layoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-	layoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size());
-	layoutCreateInfo.setLayoutCount = static_cast<uint32_t>(setLayouts.size());
-	layoutCreateInfo.pPushConstantRanges = vulkanPushConstantRanges.data();
-	layoutCreateInfo.pSetLayouts = vulkanSetLayouts.data();
-
-	VulkanPipelineInputLayout *inputLayout = new VulkanPipelineInputLayout();
-
-	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &layoutCreateInfo, nullptr, &inputLayout->layoutHandle));
-
-	return inputLayout;
-}
-
-Pipeline VulkanRenderer::createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass)
-{
-	return pipelineHandler->createGraphicsPipeline(pipelineInfo, inputLayout, renderPass, subpass);
+	return pipelineHandler->createGraphicsPipeline(pipelineInfo, renderPass, subpass);
 }
 
 VulkanDescriptorPoolObject VulkanRenderer::createDescPoolObject (const std::vector<VkDescriptorPoolSize> &poolSizes, uint32_t maxSets)
@@ -960,22 +927,15 @@ void VulkanRenderer::destroyFramebuffer (Framebuffer framebuffer)
 	delete framebuffer;
 }
 
-void VulkanRenderer::destroyPipelineInputLayout (PipelineInputLayout layout)
-{
-	VulkanPipelineInputLayout *vulkanPipelineInputLayout = static_cast<VulkanPipelineInputLayout*>(layout);
-
-	if (vulkanPipelineInputLayout->layoutHandle != VK_NULL_HANDLE)
-		vkDestroyPipelineLayout(device, vulkanPipelineInputLayout->layoutHandle, nullptr);
-
-	delete layout;
-}
-
 void VulkanRenderer::destroyPipeline (Pipeline pipeline)
 {
 	VulkanPipeline *vulkanPipeline = static_cast<VulkanPipeline*>(pipeline);
 
 	if (vulkanPipeline->pipelineHandle != VK_NULL_HANDLE)
+	{
 		vkDestroyPipeline(device, vulkanPipeline->pipelineHandle, nullptr);
+		vkDestroyPipelineLayout(device, vulkanPipeline->pipelineLayoutHandle, nullptr);
+	}
 
 	delete pipeline;
 }

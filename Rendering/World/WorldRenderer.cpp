@@ -49,7 +49,6 @@ WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHan
 	gbufferRenderPass = nullptr;
 	gbufferFramebuffer = nullptr;
 
-	materialPipelineInputLayout = nullptr;
 	defaultMaterialPipeline = nullptr;
 
 	testCommandPool = nullptr;
@@ -126,8 +125,8 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)
 	{
 		cmdBuffer->beginDebugRegion("Level Static Objects", glm::vec4(1.0f, 0.984f, 0.059f, 1.0f));
 		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, defaultMaterialPipeline);
-		cmdBuffer->pushConstants(materialPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVP[0][0]);
-		cmdBuffer->pushConstants(materialPipelineInputLayout, SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::vec3), &cameraPosition.x);
+		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVP[0][0]);
+		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::vec3), &cameraPosition.x);
 
 		//double sT = engine->getTime();
 		LevelStaticObjectStreamingData streamData = getStaticObjStreamingData();
@@ -139,7 +138,7 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)
 			ResourceMaterial material = engine->resources->findMaterial(mat->first);
 
 			cmdBuffer->beginDebugRegion("For material: " + material->defUniqueName, glm::vec4(1.0f, 0.467f, 0.02f, 1.0f));
-			cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, materialPipelineInputLayout, 0, {material->descriptorSet});
+			cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {material->descriptorSet});
 
 			for (auto mesh = mat->second.begin(); mesh != mat->second.end(); mesh ++)
 			{
@@ -317,7 +316,6 @@ void WorldRenderer::destroy ()
 
 	destroyGBuffer();
 
-	engine->renderer->destroyPipelineInputLayout(materialPipelineInputLayout);
 	engine->renderer->destroyPipeline(defaultMaterialPipeline);
 
 	engine->renderer->destroyRenderPass(gbufferRenderPass);
@@ -486,9 +484,10 @@ void WorldRenderer::createTestMaterialPipeline ()
 	layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
 	layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
 
-	materialPipelineInputLayout = engine->renderer->createPipelineInputLayout({{0, sizeof(glm::mat4) + sizeof(glm::vec3), SHADER_STAGE_VERTEX_BIT}}, {layoutBindings});
+	info.inputPushConstantRanges = {{0, sizeof(glm::mat4) + sizeof(glm::vec3), SHADER_STAGE_VERTEX_BIT}};
+	info.inputSetLayouts = {layoutBindings};
 
-	defaultMaterialPipeline = engine->renderer->createGraphicsPipeline(info, materialPipelineInputLayout, gbufferRenderPass, 0);
+	defaultMaterialPipeline = engine->renderer->createGraphicsPipeline(info, gbufferRenderPass, 0);
 
 	engine->renderer->destroyShaderModule(vertShaderStage.module);
 	engine->renderer->destroyShaderModule(fragShaderStage.module);

@@ -154,11 +154,6 @@ typedef struct RendererPushConstantRange
 		PipelineStageFlags stageFlags;
 } PushConstantRange;
 
-typedef struct RendererPipelineInputLayout
-{
-
-} RendererPipelineInputLayout;
-
 typedef struct RendererPipelineShaderStage
 {
 		RendererShaderModule *module;
@@ -272,6 +267,9 @@ typedef struct RendererPipelineInfo
 		PipelineColorBlendInfo colorBlendInfo;
 		PipelineDynamicStateInfo dynamicStateInfo;
 
+		std::vector<PushConstantRange> inputPushConstantRanges;
+		std::vector<std::vector<DescriptorSetLayoutBinding> > inputSetLayouts;
+
 		//PipelineInputLayout inputLayout;
 		//RendererRenderPass *renderPass;
 		//uint32_t subpass;
@@ -357,7 +355,6 @@ typedef struct RendererSemaphore
 } RendererSemaphore;
 
 typedef RendererRenderPass *RenderPass;
-typedef RendererPipelineInputLayout *PipelineInputLayout;
 typedef RendererPipeline *Pipeline;
 //typedef RendererDescriptorSetLayout *DescriptorSetLayout;
 typedef RendererDescriptorSet *DescriptorSet;

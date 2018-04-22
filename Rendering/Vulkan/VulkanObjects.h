@@ -39,14 +39,10 @@ struct VulkanFramebuffer : public RendererFramebuffer
 		VkFramebuffer framebufferHandle;
 };
 
-struct VulkanPipelineInputLayout : public RendererPipelineInputLayout
-{
-		VkPipelineLayout layoutHandle;
-};
-
 struct VulkanPipeline : public RendererPipeline
 {
 		VkPipeline pipelineHandle;
+		VkPipelineLayout pipelineLayoutHandle;
 };
 
 struct VulkanDescriptorSet : public RendererDescriptorSet

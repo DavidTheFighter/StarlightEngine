@@ -67,8 +67,7 @@ class D3D11Renderer : public Renderer
 		RenderPass createRenderPass (const std::vector<AttachmentDescription> &attachments, const std::vector<SubpassDescription> &subpasses, const std::vector<SubpassDependency> &dependencies);
 		Framebuffer createFramebuffer (RenderPass renderPass, const std::vector<TextureView> &attachments, uint32_t width, uint32_t height, uint32_t layers);
 		ShaderModule createShaderModule (std::string file, ShaderStageFlagBits stage);
-		PipelineInputLayout createPipelineInputLayout (const std::vector<PushConstantRange> &pushConstantRanges, const std::vector<std::vector<DescriptorSetLayoutBinding> > &setLayouts);
-		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, PipelineInputLayout inputLayout, RenderPass renderPass, uint32_t subpass);
+		Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass);
 		DescriptorPool createDescriptorPool (const std::vector<DescriptorSetLayoutBinding> &layoutBindings, uint32_t poolBlockAllocSize);
 
 		Fence createFence (bool createAsSignaled);
@@ -91,7 +90,6 @@ class D3D11Renderer : public Renderer
 		void destroyCommandPool (CommandPool pool);
 		void destroyRenderPass (RenderPass renderPass);
 		void destroyFramebuffer (Framebuffer framebuffer);
-		void destroyPipelineInputLayout (PipelineInputLayout layout);
 		void destroyPipeline (Pipeline pipeline);
 		void destroyShaderModule (ShaderModule module);
 		void destroyDescriptorPool (DescriptorPool pool);
