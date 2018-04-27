@@ -40,6 +40,7 @@
 class WorldHandler;
 class WorldRenderer;
 class DeferredRenderer;
+class PostProcess;
 class Game;
 
 class GameStateInWorld : public GameState
@@ -50,6 +51,7 @@ class GameStateInWorld : public GameState
 		WorldHandler *world;
 		WorldRenderer *worldRenderer;
 		DeferredRenderer *deferredRenderer;
+		PostProcess *postprocess;
 		Game *testGame; // Probably a temp, probably will restructure this later
 
 		GameStateInWorld (StarlightEngine *enginePtr);

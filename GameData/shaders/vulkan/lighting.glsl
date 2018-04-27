@@ -69,10 +69,11 @@ layout(push_constant) uniform PushConsts
 	
 	vec3 calcSkyLighting (in vec3 albedo, in vec3 normal, in vec3 viewDir, in vec2 KrKm, in vec3 lightDir, in float depth);
 
-	vec3 BRDF_Diffuse (in vec3 N, in vec3 V, in vec3 L, in vec3 Kd, in vec3 Ks, in float Kr, in float lightOcclusion);
+	vec3 BRDF_Diffuse (in vec3 normal, in vec3 view, in vec3 lightDir, in vec3 Kalbedo, in vec3 Kspecular, in float Kr, in float lightOcclusion);
 
 	const vec3 earthCenter = vec3(0, 0, -ATMOSPHERE.bottom_radius);
-
+	const float luminanceMult = 0.2f;
+	
 	void main()
 	{	
 		vec4  gbuffer_AlbedoRoughness = texture(sampler2D(gbuffer_AlbedoRoughnessTexture, inputSampler), inUV);
@@ -83,7 +84,7 @@ layout(push_constant) uniform PushConsts
 		gbuffer_NormalsMetalness.xyz = normalize(gbuffer_NormalsMetalness.xyz * 2.0f - 1.0f);
 		float z_eye = pushConsts.prjMat.y / (pushConsts.prjMat.x + gbuffer_Depth);
 	
-		vec3 testLightDir = normalize(vec3(1, 01, 0));
+		vec3 testLightDir = normalize(vec3(1, 1, 0));
 	
 		vec3 at_cameraPosition = vec3(0, 0, max(pushConsts.cameraPosition.y, 1)) / 1000.0f - earthCenter;
 		vec3 at_ray = normalize(inRay.xzy);		
@@ -93,16 +94,16 @@ layout(push_constant) uniform PushConsts
 		vec3 radiance = vec3(0);//GetSkyRadiance(at_cameraPosition, at_ray, 0, testLightDir.xzy, transmittance) * 4.0f;
 	
 		if (gbuffer_Depth > 0)
-			radiance = GetSkyRadianceToPoint(at_cameraPosition, at_worldPoint, 0, testLightDir.xzy, transmittance) * 4.0f;	
+			radiance = GetSkyLuminanceToPoint(at_cameraPosition, at_worldPoint, 0, testLightDir.xzy, transmittance) * 1e-3;	
 		else
-			radiance = GetSkyRadiance(at_cameraPosition, at_ray, 0, testLightDir.xzy, transmittance) * 4.0f;
+			radiance = GetSkyLuminance(at_cameraPosition, at_ray, 0, testLightDir.xzy, transmittance) * 1e-3;
 	
-		if (dot(normalize(at_ray), testLightDir.xzy) > 0.9999f)
-			radiance = radiance + transmittance * GetSolarRadiance();
+		if (dot(normalize(at_ray), testLightDir.xzy) > 0.9999f && gbuffer_Depth == 0.0f)
+			radiance = radiance + transmittance * GetSolarLuminance() * 1e-3 * 1e-3;
 			
-		vec3 Rd = calcSkyLighting(gbuffer_AlbedoRoughness.rgb, gbuffer_NormalsMetalness.rgb, normalize(inRay), vec2(gbuffer_AlbedoRoughness.a, gbuffer_NormalsMetalness.a), testLightDir, gbuffer_Depth);
+		vec3 Rd = calcSkyLighting(gbuffer_AlbedoRoughness.rgb, gbuffer_NormalsMetalness.rgb, normalize(inRay), vec2(gbuffer_AlbedoRoughness.a, gbuffer_NormalsMetalness.a), testLightDir, z_eye);
 
-		vec3 finalColor = Rd + radiance;
+		vec3 finalColor = Rd * transmittance + radiance;
 
 		out_color = vec4(finalColor, 1);
 	}
@@ -112,62 +113,32 @@ layout(push_constant) uniform PushConsts
 	{
 		vec3 at_cameraPosition = vec3(0, 0, max(pushConsts.cameraPosition.y, 1)) / 1000.0f - earthCenter;
 		vec3 at_ray = normalize(inRay.xzy);		
-		vec3 at_worldPoint = at_cameraPosition + at_ray * ((1.0f - depth + 0.1f) / (1000000.0f - 0.1f));
+		vec3 at_worldPoint = at_cameraPosition + at_ray * depth / 1000.0f;
 		
 		vec3 sky_irradiance;
-		vec3 irradiance = GetSunAndSkyIrradiance(at_worldPoint, normal.xzy, lightDir.xzy, sky_irradiance);
+		vec3 irradiance = GetSunAndSkyIlluminance(at_worldPoint, normal.xzy, lightDir.xzy, sky_irradiance);
 
 		float Kr = KrKm.x;
 		float Km = KrKm.y;
-		vec3  Kd = albedo * irradiance;
-		vec3  Ks = mix(vec3(1.0f - Kr) * 0.18f + 0.04f, albedo, smoothstep(0.2f, 0.45f, Km));
+		vec3  Kalbedo   = albedo * irradiance * 1e-3;
+		vec3  Kambient  = albedo * sky_irradiance * 1e-3;
+		vec3  Kspecular = mix(vec3(1.0f - Kr) * 0.18f + 0.04f, albedo, smoothstep(0.2f, 0.45f, Km));
 
-		vec3 Rd = BRDF_Diffuse(normal, viewDir, lightDir, Kd, Ks, Kr, 1) + sky_irradiance * 0.3f;
-		vec3 Rs = vec3(0);
+		vec3 Ralbedo   = BRDF_Diffuse(normal, viewDir, lightDir, Kalbedo, Kspecular, Kr, 1);
+		vec3 Rambient  = Kambient * 0.25f + albedo * 2.5f;//BRDF_Diffuse(normal, viewDir, (1 / normal / 3.0f), Kambient, Kspecular, Kr, 1);
+		vec3 Rspecular = vec3(0);
 		
-		vec3 dielectric = Rd + Rs;
-		vec3 metal = Rs;
+		vec3 dielectric = Ralbedo + Rambient + Rspecular;
+		vec3 metal = Rspecular;
 
 		return mix(dielectric, metal, smoothstep(0.2f, 0.45f, Km));
 	}
 	
-	// Oren-Nayar diffuse model
-	vec3 BRDF_DiffuseOld (in vec3 N, in vec3 V, in vec3 L, in vec3 Kd, in vec3 Ks, in float Kr, in float lightOcclusion)
-	{
-		float Kr_2 = Kr * Kr;
-
-		float NdotL = dot(N, L);
-		float NdotV = dot(N, V);
-
-		float angleVN = acos(NdotV);
-		float angleLN = acos(NdotL);
-
-		float alpha = max(angleVN, angleLN);
-		float beta = min(angleVN, angleLN);
-		float gamma = dot(V - N * dot(V, N), L - N * dot(L, N));
-
-		float A = 1.0f - 0.5f * (Kr_2 / (Kr_2 + 0.57f));
-		float B = 0.45f * (Kr_2 / (Kr_2 + 0.09f));
-		float C = sin(alpha) * tan(beta);
-
-		return Kd * (vec3(1.0f) - Ks) * (A + B * C * gamma) * max(NdotL, 0) * lightOcclusion;
-	}
+	#define PI 3.1415926f
 	
-	// Improved Oren-Nayar diffuse model
-	vec3 BRDF_Diffuse (in vec3 N, in vec3 V, in vec3 L, in vec3 Kd, in vec3 Ks, in float Kr, in float lightOcclusion)
+	vec3 BRDF_Diffuse (in vec3 normal, in vec3 view, in vec3 lightDir, in vec3 Kalbedo, in vec3 Kspecular, in float Kr, in float lightOcclusion)
 	{
-		float Kr_2 = Kr * Kr;
-		float LdotV = dot(L, V);
-		float NdotL = dot(N, L);
-		float NdotV = dot(N, V);
-		
-		float s = LdotV - NdotL * NdotV;
-		float t = mix(1.0f, max(NdotL, NdotV), step(0.0f, s));
-		
-		vec3 A = 1.0f + Kr_2 * (Kd / (Kr_2 + 0.13f) + 0.5f / (Kr_2 + 0.33f));
-		float B = 0.45f * Kr_2 / (Kr_2 + 0.09f);
-		
-		return Kd * max(NdotL, 0.0f) * (A + B * s / t) * lightOcclusion / 3.1415926f;
+		return Kalbedo * max(0.0f, dot(normal, lightDir)) * (vec3(1) - Kspecular) * lightOcclusion / PI;
 	}
 	
 

@@ -228,7 +228,7 @@ void AtmosphereRenderer::loadScatteringSourceInclude ()
 		ground_albedo.push_back(kGroundAlbedo);
 	}
 
-	bool precompute_illuminance = 3 > 3;
+	bool precompute_illuminance = 15 > 3;
 	double sky_k_r, sky_k_g, sky_k_b;
 	if (precompute_illuminance)
 	{
