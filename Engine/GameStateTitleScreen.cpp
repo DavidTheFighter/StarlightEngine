@@ -82,7 +82,7 @@ void GameStateTitleScreen::handleEvents ()
 
 }
 
-void GameStateTitleScreen::update ()
+void GameStateTitleScreen::update (float delta)
 {
 	engine->guiRenderer->writeTestGUI();
 }

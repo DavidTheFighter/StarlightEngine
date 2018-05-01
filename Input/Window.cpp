@@ -75,6 +75,9 @@ void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::strin
 			glfwSetWindowSize(glfwWindow, glfwWindowWidth, glfwWindowHeight);
 		}
 
+		// Explicitly center the window, mainly because Windows doesn't do it by default
+		glfwSetWindowPos(glfwWindow, (videomode->width - glfwWindowWidth) / 2, (videomode->height - glfwWindowHeight) / 2);
+
 		this->windowWidth = (uint32_t) glfwWindowWidth;
 		this->windowHeight = (uint32_t) glfwWindowHeight;
 

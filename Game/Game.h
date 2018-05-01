@@ -40,6 +40,12 @@ class Game
 
 		Camera mainCamera;
 
+		// The time of day in seconds
+		double worldTime;
+
+		// The number of days since year 0.
+		uint64_t calendarDate;
+
 		Game (Window *gameWindow);
 		virtual ~Game ();
 

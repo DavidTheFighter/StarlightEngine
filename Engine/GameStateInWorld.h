@@ -64,7 +64,7 @@ class GameStateInWorld : public GameState
 		void resume ();
 
 		void handleEvents ();
-		void update ();
+		void update (float delta);
 		void render ();
 
 		static void windowResizedCallback(EventWindowResizeData &eventData, void *usrPtr);

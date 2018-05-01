@@ -67,6 +67,8 @@ void GameStateInWorld::init ()
 	world = new WorldHandler(engine);
 	testGame = new Game(engine->mainWindow);
 
+	Game::setInstance(testGame);
+
 	worldRenderer = new WorldRenderer(engine, world);
 	deferredRenderer = new DeferredRenderer(engine, worldRenderer);
 	postprocess = new PostProcess(engine);
@@ -284,9 +286,9 @@ void GameStateInWorld::handleEvents ()
 
 }
 
-void GameStateInWorld::update ()
+void GameStateInWorld::update (float delta)
 {
-	testGame->update(1 / 60.0f);
+	testGame->update(delta);
 
 	glm::vec3 playerLookDir = glm::vec3(cos(testGame->mainCamera.lookAngles.y) * sin(testGame->mainCamera.lookAngles.x), sin(testGame->mainCamera.lookAngles.y), cos(testGame->mainCamera.lookAngles.y) * cos(testGame->mainCamera.lookAngles.x));
 	glm::vec3 playerLookRight = glm::vec3(sin(testGame->mainCamera.lookAngles.x - M_PI * 0.5f), 0, cos(testGame->mainCamera.lookAngles.x - M_PI * 0.5f));

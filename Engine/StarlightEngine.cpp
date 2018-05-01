@@ -40,6 +40,8 @@
 
 #include <World/WorldHandler.h>
 
+#include <Game/API/SEAPI.h>
+
 StarlightEngine::StarlightEngine (const std::vector<std::string> &launchArgs, uint32_t engineUpdateFrequencyCap)
 {
 	engineIsRunning = false;
@@ -49,6 +51,7 @@ StarlightEngine::StarlightEngine (const std::vector<std::string> &launchArgs, ui
 	mainWindow = nullptr;
 	resources = nullptr;
 	guiRenderer = nullptr;
+	api = nullptr;
 
 	this->launchArgs = launchArgs;
 
@@ -90,6 +93,9 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	guiRenderer = new GUIRenderer(renderer);
 	guiRenderer->temp_engine = this;
 
+	api = new SEAPI(this);
+	api->init();
+
 	guiRenderer->init();
 }
 
@@ -109,6 +115,7 @@ void StarlightEngine::destroy ()
 	delete resources;
 	delete mainWindow;
 	delete renderer;
+	delete api;
 }
 
 void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &eventData, void *usrPtr)
@@ -155,6 +162,8 @@ void StarlightEngine::update ()
 		}
 	}
 
+	float delta = getTime() - lastUpdateTime;
+
 	if (true)
 	{
 		static double windowTitleFrametimeUpdateTimer;
@@ -166,7 +175,7 @@ void StarlightEngine::update ()
 			windowTitleFrametimeUpdateTimer = 0;
 
 			char windowTitle[256];
-			sprintf(windowTitle, "%s (delta-t - %.3f ms, cpu-t - %.3fms)", APP_NAME, (getTime() - lastUpdateTime) * 1000.0, lastLoopCPUTime * 1000.0);
+			sprintf(windowTitle, "%s (delta-t - %.3f ms, cpu-t - %.3fms)", APP_NAME, delta * 1000.0, lastLoopCPUTime * 1000.0);
 
 			mainWindow->setTitle(windowTitle);
 		}
@@ -175,7 +184,9 @@ void StarlightEngine::update ()
 	lastUpdateTime = getTime();
 
 	if (!gameStates.empty())
-		gameStates.back()->update();
+		gameStates.back()->update(delta);
+
+	api->update(delta);
 }
 
 void StarlightEngine::render ()

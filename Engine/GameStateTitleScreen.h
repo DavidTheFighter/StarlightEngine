@@ -60,7 +60,7 @@ class GameStateTitleScreen : public GameState
 		void resume ();
 
 		void handleEvents ();
-		void update ();
+		void update (float delta);
 		void render ();
 
 		void createTitleScreenRenderTargets ();

@@ -37,6 +37,8 @@
 #include <Rendering/World/WorldRenderer.h>
 #include <Rendering/Deferred/AtmosphereRenderer.h>
 
+#include <Game/API/SEAPI.h>
+
 DeferredRenderer::DeferredRenderer (StarlightEngine *enginePtr, WorldRenderer *worldRendererPtr)
 {
 	engine = enginePtr;
@@ -138,7 +140,8 @@ void DeferredRenderer::init ()
 		{4, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
+		{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT}
 	}}, 1);
 
 	deferredInputDescriptorSet = deferredInputsDescriptorPool->allocateDescriptorSet();
@@ -168,7 +171,11 @@ void DeferredRenderer::init ()
 	irradianceImageInfo.sampler = atmosphereTextureSampler;
 	irradianceImageInfo.view = atmosphere->irradianceTV;
 
-	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {};
+	DescriptorBufferInfo weuboInfo = {};
+	weuboInfo.buffer = engine->api->getWorldEnvironmentUBO();
+	weuboInfo.range = VK_WHOLE_SIZE;
+
+	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {}, weubowrite = {};
 	swrite.descriptorCount = 1;
 	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
 	swrite.dstBinding = 0;
@@ -204,7 +211,13 @@ void DeferredRenderer::init ()
 	iwrite.imageInfo =
 	{	irradianceImageInfo};
 
-	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite});
+	weubowrite.descriptorCount = 1;
+	weubowrite.descriptorType = DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	weubowrite.dstBinding = 8;
+	weubowrite.dstSet = deferredInputDescriptorSet;
+	weubowrite.bufferInfo = {weuboInfo};
+
+	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite, weubowrite});
 }
 
 void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, TextureView gbuffer_DepthView, suvec2 gbufferDim)
@@ -408,7 +421,8 @@ void DeferredRenderer::createDeferredLightingPipeline ()
 			{4, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 			{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 			{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
+			{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT}
 	}};
 
 	deferredPipeline = engine->renderer->createGraphicsPipeline(info, deferredRenderPass, 0);

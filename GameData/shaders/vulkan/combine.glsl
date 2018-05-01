@@ -50,7 +50,7 @@
 		
 		vec3 finalColor = deferredOutput;
 		
-		const float exposure = 0.0175f;
+		const float exposure = 0.025f;
 		const float gamma = 2.2f;
 		
 		//finalColor = TONEMAP_FUNCTION(finalColor, exposure, gamma);

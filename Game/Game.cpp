@@ -38,6 +38,9 @@ Game *Game::gameInstance;
 Game::Game (Window *gameWindow)
 {
 	this->gameWindow = gameWindow;
+
+	worldTime = 0;//SECONDS_IN_DAY * 0.334f;
+	calendarDate = 0;
 }
 
 Game::~Game ()
@@ -79,6 +82,14 @@ void Game::update (float delta)
 		mainCamera.position += glm::vec3(0, 1, 0) * delta * modMoveSpeed;
 	if (gameWindow->isKeyPressed(GLFW_KEY_LEFT_SHIFT))
 		mainCamera.position -= glm::vec3(0, 1, 0) * delta * modMoveSpeed;
+
+	worldTime += SECONDS_IN_DAY * delta / 120.0;
+
+	if (worldTime >= SECONDS_IN_DAY)
+	{
+		worldTime = worldTime - SECONDS_IN_DAY;
+		calendarDate ++;
+	}
 }
 
 const double lookSensitivity = 0.2;
