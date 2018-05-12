@@ -102,7 +102,7 @@ void SEAPI::update (float delta)
 
 		//weData.sunDirection = glm::normalize(glm::vec3(cos(coords.dZenithAngle) * sin(coords.dAzimuth), sin(coords.dZenithAngle), cos(coords.dZenithAngle) * cos(coords.dAzimuth)));
 		//weData.sunDirection = glm::normalize(glm::vec3(sin(coords.dAzimuth), cos(coords.dAzimuth) * cos(coords.dZenithAngle), cos(coords.dAzimuth) * sin(coords.dZenithAngle)));
-		worldEnvironmentUBOData.sunDirection = glm::normalize(glm::vec3(-sin(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle), cos(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle), sin(0.5 * M_PI -coords.dZenithAngle)));
+		worldEnvironmentUBOData.sunDirection = glm::normalize(glm::vec3(sin(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle), sin(0.5 * M_PI - coords.dZenithAngle), cos(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle)));
 		//weData.sunDirection = glm::normalize(glm::vec3(-cos(weData.worldTime / float(SECONDS_IN_DAY) * M_PI * 2.0f), sin(weData.worldTime / float(SECONDS_IN_DAY) * M_PI * 2.0f), 0));
 
 		void *uboDataPtr = engine->renderer->mapBuffer(worldEnvironmentUBO);

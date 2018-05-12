@@ -38,6 +38,7 @@
 class  Renderer;
 struct RendererCommandPool;
 class  RendererDescriptorPool;
+struct RendererRenderPass;
 
 /*
  * Manages resources such as meshes, textures, scripts, etc for the game. It
@@ -69,19 +70,30 @@ class ResourceManager
 		void returnStaticMesh (const std::string &defUniqueName);
 		void returnStaticMesh (size_t defUniqueNameHash);
 
+		ResourcePipeline loadPipelineImmediate (const std::string &defUniqueName);
+		ResourcePipeline findPipeline (const std::string &defUniqueName);
+		ResourcePipeline findPipeline (size_t defUniqueNameHash);
+		void returnPipeline (const std::string &defUniqueName);
+		void returnPipeline (size_t defUniqueNameHash);
+
 		void loadGameDefsFile (const std::string &file);
 
 		void addLevelDef (const LevelDef &def);
 		void addMaterialDef (const MaterialDef &def);
 		void addMeshDef (const StaticMeshDef &def);
+		void addPipelineDef (const PipelineDef &def);
 
 		LevelDef *getLevelDef (const std::string &defUniqueName);
 		MaterialDef *getMaterialDef (const std::string &defUniqueName);
 		StaticMeshDef *getMeshDef (const std::string &defUniqueName);
+		PipelineDef *getPipelineDef (const std::string &defUniqueName);
 
 		LevelDef *getLevelDef (size_t uniqueNameHash);
 		MaterialDef *getMaterialDef (size_t uniqueNameHash);
 		StaticMeshDef *getMeshDef (size_t uniqueNameHash);
+		PipelineDef *getPipelineDef (size_t uniqueNameHash);
+
+		void setPipelineRenderPass (RendererRenderPass *renderPass);
 
 		static std::vector<char> getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData = true);
 
@@ -92,6 +104,7 @@ class ResourceManager
 		Renderer *renderer;
 		RendererCommandPool *mainThreadTransferCommandPool;
 		RendererDescriptorPool *mainThreadDescriptorPool;
+		RendererRenderPass *pipelineRenderPass;
 
 		std::map<size_t, MaterialDef*> loadedMaterialDefsMap;
 		//std::vector<MaterialDef*> loadedMaterialDefs;
@@ -102,8 +115,11 @@ class ResourceManager
 		std::map<size_t, LevelDef*> loadedLevelDefsMap;
 		//std::vector<LevelDef*> loadedLevelDefs;
 
+		std::map<size_t, PipelineDef*> loadedPipelineDefsMap;
+
 		std::map<size_t, std::pair<ResourceMaterial, uint32_t> > loadedMaterials;
 		std::map<size_t, std::pair<ResourceStaticMesh, uint32_t> > loadedStaticMeshes;
+		std::map<size_t, std::pair<ResourcePipeline, uint32_t> > loadedPipelines;
 
 		// Because I don't know the thread safety of assimp importers, the access is controlled by a mutex for now
 		// TODO Figure out assimp importer thread safety

@@ -44,17 +44,20 @@ class TerrainRenderer;
 struct LevelStaticObject;
 struct LevelStaticObjectType;
 
+typedef std::map<size_t, std::map<size_t, std::vector<std::vector<LevelStaticObject> > > > LevelStaticObjectStreamingDataHierarchy;
+
 typedef struct LevelStaticObjectStreamingData
 {
 		/*
 		 * The data that will be rendered. It's a little complex and long winded, and might change.
 		 *
-		 * In order, it goes: map of material hashes
-		 * 						map of mesh hashes
-		 * 							vector of mesh lods (size() == mesh lod number, always)
-		 * 								vector of objs using this data
+		 * In order, it goes:
+		 * 						map of material hashes
+		 * 							map of mesh hashes
+		 * 								vector of mesh lods (size() == mesh lod number, always)
+		 * 									vector of objs using this data
 		 */
-		std::map<size_t, std::map<size_t, std::vector<std::vector<LevelStaticObject> > > > data;
+		LevelStaticObjectStreamingDataHierarchy data;
 } LevelStaticObjectStreamingData;
 
 class WorldRenderer
@@ -64,8 +67,6 @@ class WorldRenderer
 		TextureView gbuffer_AlbedoRoughnessView;
 		TextureView gbuffer_NormalMetalnessView;
 		TextureView gbuffer_DepthView;
-
-		Pipeline defaultMaterialPipeline;
 
 		RenderPass gbufferRenderPass;
 		Framebuffer gbufferFramebuffer;
@@ -107,7 +108,6 @@ class WorldRenderer
 		void createGBuffer ();
 		void destroyGBuffer ();
 		void createRenderPasses ();
-		void createTestMaterialPipeline ();
 
 		LevelStaticObjectStreamingData getStaticObjStreamingData ();
 

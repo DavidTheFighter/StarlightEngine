@@ -49,8 +49,6 @@ WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHan
 	gbufferRenderPass = nullptr;
 	gbufferFramebuffer = nullptr;
 
-	defaultMaterialPipeline = nullptr;
-
 	testCommandPool = nullptr;
 
 	gbuffer_AlbedoRoughness = nullptr;
@@ -122,18 +120,32 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)
 
 	cmdBuffer->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
 
+	//double sT = engine->getTime();
+	LevelStaticObjectStreamingData streamData = getStaticObjStreamingData();
+	//printf("Stream took: %fms\n", (engine->getTime() - sT) * 1000.0);
+
+	std::map<size_t, LevelStaticObjectStreamingDataHierarchy> streamDataByPipeline;
+
+	for (auto mat = streamData.data.begin(); mat != streamData.data.end(); mat ++)
 	{
-		cmdBuffer->beginDebugRegion("Level Static Objects", glm::vec4(1.0f, 0.984f, 0.059f, 1.0f));
-		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, defaultMaterialPipeline);
+		ResourceMaterial material = engine->resources->findMaterial(mat->first);
+
+		streamDataByPipeline[material->pipelineHash][mat->first] = mat->second;
+	}
+
+	cmdBuffer->beginDebugRegion("Level Static Objects", glm::vec4(1.0f, 0.984f, 0.059f, 1.0f));
+
+	for (auto pipeIt = streamDataByPipeline.begin(); pipeIt != streamDataByPipeline.end(); pipeIt ++)
+	{
+		ResourcePipeline materialPipeline = engine->resources->findPipeline(pipeIt->first);
+
+		cmdBuffer->beginDebugRegion("For pipeline: " + materialPipeline->defUniqueName, glm::vec4(0.18f, 0.94f, 0.94f, 1.0f));
+		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, materialPipeline->pipeline);
 		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVP[0][0]);
 		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::vec3), &cameraPosition.x);
 
-		//double sT = engine->getTime();
-		LevelStaticObjectStreamingData streamData = getStaticObjStreamingData();
-		//printf("Stream took: %fms\n", (engine->getTime() - sT) * 1000.0);
-
 		uint32_t drawCallCount = 0;
-		for (auto mat = streamData.data.begin(); mat != streamData.data.end(); mat ++)
+		for (auto mat = pipeIt->second.begin(); mat != pipeIt->second.end(); mat ++)
 		{
 			ResourceMaterial material = engine->resources->findMaterial(mat->first);
 
@@ -177,10 +189,10 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)
 			cmdBuffer->endDebugRegion();
 		}
 		//printf("Draw calls: %u\n", drawCallCount);
-
 		cmdBuffer->endDebugRegion();
 	}
 
+	cmdBuffer->endDebugRegion();
 	cmdBuffer->endDebugRegion();
 }
 
@@ -269,7 +281,6 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 	engine->renderer->setObjectDebugName(worldStreamingBuffer, OBJECT_TYPE_BUFFER, "LevelStaticObj Streaming Buffer");
 
 	createRenderPasses();
-	createTestMaterialPipeline();
 	createGBuffer();
 
 	terrainRenderer = new TerrainRenderer(engine, world, this);
@@ -316,8 +327,6 @@ void WorldRenderer::destroy ()
 
 	destroyGBuffer();
 
-	engine->renderer->destroyPipeline(defaultMaterialPipeline);
-
 	engine->renderer->destroyRenderPass(gbufferRenderPass);
 
 	engine->renderer->destroyCommandPool(testCommandPool);
@@ -363,134 +372,6 @@ void WorldRenderer::createRenderPasses ()
 	subpass0.depthStencilAttachment = &subpass0_gbufferDepthRef;
 
 	gbufferRenderPass = engine->renderer->createRenderPass({gbufferAlbedoRoughnessAttachment, gbufferNormalMetalnessAttachment, gbufferDepthAttachment}, {subpass0}, {});
-}
-
-const uint32_t ivunt_vertexFormatSize = 44;
-
-void WorldRenderer::createTestMaterialPipeline ()
-{
-	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/defaultMaterial.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/defaultMaterial.glsl", SHADER_STAGE_FRAGMENT_BIT);
-
-	VertexInputBinding meshVertexBindingDesc = {}, instanceVertexBindingDesc = {};
-	meshVertexBindingDesc.binding = 0;
-	meshVertexBindingDesc.stride = ivunt_vertexFormatSize;
-	meshVertexBindingDesc.inputRate = VERTEX_INPUT_RATE_VERTEX;
-
-	instanceVertexBindingDesc.binding = 1;
-	instanceVertexBindingDesc.stride = sizeof(svec4) * 2;
-	instanceVertexBindingDesc.inputRate = VERTEX_INPUT_RATE_INSTANCE;
-
-	PipelineShaderStage vertShaderStage = {};
-	vertShaderStage.entry = "main";
-	vertShaderStage.module = vertShader;
-
-	PipelineShaderStage fragShaderStage = {};
-	fragShaderStage.entry = "main";
-	fragShaderStage.module = fragShader;
-
-	std::vector<VertexInputAttrib> attribDesc = std::vector<VertexInputAttrib>(6);
-	attribDesc[0].binding = 0;
-	attribDesc[0].location = 0;
-	attribDesc[0].format = RESOURCE_FORMAT_R32G32B32_SFLOAT;
-	attribDesc[0].offset = 0;
-
-	attribDesc[1].binding = 0;
-	attribDesc[1].location = 1;
-	attribDesc[1].format = RESOURCE_FORMAT_R32G32_SFLOAT;
-	attribDesc[1].offset = sizeof(glm::vec3);
-
-	attribDesc[2].binding = 0;
-	attribDesc[2].location = 2;
-	attribDesc[2].format = RESOURCE_FORMAT_R32G32B32_SFLOAT;
-	attribDesc[2].offset = sizeof(glm::vec3) + sizeof(glm::vec2);
-
-	attribDesc[3].binding = 0;
-	attribDesc[3].location = 3;
-	attribDesc[3].format = RESOURCE_FORMAT_R32G32B32_SFLOAT;
-	attribDesc[3].offset = sizeof(glm::vec3) + sizeof(glm::vec2) + sizeof(glm::vec3);
-
-	attribDesc[4].binding = 1;
-	attribDesc[4].location = 4;
-	attribDesc[4].format = RESOURCE_FORMAT_R32G32B32A32_SFLOAT;
-	attribDesc[4].offset = 0;
-
-	attribDesc[5].binding = 1;
-	attribDesc[5].location = 5;
-	attribDesc[5].format = RESOURCE_FORMAT_R32G32B32A32_SFLOAT;
-	attribDesc[5].offset = sizeof(svec4);
-
-	PipelineVertexInputInfo vertexInput = {};
-	vertexInput.vertexInputAttribs = attribDesc;
-	vertexInput.vertexInputBindings =
-	{	meshVertexBindingDesc, instanceVertexBindingDesc};
-
-	PipelineInputAssemblyInfo inputAssembly = {};
-	inputAssembly.primitiveRestart = false;
-	inputAssembly.topology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-	PipelineViewportInfo viewportInfo = {};
-	viewportInfo.scissors =
-	{
-		{	0, 0, 1920, 1080}};
-	viewportInfo.viewports =
-	{
-		{	0, 0, 1920, 1080}};
-
-	PipelineRasterizationInfo rastInfo = {};
-	rastInfo.clockwiseFrontFace = false;
-	rastInfo.cullMode = CULL_MODE_BACK_BIT;
-	rastInfo.lineWidth = 1;
-	rastInfo.polygonMode = POLYGON_MODE_FILL;
-	rastInfo.rasterizerDiscardEnable = false;
-
-	PipelineDepthStencilInfo depthInfo = {};
-	depthInfo.enableDepthTest = true;
-	depthInfo.enableDepthWrite = true;
-	depthInfo.minDepthBounds = 0;
-	depthInfo.maxDepthBounds = 1;
-	depthInfo.depthCompareOp = COMPARE_OP_GREATER;
-
-	PipelineColorBlendAttachment colorBlendAttachment = {};
-	colorBlendAttachment.blendEnable = false;
-	colorBlendAttachment.colorWriteMask = COLOR_COMPONENT_R_BIT | COLOR_COMPONENT_G_BIT | COLOR_COMPONENT_B_BIT | COLOR_COMPONENT_A_BIT;
-
-	PipelineColorBlendInfo colorBlend = {};
-	colorBlend.attachments =
-	{	colorBlendAttachment, colorBlendAttachment};
-	colorBlend.logicOpEnable = false;
-	colorBlend.logicOp = LOGIC_OP_COPY;
-	colorBlend.blendConstants[0] = 1.0f;
-	colorBlend.blendConstants[1] = 1.0f;
-	colorBlend.blendConstants[2] = 1.0f;
-	colorBlend.blendConstants[3] = 1.0f;
-
-	PipelineDynamicStateInfo dynamicState = {};
-	dynamicState.dynamicStates =
-	{	DYNAMIC_STATE_VIEWPORT, DYNAMIC_STATE_SCISSOR};
-
-	PipelineInfo info = {};
-	info.stages =
-	{	vertShaderStage, fragShaderStage};
-	info.vertexInputInfo = vertexInput;
-	info.inputAssemblyInfo = inputAssembly;
-	info.viewportInfo = viewportInfo;
-	info.rasterizationInfo = rastInfo;
-	info.depthStencilInfo = depthInfo;
-	info.colorBlendInfo = colorBlend;
-	info.dynamicStateInfo = dynamicState;
-
-	std::vector<DescriptorSetLayoutBinding> layoutBindings;
-	layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
-	layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
-
-	info.inputPushConstantRanges = {{0, sizeof(glm::mat4) + sizeof(glm::vec3), SHADER_STAGE_VERTEX_BIT}};
-	info.inputSetLayouts = {layoutBindings};
-
-	defaultMaterialPipeline = engine->renderer->createGraphicsPipeline(info, gbufferRenderPass, 0);
-
-	engine->renderer->destroyShaderModule(vertShaderStage.module);
-	engine->renderer->destroyShaderModule(fragShaderStage.module);
 }
 
 void WorldRenderer::setGBufferDimensions (suvec2 gbufferDimensions)

@@ -80,7 +80,6 @@
 	{	
 		vec2 texcoords = inUV;
 	
-		/*
 		if (px > -1 && false)
 		{
 			vec3 N = normalize(inNormal);
@@ -117,7 +116,6 @@
 			
 			texcoords = prevTexCoords * weight + currentTexCoords * (1 - weight);
 		}
-		*/
 		
 		albedo_roughness = vec4(texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 0)).rgb, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 2)).r);
 		normal_metalness = vec4(calcNormal(texcoords) * 0.5f + 0.5f, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 3)).r);

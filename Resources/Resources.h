@@ -36,6 +36,7 @@ struct RendererTexture;
 struct RendererTextureView;
 class  RendererDescriptorSet;
 struct RendererSampler;
+struct RendererPipeline;
 
 #include <Rendering/Renderer/RendererEnums.h>
 
@@ -156,6 +157,17 @@ typedef struct ResourceTextureObject
 		RendererTextureView *textureView; // A view for the whole texture, aka a default view
 } *ResourceTexture;
 
+/*
+ * A pipeline resource for rendering materials.
+ */
+typedef struct ResourcePipelineObject
+{
+		std::atomic<bool> dataLoaded; // For multi-threaded loading
+
+		std::string defUniqueName;
+		RendererPipeline *pipeline;
+} *ResourcePipeline;
+
 #define RESOURCE_DEF_MAX_NAME_LENGTH 64
 #define RESOURCE_DEF_MAX_FILE_LENGTH 128
 #define MATERIAL_DEF_MAX_TEXTURE_NUM 5
@@ -163,6 +175,7 @@ typedef struct ResourceTextureObject
 typedef struct ResourceMaterialObject
 {
 		std::string defUniqueName;
+		size_t pipelineHash;
 
 		ResourceTexture textures;
 
@@ -252,7 +265,6 @@ typedef struct ResourcePipelineDefinition
 		bool clockwiseFrontFace;
 		bool backfaceCulling;
 		bool frontfaceCullilng;
-		bool polygonLineMode;
 
 } PipelineDef;
 

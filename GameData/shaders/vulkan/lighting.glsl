@@ -103,7 +103,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		float z_eye = projB / (gbuffer_Depth - projA);
 		float z_eye_old = pushConsts.prjMat.y / (pushConsts.prjMat.x + gbuffer_Depth);
 	
-		vec3 testLightDir = weubo.sunDirection.xzy;
+		vec3 testLightDir = weubo.sunDirection;
 	
 		vec3 at_cameraPosition = vec3(0, 0, max(pushConsts.cameraPosition.y, 1)) / 1000.0f - earthCenter;
 		vec3 at_ray = normalize(inRay.xzy);		
@@ -128,7 +128,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		if (gbuffer_Depth != 0.0f)
 			Rd = calcSkyLighting(gbuffer_AlbedoRoughness.rgb, gbuffer_NormalsMetalness.rgb, normalize(inRay), vec2(gbuffer_AlbedoRoughness.a, gbuffer_NormalsMetalness.a), testLightDir, z_eye);
 		
-		vec3 finalColor = Rd + radiance;
+		vec3 finalColor = Rd * transmittance + radiance;
 
 		out_color = vec4(finalColor, 1);
 		//out_color.rgb = vec3(abs(z_eye - z_eye_old));

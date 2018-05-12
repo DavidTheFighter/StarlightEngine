@@ -45,6 +45,8 @@ ResourceManager::ResourceManager (Renderer *rendererInstance, const std::string 
 	layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
 
 	mainThreadDescriptorPool = renderer->createDescriptorPool(layoutBindings, 16);
+
+	pipelineRenderPass = nullptr;
 }
 
 ResourceManager::~ResourceManager ()
@@ -72,6 +74,7 @@ ResourceMaterial ResourceManager::loadMaterialImmediate (const std::string &defU
 		mat->descriptorSet = mainThreadDescriptorPool->allocateDescriptorSet();
 		mat->sampler = renderer->createSampler(matDef->addressMode, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, matDef->linearFiltering ? SAMPLER_FILTER_LINEAR : SAMPLER_FILTER_NEAREST, 4, {0, 14, 0},
 				matDef->linearMipmapFiltering ? SAMPLER_MIPMAP_MODE_LINEAR : SAMPLER_MIPMAP_MODE_NEAREST);
+		mat->pipelineHash = stringHash(matDef->pipelineUniqueName);
 		renderer->setObjectDebugName(mat->sampler, OBJECT_TYPE_SAMPLER, "Material: " + mat->defUniqueName + " sampler");
 
 		std::vector<std::string> texFiles;
@@ -243,6 +246,254 @@ void ResourceManager::returnStaticMesh (size_t defUniqueNameHash)
 	}
 }
 
+ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defUniqueName)
+{
+	auto it = loadedPipelines.find(stringHash(defUniqueName));
+
+	if (it == loadedPipelines.end())
+	{
+		PipelineDef *pipeDef = getPipelineDef(defUniqueName);
+
+		ResourcePipelineObject *pipe = new ResourcePipelineObject();
+		pipe->dataLoaded = true;
+
+		ShaderModule vertShader = renderer->createShaderModule(workingDir + std::string(pipeDef->vertexShaderFile), SHADER_STAGE_VERTEX_BIT);
+		ShaderModule fragShader = renderer->createShaderModule(workingDir + std::string(pipeDef->fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT);
+
+		ShaderModule tessCtrlShader = nullptr, tessEvalShader = nullptr, geomShader = nullptr;
+
+		if (strlen(pipeDef->tessControlShaderFile) != 0)
+			tessCtrlShader = renderer->createShaderModule(workingDir + std::string(pipeDef->tessControlShaderFile), SHADER_STAGE_TESSELLATION_CONTROL_BIT);
+
+		if (strlen(pipeDef->tessEvalShaderFile) != 0)
+			tessEvalShader = renderer->createShaderModule(workingDir + std::string(pipeDef->tessEvalShaderFile), SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
+
+		if (strlen(pipeDef->geometryShaderFile) != 0)
+			geomShader = renderer->createShaderModule(workingDir + std::string(pipeDef->geometryShaderFile), SHADER_STAGE_GEOMETRY_BIT);
+
+		// If only one of the tessellation stages is present
+		if ((tessCtrlShader != nullptr && tessEvalShader == nullptr) || (tessCtrlShader == nullptr && tessEvalShader != nullptr))
+		{
+			printf("%s Failed to load pipeline: %s, must have both tessellation control and evaluation shaders, not just one\n", INFO_PREFIX, pipeDef->uniqueName);
+			// TODO Handle failed pipeline case more gracefully
+
+			return nullptr;
+		}
+
+		const uint32_t ivunt_vertexFormatSize = 44;
+
+		VertexInputBinding meshVertexBindingDesc = {}, instanceVertexBindingDesc = {};
+		meshVertexBindingDesc.binding = 0;
+		meshVertexBindingDesc.stride = ivunt_vertexFormatSize;
+		meshVertexBindingDesc.inputRate = VERTEX_INPUT_RATE_VERTEX;
+
+		instanceVertexBindingDesc.binding = 1;
+		instanceVertexBindingDesc.stride = sizeof(svec4) * 2;
+		instanceVertexBindingDesc.inputRate = VERTEX_INPUT_RATE_INSTANCE;
+
+		std::vector<VertexInputAttrib> attribDesc = std::vector<VertexInputAttrib>(6);
+		attribDesc[0].binding = 0;
+		attribDesc[0].location = 0;
+		attribDesc[0].format = RESOURCE_FORMAT_R32G32B32_SFLOAT;
+		attribDesc[0].offset = 0;
+
+		attribDesc[1].binding = 0;
+		attribDesc[1].location = 1;
+		attribDesc[1].format = RESOURCE_FORMAT_R32G32_SFLOAT;
+		attribDesc[1].offset = sizeof(glm::vec3);
+
+		attribDesc[2].binding = 0;
+		attribDesc[2].location = 2;
+		attribDesc[2].format = RESOURCE_FORMAT_R32G32B32_SFLOAT;
+		attribDesc[2].offset = sizeof(glm::vec3) + sizeof(glm::vec2);
+
+		attribDesc[3].binding = 0;
+		attribDesc[3].location = 3;
+		attribDesc[3].format = RESOURCE_FORMAT_R32G32B32_SFLOAT;
+		attribDesc[3].offset = sizeof(glm::vec3) + sizeof(glm::vec2) + sizeof(glm::vec3);
+
+		attribDesc[4].binding = 1;
+		attribDesc[4].location = 4;
+		attribDesc[4].format = RESOURCE_FORMAT_R32G32B32A32_SFLOAT;
+		attribDesc[4].offset = 0;
+
+		attribDesc[5].binding = 1;
+		attribDesc[5].location = 5;
+		attribDesc[5].format = RESOURCE_FORMAT_R32G32B32A32_SFLOAT;
+		attribDesc[5].offset = sizeof(svec4);
+
+		PipelineVertexInputInfo vertexInput = {};
+		vertexInput.vertexInputAttribs = attribDesc;
+		vertexInput.vertexInputBindings =
+		{	meshVertexBindingDesc, instanceVertexBindingDesc};
+
+		PipelineInputAssemblyInfo inputAssembly = {};
+		inputAssembly.primitiveRestart = false;
+		inputAssembly.topology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+		PipelineViewportInfo viewportInfo = {};
+		viewportInfo.scissors =
+		{
+			{	0, 0, 1920, 1080}};
+		viewportInfo.viewports =
+		{
+			{	0, 0, 1920, 1080}};
+
+		PipelineRasterizationInfo rastInfo = {};
+		rastInfo.clockwiseFrontFace = pipeDef->clockwiseFrontFace;
+		rastInfo.cullMode = (pipeDef->backfaceCulling ? CULL_MODE_BACK_BIT : 0) | (pipeDef->frontfaceCullilng ? CULL_MODE_FRONT_BIT : 0);
+		rastInfo.lineWidth = 1;
+		rastInfo.polygonMode = POLYGON_MODE_FILL;
+		rastInfo.rasterizerDiscardEnable = false;
+
+		PipelineDepthStencilInfo depthInfo = {};
+		depthInfo.enableDepthTest = true;
+		depthInfo.enableDepthWrite = true;
+		depthInfo.minDepthBounds = 0;
+		depthInfo.maxDepthBounds = 1;
+		depthInfo.depthCompareOp = COMPARE_OP_GREATER;
+
+		PipelineColorBlendAttachment colorBlendAttachment = {};
+		colorBlendAttachment.blendEnable = false;
+		colorBlendAttachment.colorWriteMask = COLOR_COMPONENT_R_BIT | COLOR_COMPONENT_G_BIT | COLOR_COMPONENT_B_BIT | COLOR_COMPONENT_A_BIT;
+
+		PipelineColorBlendInfo colorBlend = {};
+		colorBlend.attachments =
+		{	colorBlendAttachment, colorBlendAttachment};
+		colorBlend.logicOpEnable = false;
+		colorBlend.logicOp = LOGIC_OP_COPY;
+		colorBlend.blendConstants[0] = 1.0f;
+		colorBlend.blendConstants[1] = 1.0f;
+		colorBlend.blendConstants[2] = 1.0f;
+		colorBlend.blendConstants[3] = 1.0f;
+
+		PipelineDynamicStateInfo dynamicState = {};
+		dynamicState.dynamicStates =
+		{	DYNAMIC_STATE_VIEWPORT, DYNAMIC_STATE_SCISSOR};
+
+		PipelineInfo info = {};
+
+		PipelineShaderStage vertShaderStage = {};
+		vertShaderStage.entry = "main";
+		vertShaderStage.module = vertShader;
+
+		PipelineShaderStage fragShaderStage = {};
+		fragShaderStage.entry = "main";
+		fragShaderStage.module = fragShader;
+
+		info.stages =
+		{	vertShaderStage, fragShaderStage};
+
+		if (tessCtrlShader != nullptr)
+		{
+			PipelineShaderStage tessCtrlShaderStage = {};
+			tessCtrlShaderStage.entry = "main";
+			tessCtrlShaderStage.module = tessCtrlShader;
+
+			info.stages.push_back(tessCtrlShaderStage);
+		}
+
+		if (tessEvalShader != nullptr)
+		{
+			PipelineShaderStage tessEvalShaderStage = {};
+			tessEvalShaderStage.entry = "main";
+			tessEvalShaderStage.module = tessEvalShader;
+
+			info.stages.push_back(tessEvalShaderStage);
+
+			info.tessellationInfo.patchControlPoints = 3;
+		}
+
+		if (geomShader != nullptr)
+		{
+			PipelineShaderStage geomShaderStage = {};
+			geomShaderStage.entry = "main";
+			geomShaderStage.module = geomShader;
+
+			info.stages.push_back(geomShaderStage);
+		}
+
+		info.vertexInputInfo = vertexInput;
+		info.inputAssemblyInfo = inputAssembly;
+		info.viewportInfo = viewportInfo;
+		info.rasterizationInfo = rastInfo;
+		info.depthStencilInfo = depthInfo;
+		info.colorBlendInfo = colorBlend;
+		info.dynamicStateInfo = dynamicState;
+
+		std::vector<DescriptorSetLayoutBinding> layoutBindings;
+		layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
+		layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+
+		info.inputPushConstantRanges = {{0, sizeof(glm::mat4) + sizeof(glm::vec3), SHADER_STAGE_VERTEX_BIT}};
+		info.inputSetLayouts = {layoutBindings};
+
+		pipe->pipeline = renderer->createGraphicsPipeline(info, pipelineRenderPass, 0);
+
+		renderer->destroyShaderModule(vertShader);
+		renderer->destroyShaderModule(fragShader);
+
+		if (tessCtrlShader != nullptr)
+			renderer->destroyShaderModule(tessCtrlShader);
+
+		if (tessEvalShader != nullptr)
+			renderer->destroyShaderModule(tessEvalShader);
+
+		if (geomShader != nullptr)
+			renderer->destroyShaderModule(geomShader);
+
+		loadedPipelines[stringHash(defUniqueName)] = std::make_pair(pipe, 1);
+
+		return pipe;
+	}
+	else
+	{
+		it->second.second ++;
+
+		return it->second.first;
+	}
+}
+
+ResourcePipeline ResourceManager::findPipeline (const std::string &defUniqueName)
+{
+	return findPipeline(stringHash(defUniqueName));
+}
+
+ResourcePipeline ResourceManager::findPipeline (size_t defUniqueNameHash)
+{
+	auto it = loadedPipelines.find(defUniqueNameHash);
+
+	return it != loadedPipelines.end() ? it->second.first : nullptr;
+}
+
+void ResourceManager::returnPipeline (const std::string &defUniqueName)
+{
+	returnPipeline(stringHash(defUniqueName));
+}
+
+void ResourceManager::returnPipeline (size_t defUniqueNameHash)
+{
+	auto it = loadedPipelines.find(defUniqueNameHash);
+
+	if (it != loadedPipelines.end())
+	{
+		// Decrement the reference counter
+		it->second.second --;
+
+		// If the reference counter is now zero, then delete the pipeline entirely
+		if (it->second.second == 0)
+		{
+			ResourcePipeline pipeline = it->second.first;
+
+			renderer->destroyPipeline(pipeline->pipeline);
+
+			delete pipeline;
+
+			loadedPipelines.erase(it);
+		}
+	}
+}
+
 void ResourceManager::addLevelDef (const LevelDef &def)
 {
 	LevelDef *levelDef = new LevelDef();
@@ -267,6 +518,14 @@ void ResourceManager::addMeshDef (const StaticMeshDef &def)
 	loadedMeshDefsMap[stringHash(std::string(def.uniqueName))] = meshDef;
 }
 
+void ResourceManager::addPipelineDef (const PipelineDef &def)
+{
+	PipelineDef *pipeDef = new PipelineDef();
+	*pipeDef = def;
+
+	loadedPipelineDefsMap[stringHash(std::string(def.uniqueName))] = pipeDef;
+}
+
 LevelDef *ResourceManager::getLevelDef (const std::string &defUniqueName)
 {
 	return getLevelDef(stringHash(defUniqueName));
@@ -280,6 +539,11 @@ MaterialDef *ResourceManager::getMaterialDef (const std::string &defUniqueName)
 StaticMeshDef *ResourceManager::getMeshDef (const std::string &defUniqueName)
 {
 	return getMeshDef(stringHash(defUniqueName));
+}
+
+PipelineDef *ResourceManager::getPipelineDef (const std::string &defUniqueName)
+{
+	return getPipelineDef(stringHash(defUniqueName));
 }
 
 LevelDef *ResourceManager::getLevelDef (size_t uniqueNameHash)
@@ -307,6 +571,16 @@ StaticMeshDef *ResourceManager::getMeshDef (size_t uniqueNameHash)
 	auto it = loadedMeshDefsMap.find(uniqueNameHash);
 
 	if (it != loadedMeshDefsMap.end())
+		return it->second;
+
+	return nullptr;
+}
+
+PipelineDef *ResourceManager::getPipelineDef (size_t uniqueNameHash)
+{
+	auto it = loadedPipelineDefsMap.find(uniqueNameHash);
+
+	if (it != loadedPipelineDefsMap.end())
 		return it->second;
 
 	return nullptr;
@@ -618,7 +892,7 @@ void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 		}
 
 		// Make sure each texture has the same size
-		if (f > 0 && (fwidth != width || fheight != fheight))
+		if (f > 0 && (fwidth != width || fheight != height))
 		{
 			printf("%s Couldn't load a texture array, one or more don't have consistent dimensions. Files: ", ERR_PREFIX);
 
@@ -789,6 +1063,11 @@ ResourceMeshData ResourceManager::loadRawMeshData (const std::string &file, cons
 	assimpImporter.FreeScene();
 
 	return meshData;
+}
+
+void ResourceManager::setPipelineRenderPass (RendererRenderPass *renderPass)
+{
+	pipelineRenderPass = renderPass;
 }
 
 std::vector<char> ResourceManager::getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData)

@@ -95,10 +95,10 @@ void GameStateInWorld::init ()
 		MaterialDef slate = {};
 		strcpy(slate.uniqueName, "slate");
 		strcpy(slate.pipelineUniqueName, "engine.defaultMaterial");
-		strcpy(slate.textureFiles[0], "GameData/textures/slate/slate-albedo.png");
-		strcpy(slate.textureFiles[1], "GameData/textures/slate/slate-normals.png");
-		strcpy(slate.textureFiles[2], "GameData/textures/slate/slate-roughness.png");
-		strcpy(slate.textureFiles[3], "GameData/textures/slate/slate-metalness.png");
+		strcpy(slate.textureFiles[0], "GameData/textures/terrain/granite1/granite-albedo.png");
+		strcpy(slate.textureFiles[1], "GameData/textures/terrain/granite1/granite-normals.png");
+		strcpy(slate.textureFiles[2], "GameData/textures/terrain/granite1/granite-roughness.png");
+		strcpy(slate.textureFiles[3], "GameData/textures/terrain/granite1/granite-metalness.png");
 		strcpy(slate.textureFiles[4], "");
 
 		slate.enableAnisotropy = true;
@@ -107,6 +107,23 @@ void GameStateInWorld::init ()
 		slate.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
 
 		engine->resources->addMaterialDef(slate);
+	}
+
+	// Setup the default material pipelines
+	{
+		PipelineDef defaultMaterial = {};
+		strcpy(defaultMaterial.uniqueName, "engine.defaultMaterial");
+		strcpy(defaultMaterial.vertexShaderFile, "GameData/shaders/vulkan/defaultMaterial.glsl");
+		strcpy(defaultMaterial.tessControlShaderFile, "");
+		strcpy(defaultMaterial.tessEvalShaderFile, "");
+		strcpy(defaultMaterial.geometryShaderFile, "");
+		strcpy(defaultMaterial.fragmentShaderFile, "GameData/shaders/vulkan/defaultMaterial.glsl");
+
+		defaultMaterial.clockwiseFrontFace = false;
+		defaultMaterial.backfaceCulling = true;
+		defaultMaterial.frontfaceCullilng = false;
+
+		engine->resources->addPipelineDef(defaultMaterial);
 	}
 
 	// Setup a test mesh
@@ -247,6 +264,12 @@ void GameStateInWorld::init ()
 	engine->renderer->setSwapchainTexture(engine->mainWindow, postprocess->postprocessOutputTextureView, worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	presentSampler = engine->renderer->createSampler();
+
+	engine->resources->setPipelineRenderPass(worldRenderer->gbufferRenderPass);
+
+	{
+		engine->resources->loadPipelineImmediate("engine.defaultMaterial");
+	}
 }
 
 void GameStateInWorld::destroy ()
@@ -260,6 +283,8 @@ void GameStateInWorld::destroy ()
 	engine->resources->returnMaterial("slate");
 	engine->resources->returnStaticMesh("bridge");
 	engine->resources->returnStaticMesh("boulder");
+
+	engine->resources->returnPipeline("engine.defaultMaterial");
 
 	delete testGame;
 	delete world->getActiveLevel();
