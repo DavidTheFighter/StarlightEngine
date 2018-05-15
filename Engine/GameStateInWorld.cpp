@@ -95,10 +95,10 @@ void GameStateInWorld::init ()
 		MaterialDef slate = {};
 		strcpy(slate.uniqueName, "slate");
 		strcpy(slate.pipelineUniqueName, "engine.defaultMaterial");
-		strcpy(slate.textureFiles[0], "GameData/textures/terrain/granite1/granite-albedo.png");
-		strcpy(slate.textureFiles[1], "GameData/textures/terrain/granite1/granite-normals.png");
-		strcpy(slate.textureFiles[2], "GameData/textures/terrain/granite1/granite-roughness.png");
-		strcpy(slate.textureFiles[3], "GameData/textures/terrain/granite1/granite-metalness.png");
+		strcpy(slate.textureFiles[0], "GameData/textures/slate/slate-albedo.png");
+		strcpy(slate.textureFiles[1], "GameData/textures/slate/slate-normals.png");
+		strcpy(slate.textureFiles[2], "GameData/textures/slate/slate-roughness.png");
+		strcpy(slate.textureFiles[3], "GameData/textures/slate/slate-metalness.png");
 		strcpy(slate.textureFiles[4], "");
 
 		slate.enableAnisotropy = true;
@@ -118,10 +118,12 @@ void GameStateInWorld::init ()
 		strcpy(defaultMaterial.tessEvalShaderFile, "");
 		strcpy(defaultMaterial.geometryShaderFile, "");
 		strcpy(defaultMaterial.fragmentShaderFile, "GameData/shaders/vulkan/defaultMaterial.glsl");
+		strcpy(defaultMaterial.shadows_fragmentShaderFile, "GameData/shaders/vulkan/default-material-shadows.frag.glsl");
 
 		defaultMaterial.clockwiseFrontFace = false;
 		defaultMaterial.backfaceCulling = true;
 		defaultMaterial.frontfaceCullilng = false;
+		defaultMaterial.canRenderDepth = true;
 
 		engine->resources->addPipelineDef(defaultMaterial);
 	}
@@ -187,9 +189,9 @@ void GameStateInWorld::init ()
 
 	std::vector<LevelStaticObject> testObjs;
 
-	for (size_t i = 0; i < 8; i ++)
+	for (size_t i = 0; i < 64; i ++)
 	{
-		testObjInstance.position_scale = {(float) (rand() % 1024), (float) (rand() % 8), (float) (rand() % 1024), 1.0f};
+		testObjInstance.position_scale = {(float) (rand() % 4096), (float) (rand() % 8), (float) (rand() % 4096), 1.0f};
 		testObjInstance.rotation = {0, 0, 0, 1};
 
 		testObjs.push_back(testObjInstance);
@@ -204,7 +206,7 @@ void GameStateInWorld::init ()
 	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("slate");
 	testObjType.meshDefUniqueNameHash = std::hash<std::string> {} ("boulder");
 
-	for (size_t i = 0; i < 8; i ++)
+	for (size_t i = 0; i < 64; i ++)
 	{
 		testObjInstance.position_scale = {(float) (rand() % 1024) + 1024.0f, (float) (rand() % 8), (float) (rand() % 1024), 8.0f};
 		testObjInstance.rotation = {0, 0, 0, 1};
@@ -265,7 +267,7 @@ void GameStateInWorld::init ()
 
 	presentSampler = engine->renderer->createSampler();
 
-	engine->resources->setPipelineRenderPass(worldRenderer->gbufferRenderPass);
+	engine->resources->setPipelineRenderPass(worldRenderer->gbufferRenderPass, worldRenderer->shadowsRenderPass);
 
 	{
 		engine->resources->loadPipelineImmediate("engine.defaultMaterial");

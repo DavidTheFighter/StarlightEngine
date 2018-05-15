@@ -34,9 +34,13 @@
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/World/TerrainRenderer.h>
 
+#include <Game/API/SEAPI.h>
+
 #include <World/WorldHandler.h>
 
 #include <Resources/ResourceManager.h>
+
+#include <frustum.h>
 
 WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr)
 {
@@ -93,10 +97,23 @@ void WorldRenderer::render3DWorld ()
 	cmdBuffer->setScissors(0, {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}});
 	cmdBuffer->setViewports(0, {{0, 0, (float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 0.0f, 1.0f}});
 
-	renderWorldStaticMeshes(cmdBuffer);
+	renderWorldStaticMeshes(cmdBuffer, camProjMat * camViewMat, false);
 	terrainRenderer->renderTerrain(cmdBuffer);
 
 	cmdBuffer->endRenderPass();
+
+	clearValues[2].depthStencil = {1, 0};
+
+	cmdBuffer->beginRenderPass(shadowsRenderPass, shadowsFramebuffer, {0, 0, 4096, 4096}, {clearValues[2]}, SUBPASS_CONTENTS_INLINE);
+	cmdBuffer->setScissors(0, {{0, 0, 4096, 4096}});
+	cmdBuffer->setViewports(0, {{0, 0, 4096.0f, 4096.0f, 0.0f, 1.0f}});
+
+	glm::mat4 sunProj = glm::ortho<float>(-8, 8, 8, -8, -8, 8);
+	glm::mat4 sunView = glm::lookAt(cameraPosition + engine->api->getSunDirection(), cameraPosition, glm::vec3(0, 1, 0));
+
+	renderWorldStaticMeshes(cmdBuffer, sunProj * sunView, true);
+
+	cmdBuffer->endRenderPass ();
 
 	cmdBuffer->endCommands();
 
@@ -114,14 +131,14 @@ void WorldRenderer::render3DWorld ()
 	testCommandPool->freeCommandBuffer(cmdBuffer);
 }
 
-void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)
+void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4 camMVPMat, bool renderDepth)
 {
-	glm::mat4 camMVP = camProjMat * camViewMat;
-
 	cmdBuffer->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
 
 	//double sT = engine->getTime();
-	LevelStaticObjectStreamingData streamData = getStaticObjStreamingData();
+	glm::vec4 frustum[6];
+	getFrustum(camMVPMat, frustum);
+	LevelStaticObjectStreamingData streamData = getStaticObjStreamingData(frustum);
 	//printf("Stream took: %fms\n", (engine->getTime() - sT) * 1000.0);
 
 	std::map<size_t, LevelStaticObjectStreamingDataHierarchy> streamDataByPipeline;
@@ -140,8 +157,8 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)
 		ResourcePipeline materialPipeline = engine->resources->findPipeline(pipeIt->first);
 
 		cmdBuffer->beginDebugRegion("For pipeline: " + materialPipeline->defUniqueName, glm::vec4(0.18f, 0.94f, 0.94f, 1.0f));
-		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, materialPipeline->pipeline);
-		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVP[0][0]);
+		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, renderDepth ? materialPipeline->depthPipeline : materialPipeline->pipeline);
+		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVPMat[0][0]);
 		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::vec3), &cameraPosition.x);
 
 		uint32_t drawCallCount = 0;
@@ -196,8 +213,11 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer)
 	cmdBuffer->endDebugRegion();
 }
 
-void WorldRenderer::traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data)
+void WorldRenderer::traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data, const glm::vec4 (&frustum)[6])
 {
+	if (!cubeVisible(node.cellBB.getCenter(), LEVEL_CELL_SIZE / 2.0f, frustum))
+		return;
+
 	for (size_t i = 0; i < node.objectList.size(); i ++)
 	{
 		const LevelStaticObjectType &objType = node.objectList[i].first;
@@ -223,9 +243,7 @@ void WorldRenderer::traverseOctreeNode (SortedOctree<LevelStaticObjectType, Leve
 		}
 
 		if (lod == -1)
-		{
 			continue;
-		}
 
 		// If there's no mesh data for this material, we need to do some special setup for it
 		auto &materialList = data.data[objType.materialDefUniqueNameHash];
@@ -250,18 +268,18 @@ void WorldRenderer::traverseOctreeNode (SortedOctree<LevelStaticObjectType, Leve
 	{
 		if (node.activeChildren & (1 << a))
 		{
-			traverseOctreeNode(*node.children[a], data);
+			traverseOctreeNode(*node.children[a], data, frustum);
 		}
 	}
 }
 
-LevelStaticObjectStreamingData WorldRenderer::getStaticObjStreamingData ()
+LevelStaticObjectStreamingData WorldRenderer::getStaticObjStreamingData (const glm::vec4 (&frustum)[6])
 {
 	LevelStaticObjectStreamingData data = {};
 
 	for (size_t i = 0; i < world->getActiveLevelData()->activeStaticObjectCells.size(); i ++)
 	{
-		traverseOctreeNode(world->getActiveLevelData()->activeStaticObjectCells[i], data);
+		traverseOctreeNode(world->getActiveLevelData()->activeStaticObjectCells[i], data, frustum);
 	}
 
 	return data;
@@ -282,6 +300,11 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 
 	createRenderPasses();
 	createGBuffer();
+
+	sunShadows = engine->renderer->createTexture({4096, 4096, 1}, RESOURCE_FORMAT_D16_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	sunShadowsView = engine->renderer->createTextureView(sunShadows);
+
+	shadowsFramebuffer = engine->renderer->createFramebuffer(shadowsRenderPass, {sunShadowsView}, 4096, 4096);
 
 	terrainRenderer = new TerrainRenderer(engine, world, this);
 
@@ -327,7 +350,10 @@ void WorldRenderer::destroy ()
 
 	destroyGBuffer();
 
+	engine->renderer->destroyFramebuffer(shadowsFramebuffer);
+
 	engine->renderer->destroyRenderPass(gbufferRenderPass);
+	engine->renderer->destroyRenderPass(shadowsRenderPass);
 
 	engine->renderer->destroyCommandPool(testCommandPool);
 	engine->renderer->destroySampler(testSampler);
@@ -338,40 +364,63 @@ void WorldRenderer::destroy ()
 
 void WorldRenderer::createRenderPasses ()
 {
-	AttachmentDescription gbufferAlbedoRoughnessAttachment = {}, gbufferNormalMetalnessAttachment = {}, gbufferDepthAttachment = {};
-	gbufferAlbedoRoughnessAttachment.format = RESOURCE_FORMAT_R8G8B8A8_UNORM;
-	gbufferAlbedoRoughnessAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-	gbufferAlbedoRoughnessAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	gbufferAlbedoRoughnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
-	gbufferAlbedoRoughnessAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
+	// GBuffer Render Pass
+	{
+		AttachmentDescription gbufferAlbedoRoughnessAttachment = {}, gbufferNormalMetalnessAttachment = {}, gbufferDepthAttachment = {};
+		gbufferAlbedoRoughnessAttachment.format = RESOURCE_FORMAT_R8G8B8A8_UNORM;
+		gbufferAlbedoRoughnessAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
+		gbufferAlbedoRoughnessAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		gbufferAlbedoRoughnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
+		gbufferAlbedoRoughnessAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
 
-	gbufferNormalMetalnessAttachment.format = RESOURCE_FORMAT_A2R10G10B10_UNORM_PACK32;
-	gbufferNormalMetalnessAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-	gbufferNormalMetalnessAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	gbufferNormalMetalnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
-	gbufferNormalMetalnessAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
+		gbufferNormalMetalnessAttachment.format = RESOURCE_FORMAT_A2R10G10B10_UNORM_PACK32;
+		gbufferNormalMetalnessAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
+		gbufferNormalMetalnessAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		gbufferNormalMetalnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
+		gbufferNormalMetalnessAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
 
-	gbufferDepthAttachment.format = RESOURCE_FORMAT_D32_SFLOAT;
-	gbufferDepthAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-	gbufferDepthAttachment.finalLayout = TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-	gbufferDepthAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
-	gbufferDepthAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
+		gbufferDepthAttachment.format = RESOURCE_FORMAT_D32_SFLOAT;
+		gbufferDepthAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
+		gbufferDepthAttachment.finalLayout = TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		gbufferDepthAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
+		gbufferDepthAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
 
-	AttachmentReference subpass0_gbufferAlbedoRoughnessRef = {}, subpass0_gbufferNormalMetalnessRef = {}, subpass0_gbufferDepthRef = {};
-	subpass0_gbufferAlbedoRoughnessRef.attachment = 0;
-	subpass0_gbufferAlbedoRoughnessRef.layout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	subpass0_gbufferNormalMetalnessRef.attachment = 1;
-	subpass0_gbufferNormalMetalnessRef.layout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	subpass0_gbufferDepthRef.attachment = 2;
-	subpass0_gbufferDepthRef.layout = TEXTURE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		AttachmentReference subpass0_gbufferAlbedoRoughnessRef = {}, subpass0_gbufferNormalMetalnessRef = {}, subpass0_gbufferDepthRef = {};
+		subpass0_gbufferAlbedoRoughnessRef.attachment = 0;
+		subpass0_gbufferAlbedoRoughnessRef.layout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		subpass0_gbufferNormalMetalnessRef.attachment = 1;
+		subpass0_gbufferNormalMetalnessRef.layout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		subpass0_gbufferDepthRef.attachment = 2;
+		subpass0_gbufferDepthRef.layout = TEXTURE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	SubpassDescription subpass0 = {};
-	subpass0.bindPoint = PIPELINE_BIND_POINT_GRAPHICS;
-	subpass0.colorAttachments =
-	{	subpass0_gbufferAlbedoRoughnessRef, subpass0_gbufferNormalMetalnessRef};
-	subpass0.depthStencilAttachment = &subpass0_gbufferDepthRef;
+		SubpassDescription subpass0 = {};
+		subpass0.bindPoint = PIPELINE_BIND_POINT_GRAPHICS;
+		subpass0.colorAttachments =
+		{	subpass0_gbufferAlbedoRoughnessRef, subpass0_gbufferNormalMetalnessRef};
+		subpass0.depthStencilAttachment = &subpass0_gbufferDepthRef;
 
-	gbufferRenderPass = engine->renderer->createRenderPass({gbufferAlbedoRoughnessAttachment, gbufferNormalMetalnessAttachment, gbufferDepthAttachment}, {subpass0}, {});
+		gbufferRenderPass = engine->renderer->createRenderPass({gbufferAlbedoRoughnessAttachment, gbufferNormalMetalnessAttachment, gbufferDepthAttachment}, {subpass0}, {});
+	}
+
+	// Shadowmaps Render Pass
+	{
+		AttachmentDescription shadowsDepthAttachment = {};
+		shadowsDepthAttachment.format = RESOURCE_FORMAT_D16_UNORM;
+		shadowsDepthAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
+		shadowsDepthAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		shadowsDepthAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
+		shadowsDepthAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
+
+		AttachmentReference subpass0_shadowsDepthRef = {};
+		subpass0_shadowsDepthRef.attachment = 0;
+		subpass0_shadowsDepthRef.layout = TEXTURE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		SubpassDescription subpass0 = {};
+		subpass0.bindPoint = PIPELINE_BIND_POINT_GRAPHICS;
+		subpass0.depthStencilAttachment = &subpass0_shadowsDepthRef;
+
+		shadowsRenderPass = engine->renderer->createRenderPass({shadowsDepthAttachment}, {subpass0}, {});
+	}
 }
 
 void WorldRenderer::setGBufferDimensions (suvec2 gbufferDimensions)

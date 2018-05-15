@@ -45,6 +45,8 @@ typedef struct
 		glm::vec3 sunDirection;	// The direction of the sun
 		float worldTime;		// The time of day in seconds
 		//
+		glm::mat4 sunMVP;
+		//
 } WorldEnvironmentUBO;
 
 /*
@@ -65,6 +67,8 @@ class SEAPI
 		uint64_t getCalendarDate ();
 
 		Buffer getWorldEnvironmentUBO ();
+
+		glm::vec3 getSunDirection ();
 
 		void init ();
 		void update (float delta);

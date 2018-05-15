@@ -76,6 +76,12 @@
 		return tbn * normalize(texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 1)).rgb * 2.0f - 1.0f);
 	}
 
+	vec2 encodeNormal (in vec3 normal)
+	{
+		float p = sqrt(normal.z * 8.0f + 8.0f);
+		return vec2(normal.xy / p + 0.5f);
+	}
+	
 	void main()
 	{	
 		vec2 texcoords = inUV;
@@ -88,14 +94,14 @@
 			mat3 TBN = mat3(T, B, N);
 		
 			vec3 viewDir = normalize(TBN * camPos - TBN * vertex);
-			float height_scale = 0.1f;
+			float height_scale = 0.25f;
 			
 			const float numLayers = 16;
 			float layerDepth = 1 / numLayers;
 			float currentLayerDepth = 0;
 		
 			vec2 P = viewDir.xy * height_scale;
-			vec2 deltaTexCoords = P / numLayers;
+			vec2 deltaTexCoords = P / numLayers * vec2(1, -1);
 		
 			vec2 currentTexCoords = inUV;
 			float currentDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(currentTexCoords, 4)).r;
@@ -118,7 +124,7 @@
 		}
 		
 		albedo_roughness = vec4(texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 0)).rgb, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 2)).r);
-		normal_metalness = vec4(calcNormal(texcoords) * 0.5f + 0.5f, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 3)).r);
+		normal_metalness = vec4(encodeNormal(calcNormal(texcoords)), 1.0f, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 3)).r);
 	}
 
 #endif

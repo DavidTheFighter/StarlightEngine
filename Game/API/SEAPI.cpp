@@ -44,7 +44,6 @@ SEAPI::SEAPI (StarlightEngine *enginePtr)
 
 SEAPI::~SEAPI ()
 {
-
 	
 }
 
@@ -68,9 +67,14 @@ uint64_t SEAPI::getCalendarDate ()
  * Returns a UBO that contains world/environment data. Updated once per frame.
  * DO NOT WRITE TO THIS BUFFER, IT IS FOR READ-ONLY PURPOSES.
  */
-Buffer SEAPI::getWorldEnvironmentUBO()
+Buffer SEAPI::getWorldEnvironmentUBO ()
 {
 	return worldEnvironmentUBO;
+}
+
+glm::vec3 SEAPI::getSunDirection ()
+{
+	return worldEnvironmentUBOData.sunDirection;
 }
 
 void SEAPI::init ()
@@ -87,11 +91,11 @@ void SEAPI::update (float delta)
 		cTime t = {};
 		t.dSeconds = worldEnvironmentUBOData.worldTime;
 		t.iYear = floor(getCalendarDate() / 365.0f);
-		t.iMonth = 3;//floor((getCalendarDate() - t.iYear * 365.0) / 30.0);
-		t.iDay = 22;//floor(getCalendarDate() -  - t.iYear * 365.0 - t.iMonth * 30.0);
+		t.iMonth = 3; //floor((getCalendarDate() - t.iYear * 365.0) / 30.0);
+		t.iDay = 22; //floor(getCalendarDate() -  - t.iYear * 365.0 - t.iMonth * 30.0);
 
 		cLocation loc = {};
-		loc.dLatitude = 0;
+		loc.dLatitude = 15;
 		loc.dLongitude = 90;
 
 		cSunCoordinates coords = {};
@@ -102,8 +106,22 @@ void SEAPI::update (float delta)
 
 		//weData.sunDirection = glm::normalize(glm::vec3(cos(coords.dZenithAngle) * sin(coords.dAzimuth), sin(coords.dZenithAngle), cos(coords.dZenithAngle) * cos(coords.dAzimuth)));
 		//weData.sunDirection = glm::normalize(glm::vec3(sin(coords.dAzimuth), cos(coords.dAzimuth) * cos(coords.dZenithAngle), cos(coords.dAzimuth) * sin(coords.dZenithAngle)));
-		worldEnvironmentUBOData.sunDirection = glm::normalize(glm::vec3(sin(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle), sin(0.5 * M_PI - coords.dZenithAngle), cos(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle)));
+		worldEnvironmentUBOData.sunDirection = glm::normalize(
+				glm::vec3(sin(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle), sin(0.5 * M_PI - coords.dZenithAngle), cos(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle)));
 		//weData.sunDirection = glm::normalize(glm::vec3(-cos(weData.worldTime / float(SECONDS_IN_DAY) * M_PI * 2.0f), sin(weData.worldTime / float(SECONDS_IN_DAY) * M_PI * 2.0f), 0));
+
+		//worldEnvironmentUBOData.sunDirection = glm::normalize(glm::vec3(-1, 1, 0.1f));
+
+		glm::mat4 sunProj = glm::ortho<float>(-8, 8, 8, -8, -8, 8);
+		glm::mat4 sunView = glm::lookAt(Game::instance()->mainCamera.position + engine->api->getSunDirection(), Game::instance()->mainCamera.position, glm::vec3(0, 1, 0));
+
+		glm::vec3 playerLookDir = glm::vec3(cos(Game::instance()->mainCamera.lookAngles.y) * sin(Game::instance()->mainCamera.lookAngles.x), sin(Game::instance()->mainCamera.lookAngles.y), cos(Game::instance()->mainCamera.lookAngles.y) * cos(Game::instance()->mainCamera.lookAngles.x));
+		glm::vec3 playerLookRight = glm::vec3(sin(Game::instance()->mainCamera.lookAngles.x - M_PI * 0.5f), 0, cos(Game::instance()->mainCamera.lookAngles.x - M_PI * 0.5f));
+		glm::vec3 playerLookUp = glm::cross(playerLookRight, playerLookDir);
+
+		glm::mat4 camViewMat = glm::lookAt(Game::instance()->mainCamera.position, Game::instance()->mainCamera.position + playerLookDir, playerLookUp);
+
+		worldEnvironmentUBOData.sunMVP = sunProj * sunView * glm::inverse(camViewMat);
 
 		void *uboDataPtr = engine->renderer->mapBuffer(worldEnvironmentUBO);
 		memcpy(uboDataPtr, &worldEnvironmentUBOData, sizeof(WorldEnvironmentUBO));

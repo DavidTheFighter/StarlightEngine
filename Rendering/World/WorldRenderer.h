@@ -71,10 +71,16 @@ class WorldRenderer
 		RenderPass gbufferRenderPass;
 		Framebuffer gbufferFramebuffer;
 
+		RenderPass shadowsRenderPass;
+		Framebuffer shadowsFramebuffer;
+
 		Texture gbuffer_AlbedoRoughness; // RGB - Albedo, A - Roughness
 		Texture gbuffer_NormalMetalness; // RGB - World Normal, A - Metalness
 		Texture gbuffer_Depth;
 		Sampler testSampler;
+
+		Texture sunShadows;
+		TextureView sunShadowsView;
 
 		StarlightEngine *engine;
 		WorldHandler *world;
@@ -96,20 +102,20 @@ class WorldRenderer
 		void update ();
 
 		void render3DWorld ();
-		void renderWorldStaticMeshes (CommandBuffer &cmdBuffer);
+		void renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4 mvp, bool renderDepth);
 
 		void setGBufferDimensions (suvec2 gbufferDimensions);
 		suvec2 getGBufferDimensions ();
 
 	private:
 
-		void traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data);
+		void traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data, const glm::vec4 (&frustum)[6]);
 
 		void createGBuffer ();
 		void destroyGBuffer ();
 		void createRenderPasses ();
 
-		LevelStaticObjectStreamingData getStaticObjStreamingData ();
+		LevelStaticObjectStreamingData getStaticObjStreamingData (const glm::vec4 (&frustum)[6]);
 
 		bool isDestroyed; // So that when an instance is deleted, destroy() is always called, either by the user or by the destructor
 

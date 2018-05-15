@@ -74,7 +74,7 @@ DeferredRenderer::~DeferredRenderer ()
 		destroy();
 }
 
-uint32_t lightingPcSize = (uint32_t) (sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4) + sizeof(glm::vec2));
+uint32_t lightingPcSize = (uint32_t) (sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4) + sizeof(glm::vec4));
 
 void DeferredRenderer::renderDeferredLighting ()
 {
@@ -88,11 +88,13 @@ void DeferredRenderer::renderDeferredLighting ()
 
 	glm::vec3 playerLookDir = glm::normalize(glm::vec3(cos(game->mainCamera.lookAngles.y) * sin(game->mainCamera.lookAngles.x), sin(game->mainCamera.lookAngles.y), cos(game->mainCamera.lookAngles.y) * cos(game->mainCamera.lookAngles.x)));
 	glm::vec2 prjMat = glm::vec2(worldRenderer->camProjMat[2][2], worldRenderer->camProjMat[3][2]);
+	glm::vec2 aspectRatio_tanHalfFOV = glm::vec2(gbufferSize.x / float(gbufferSize.y), std::tan(60 * (M_PI / 180.0f) * 0.5f));
 
 	seqmemcpy(pushConstData, &invCamMVPMat[0][0], sizeof(glm::mat4), seqOffset);
 	seqmemcpy(pushConstData, &game->mainCamera.position.x, sizeof(glm::vec4), seqOffset);
 	seqmemcpy(pushConstData, &playerLookDir.x, sizeof(glm::vec4), seqOffset);
 	seqmemcpy(pushConstData, &prjMat, sizeof(glm::vec2), seqOffset);
+	seqmemcpy(pushConstData, &aspectRatio_tanHalfFOV, sizeof(glm::vec2), seqOffset);
 
 	CommandBuffer cmdBuffer = deferredCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
 	cmdBuffer->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -141,7 +143,8 @@ void DeferredRenderer::init ()
 		{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT}
+		{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT},
+		{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}}, 1);
 
 	deferredInputDescriptorSet = deferredInputsDescriptorPool->allocateDescriptorSet();
@@ -171,11 +174,15 @@ void DeferredRenderer::init ()
 	irradianceImageInfo.sampler = atmosphereTextureSampler;
 	irradianceImageInfo.view = atmosphere->irradianceTV;
 
+	DescriptorImageInfo testShadowmapImageInfo = {};
+	testShadowmapImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	testShadowmapImageInfo.view = worldRenderer->sunShadowsView;
+
 	DescriptorBufferInfo weuboInfo = {};
 	weuboInfo.buffer = engine->api->getWorldEnvironmentUBO();
 	weuboInfo.range = VK_WHOLE_SIZE;
 
-	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {}, weubowrite = {};
+	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {}, weubowrite = {}, tsmwrite = {};
 	swrite.descriptorCount = 1;
 	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
 	swrite.dstBinding = 0;
@@ -217,7 +224,13 @@ void DeferredRenderer::init ()
 	weubowrite.dstSet = deferredInputDescriptorSet;
 	weubowrite.bufferInfo = {weuboInfo};
 
-	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite, weubowrite});
+	tsmwrite.descriptorCount = 1;
+	tsmwrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	tsmwrite.dstBinding = 9;
+	tsmwrite.dstSet = deferredInputDescriptorSet;
+	tsmwrite.imageInfo = {testShadowmapImageInfo};
+
+	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite, weubowrite, tsmwrite});
 }
 
 void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, TextureView gbuffer_DepthView, suvec2 gbufferDim)
@@ -422,7 +435,8 @@ void DeferredRenderer::createDeferredLightingPipeline ()
 			{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 			{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 			{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT}
+			{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT},
+			{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}};
 
 	deferredPipeline = engine->renderer->createGraphicsPipeline(info, deferredRenderPass, 0);

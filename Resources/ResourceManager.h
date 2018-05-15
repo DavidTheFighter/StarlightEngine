@@ -93,7 +93,7 @@ class ResourceManager
 		StaticMeshDef *getMeshDef (size_t uniqueNameHash);
 		PipelineDef *getPipelineDef (size_t uniqueNameHash);
 
-		void setPipelineRenderPass (RendererRenderPass *renderPass);
+		void setPipelineRenderPass (RendererRenderPass *renderPass, RendererRenderPass *shadowRenderPass);
 
 		static std::vector<char> getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData = true);
 
@@ -105,6 +105,7 @@ class ResourceManager
 		RendererCommandPool *mainThreadTransferCommandPool;
 		RendererDescriptorPool *mainThreadDescriptorPool;
 		RendererRenderPass *pipelineRenderPass;
+		RendererRenderPass *pipelineShadowRenderPass;
 
 		std::map<size_t, MaterialDef*> loadedMaterialDefsMap;
 		//std::vector<MaterialDef*> loadedMaterialDefs;

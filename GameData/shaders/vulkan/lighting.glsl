@@ -6,7 +6,7 @@ layout(push_constant) uniform PushConsts
 	mat4 invCamMVPMat;
 	vec4 cameraPosition;
 	vec4 cameraDir;
-	vec2 prjMat;
+	vec4 prjMat_aspectRatio_tanHalfFOV;
 	
 } pushConsts;
 
@@ -15,13 +15,14 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	vec3 sunDirection;
 	float worldTime;
 	//
-	
+	mat4 sunMVP;
 } weubo;
 
 #ifdef SHADER_STAGE_VERTEX
 
 	layout(location = 0) out vec2 outUV;
 	layout(location = 1) out vec3 at_ray;
+	layout(location = 2) out vec2 outViewRay;
 
 	out gl_PerVertex
 	{
@@ -42,6 +43,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	{	
 		gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
 		at_ray = (pushConsts.invCamMVPMat * vec4(positions[gl_VertexIndex], 0, 1)).xyz;
+		outViewRay = vec2(positions[gl_VertexIndex].x * pushConsts.prjMat_aspectRatio_tanHalfFOV.z * pushConsts.prjMat_aspectRatio_tanHalfFOV.w, -positions[gl_VertexIndex].y * pushConsts.prjMat_aspectRatio_tanHalfFOV.w);
 		
 		outUV = positions[gl_VertexIndex] * 0.5f + 0.5f;		
 	}
@@ -55,6 +57,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 
 	layout(location = 0) in vec2 inUV;
 	layout(location = 1) in vec3 inRay;
+	layout(location = 2) in vec2 inViewRay;
 
 	layout(set = 0, binding = 0) uniform sampler inputSampler;
 	layout(set = 0, binding = 1) uniform texture2D gbuffer_AlbedoRoughnessTexture; // rgb - albedo, a - roughness
@@ -64,6 +67,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	layout(set = 0, binding = 5) uniform sampler3D SCATTERING_TEXTURE_NAME;
 	layout(set = 0, binding = 6) uniform sampler3D SINGLE_MIE_SCATTERING_TEXTURE_NAME;
 	layout(set = 0, binding = 7) uniform sampler2D IRRADIANCE_TEXTURE_NAME;
+	layout(set = 0, binding = 9) uniform texture2D testShadowMap;
 
 	
 
@@ -77,7 +81,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	//	vec3 BRDF_Diffuse (in vec3 normal, in vec3 view, in vec3 lightDir, in vec3 Kalbedo, in vec3 Kspecular, in float Kr, in float lightOcclusion)
 
 	
-	vec3 calcSkyLighting (in vec3 albedo, in vec3 normal, in vec3 viewDir, in vec2 KrKm, in vec3 lightDir, in float depth);
+	vec3 calcSkyLighting (in vec3 albedo, in vec3 normal, in vec3 viewDir, in vec2 KrKm, in vec3 lightDir, in float depth, in float sunOcclusion);
 	vec3 BRDF_CookTorrance (in vec3 normal, in vec3 view, in vec3 lightDir, in vec3 Kspecular, in float Kr);
 	
 	const vec3 earthCenter = vec3(0, 0, -ATMOSPHERE.bottom_radius);
@@ -86,6 +90,15 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	
 	const float sunSize = 0.9999f;
 	
+	vec3 decodeNormal (in vec2 enc)
+	{
+		vec2 fenc = enc * 4.0f - 2.0f;
+		float f = dot(fenc, fenc);
+		float g = sqrt(1.0f - f / 4.0f);
+		
+		return vec3(fenc * g, 1.0f - f * 0.5f);
+	}
+	
 	void main()
 	{	
 		vec4  gbuffer_AlbedoRoughness = texture(sampler2D(gbuffer_AlbedoRoughnessTexture, inputSampler), inUV);
@@ -93,7 +106,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		float gbuffer_Depth = texture(sampler2D(gbuffer_DepthTexture, inputSampler), inUV).x;
 		
 		// Normals are packed [0,1] in the gbuffer, need to put them back to [-1,1]
-		gbuffer_NormalsMetalness.xyz = normalize(gbuffer_NormalsMetalness.xyz * 2.0f - 1.0f);
+		gbuffer_NormalsMetalness.xyz = decodeNormal(gbuffer_NormalsMetalness.xy);//normalize(gbuffer_NormalsMetalness.xyz * 2.0f - 1.0f);
 		
 		const float nearClip = 100000.0f;
 		const float farClip = 0.1f;
@@ -101,7 +114,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		float projA = farClip / (farClip - nearClip);
 		float projB = (-farClip * nearClip) / (farClip - nearClip);
 		float z_eye = projB / (gbuffer_Depth - projA);
-		float z_eye_old = pushConsts.prjMat.y / (pushConsts.prjMat.x + gbuffer_Depth);
+		float z_eye_old = pushConsts.prjMat_aspectRatio_tanHalfFOV.y / (pushConsts.prjMat_aspectRatio_tanHalfFOV.x + gbuffer_Depth);
 	
 		vec3 testLightDir = weubo.sunDirection;
 	
@@ -124,18 +137,27 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 			radiance += transmittance * GetSolarLuminance() * 1e-3 * 1e-3;
 			
 		vec3 Rd = vec3(0);
-
+		float sunOcclusion = 0;
+		
+		vec4 shadowCoord = weubo.sunMVP * vec4(vec3(inViewRay, -1) * z_eye, 1);
+		float bias = clamp(0.005 * tan(acos(max(dot(testLightDir, gbuffer_NormalsMetalness.xyz), 0))), 0, 0.01f);
+		
+		if (texture(sampler2D(testShadowMap, inputSampler), shadowCoord.xy * 0.5f + 0.5f).r < shadowCoord.z - 0.005f)
+		{
+			sunOcclusion = 1;
+		}
+		
 		if (gbuffer_Depth != 0.0f)
-			Rd = calcSkyLighting(gbuffer_AlbedoRoughness.rgb, gbuffer_NormalsMetalness.rgb, normalize(inRay), vec2(gbuffer_AlbedoRoughness.a, gbuffer_NormalsMetalness.a), testLightDir, z_eye);
+			Rd = calcSkyLighting(gbuffer_AlbedoRoughness.rgb, gbuffer_NormalsMetalness.rgb, normalize(inRay), vec2(gbuffer_AlbedoRoughness.a, gbuffer_NormalsMetalness.a), testLightDir, z_eye, sunOcclusion);
 		
 		vec3 finalColor = Rd * transmittance + radiance;
-
+		
 		out_color = vec4(finalColor, 1);
 		//out_color.rgb = vec3(abs(z_eye - z_eye_old));
 	}
 	
 	//100000.0f, 0.1f
-	vec3 calcSkyLighting (in vec3 albedo, in vec3 normal, in vec3 viewDir, in vec2 KrKm, in vec3 lightDir, in float depth)
+	vec3 calcSkyLighting (in vec3 albedo, in vec3 normal, in vec3 viewDir, in vec2 KrKm, in vec3 lightDir, in float depth, in float sunOcclusion)
 	{
 		vec3 at_cameraPosition = vec3(0, 0, max(pushConsts.cameraPosition.y, 1)) / 1000.0f - earthCenter;
 		vec3 at_ray = normalize(inRay.xzy);		
@@ -151,7 +173,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		vec3  Kambient  = albedo * sky_irradiance * 1e-3 / PI;
 		vec3  Kspecular = mix(vec3(1.0f - Kr) * 0.18f + 0.04f, albedo, smoothstep(0.2f, 0.45f, Km));
 
-		vec3 Ralbedo   = Kalbedo * max(0.0f, dot(normal, lightDir)) * (vec3(1) - Kspecular);
+		vec3 Ralbedo   = Kalbedo * max(0.0f, dot(normal, lightDir)) * (vec3(1) - Kspecular) * (1.0f - sunOcclusion);
 		vec3 Rambient  = Kambient * 0.25f + albedo * 2.5f;
 		vec3 Rspecular = BRDF_CookTorrance(normal, viewDir, lightDir, Kspecular, Kr);
 		
@@ -163,7 +185,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	
 	vec3 f_shlick (in vec3 F0, in float NdotV)
 	{
-		return F0 + (vec3(1.0f) - F0) * pow(1.0f - NdotV, 5);
+		return F0 + (vec3(1.0f) - F0) * pow(1.0f - max(NdotV, 0), 5);
 	}
 	
 	float g_smith_shlick_beckmann (in float NdotV, in float NdotL, in float Kr)

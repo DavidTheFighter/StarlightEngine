@@ -166,11 +166,12 @@ typedef struct ResourcePipelineObject
 
 		std::string defUniqueName;
 		RendererPipeline *pipeline;
+		RendererPipeline *depthPipeline;	// For rendering depth (shadow mapping)
 } *ResourcePipeline;
 
 #define RESOURCE_DEF_MAX_NAME_LENGTH 64
 #define RESOURCE_DEF_MAX_FILE_LENGTH 128
-#define MATERIAL_DEF_MAX_TEXTURE_NUM 5
+#define MATERIAL_DEF_MAX_TEXTURE_NUM 8
 
 typedef struct ResourceMaterialObject
 {
@@ -259,12 +260,21 @@ typedef struct ResourcePipelineDefinition
 		char fragmentShaderFile[RESOURCE_DEF_MAX_FILE_LENGTH];
 
 		/*
+		 * The fragment shader used while rendering depth to shadow maps. Can be the same as the
+		 * normal one, as the PIPELINE_SHADOWS macro is defined while compiling the pipeline for
+		 * rendering shadows.
+		 */
+		char shadows_fragmentShaderFile[RESOURCE_DEF_MAX_FILE_LENGTH];
+
+		/*
 		 * The list of pipeline options, such as face culling.
 		 */
 
 		bool clockwiseFrontFace;
 		bool backfaceCulling;
 		bool frontfaceCullilng;
+
+		bool canRenderDepth;
 
 } PipelineDef;
 

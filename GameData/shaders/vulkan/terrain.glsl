@@ -251,6 +251,12 @@
 		return ttexX * blend.x + ttexY * blend.y + ttexZ * blend.z;
 	}
 
+	vec2 encodeNormal (in vec3 normal)
+	{
+		float p = sqrt(normal.z * 8.0f + 8.0f);
+		return vec2(normal.xy / p + 0.5f);
+	}
+	
 	void main()
 	{
 		//vec3 inNormal = vec3(0, 1, 0);
@@ -309,7 +315,7 @@
 		float h = clamp(dot(fragNormal, normalize(vec3(0.5f, 0.5f, 0))), 0.3f, 1.0f);
 		
 		albedo_roughness = vec4(malbedo, mroughness);
-		normal_metalness = vec4(fragNormal * 0.5f + 0.5f, mmetalness);
+		normal_metalness = vec4(encodeNormal(fragNormal), 0, mmetalness);
 	}
 
 #endif

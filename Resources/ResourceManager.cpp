@@ -47,6 +47,7 @@ ResourceManager::ResourceManager (Renderer *rendererInstance, const std::string 
 	mainThreadDescriptorPool = renderer->createDescriptorPool(layoutBindings, 16);
 
 	pipelineRenderPass = nullptr;
+	pipelineShadowRenderPass = nullptr;
 }
 
 ResourceManager::~ResourceManager ()
@@ -381,6 +382,7 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 		fragShaderStage.entry = "main";
 		fragShaderStage.module = fragShader;
 
+		// Note if you change the index of the frag shader, replace the index in if (pipeDef->canRenderDepth) {..}
 		info.stages =
 		{	vertShaderStage, fragShaderStage};
 
@@ -429,6 +431,21 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 		info.inputSetLayouts = {layoutBindings};
 
 		pipe->pipeline = renderer->createGraphicsPipeline(info, pipelineRenderPass, 0);
+		pipe->depthPipeline = nullptr;
+
+		if (pipeDef->canRenderDepth)
+		{
+			ShaderModule shadowFragShader = renderer->createShaderModule(workingDir + std::string(pipeDef->shadows_fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT);
+			fragShaderStage.module = shadowFragShader;
+
+			// Should probably do this better
+			info.stages[1].module = shadowFragShader;
+			info.depthStencilInfo.depthCompareOp = COMPARE_OP_LESS;
+
+			pipe->depthPipeline = renderer->createGraphicsPipeline(info, pipelineShadowRenderPass, 0);
+
+			renderer->destroyShaderModule(shadowFragShader);
+		}
 
 		renderer->destroyShaderModule(vertShader);
 		renderer->destroyShaderModule(fragShader);
@@ -486,6 +503,7 @@ void ResourceManager::returnPipeline (size_t defUniqueNameHash)
 			ResourcePipeline pipeline = it->second.first;
 
 			renderer->destroyPipeline(pipeline->pipeline);
+			renderer->destroyPipeline(pipeline->depthPipeline);
 
 			delete pipeline;
 
@@ -912,7 +930,7 @@ void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 	StagingBuffer stagingBuffer = renderer->createStagingBuffer(textureData[0].size());
 
 	tex->mipmapLevels = (uint32_t) glm::floor(glm::log2(glm::max<float>(width, height))) + 1;
-	tex->texture = renderer->createTexture({(float) width, (float) height, 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_SRC_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels, tex->files.size());
+	tex->texture = renderer->createTexture({(float) width, (float) height, 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_SRC_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels, textureData.size());
 
 	for (uint32_t f = 0; f < tex->files.size(); f ++)
 	{
@@ -1065,9 +1083,10 @@ ResourceMeshData ResourceManager::loadRawMeshData (const std::string &file, cons
 	return meshData;
 }
 
-void ResourceManager::setPipelineRenderPass (RendererRenderPass *renderPass)
+void ResourceManager::setPipelineRenderPass (RendererRenderPass *renderPass, RendererRenderPass *shadowRenderPass)
 {
 	pipelineRenderPass = renderPass;
+	pipelineShadowRenderPass = shadowRenderPass;
 }
 
 std::vector<char> ResourceManager::getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData)
