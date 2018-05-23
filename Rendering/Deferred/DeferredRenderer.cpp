@@ -35,6 +35,7 @@
 
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/World/WorldRenderer.h>
+#include <Rendering/World/CSM.h>
 #include <Rendering/Deferred/AtmosphereRenderer.h>
 
 #include <Game/API/SEAPI.h>
@@ -133,6 +134,7 @@ void DeferredRenderer::init ()
 	deferredCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
 	deferredInputsSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST);
 	atmosphereTextureSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_LINEAR, SAMPLER_FILTER_LINEAR);
+	shadowsSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_LINEAR, SAMPLER_FILTER_LINEAR);
 
 	deferredInputsDescriptorPool = engine->renderer->createDescriptorPool({{
 		{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
@@ -144,7 +146,8 @@ void DeferredRenderer::init ()
 		{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT},
-		{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+		{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{10, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}}, 1);
 
 	deferredInputDescriptorSet = deferredInputsDescriptorPool->allocateDescriptorSet();
@@ -176,13 +179,18 @@ void DeferredRenderer::init ()
 
 	DescriptorImageInfo testShadowmapImageInfo = {};
 	testShadowmapImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	testShadowmapImageInfo.view = worldRenderer->sunShadowsView;
+	testShadowmapImageInfo.view = worldRenderer->sunCSM->getCSMTextureView();
 
 	DescriptorBufferInfo weuboInfo = {};
 	weuboInfo.buffer = engine->api->getWorldEnvironmentUBO();
 	weuboInfo.range = VK_WHOLE_SIZE;
 
-	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {}, weubowrite = {}, tsmwrite = {};
+	DescriptorImageInfo shadowSamplerImageInfo = {};
+	shadowSamplerImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	shadowSamplerImageInfo.sampler = shadowsSampler;
+	shadowSamplerImageInfo.view = worldRenderer->sunCSM->getCSMTextureView();
+
+	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {}, weubowrite = {}, tsmwrite = {}, shadowSamplerWrite = {};
 	swrite.descriptorCount = 1;
 	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
 	swrite.dstBinding = 0;
@@ -230,7 +238,14 @@ void DeferredRenderer::init ()
 	tsmwrite.dstSet = deferredInputDescriptorSet;
 	tsmwrite.imageInfo = {testShadowmapImageInfo};
 
-	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite, weubowrite, tsmwrite});
+	shadowSamplerWrite.descriptorCount = 1;
+	shadowSamplerWrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	shadowSamplerWrite.dstBinding = 10;
+	shadowSamplerWrite.dstSet = deferredInputDescriptorSet;
+	shadowSamplerWrite.imageInfo =
+	{	shadowSamplerImageInfo};
+
+	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite, weubowrite, tsmwrite, shadowSamplerWrite});
 }
 
 void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, TextureView gbuffer_DepthView, suvec2 gbufferDim)
@@ -297,8 +312,11 @@ void DeferredRenderer::destroy ()
 	destroyed = true;
 
 	engine->renderer->destroyDescriptorPool(deferredInputsDescriptorPool);
+
 	engine->renderer->destroySampler(deferredInputsSampler);
 	engine->renderer->destroySampler(atmosphereTextureSampler);
+	engine->renderer->destroySampler(shadowsSampler);
+
 	engine->renderer->destroyTexture(deferredOutput);
 	engine->renderer->destroyTextureView(deferredOutputView);
 
@@ -436,7 +454,8 @@ void DeferredRenderer::createDeferredLightingPipeline ()
 			{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 			{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 			{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT},
-			{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+			{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{10, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}};
 
 	deferredPipeline = engine->renderer->createGraphicsPipeline(info, deferredRenderPass, 0);

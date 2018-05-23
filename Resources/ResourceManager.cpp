@@ -439,6 +439,7 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 			fragShaderStage.module = shadowFragShader;
 
 			// Should probably do this better
+			info.rasterizationInfo.clockwiseFrontFace = !info.rasterizationInfo.clockwiseFrontFace;
 			info.stages[1].module = shadowFragShader;
 			info.depthStencilInfo.depthCompareOp = COMPARE_OP_LESS;
 

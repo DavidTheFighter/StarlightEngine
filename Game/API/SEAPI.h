@@ -36,6 +36,7 @@
 
 class StarlightEngine;
 class Game;
+class WorldRenderer;
 
 /*
  * Contains general data about the world/environment
@@ -45,7 +46,7 @@ typedef struct
 		glm::vec3 sunDirection;	// The direction of the sun
 		float worldTime;		// The time of day in seconds
 		//
-		glm::mat4 sunMVP;
+		glm::mat4 sunMVPs[3];
 		//
 } WorldEnvironmentUBO;
 
@@ -73,9 +74,12 @@ class SEAPI
 		void init ();
 		void update (float delta);
 
+		void setWorldRendererPtr (WorldRenderer *worldRendererPtr);
+
 	private:
 
 		StarlightEngine *engine;
+		WorldRenderer *worldRenderer;
 
 		WorldEnvironmentUBO worldEnvironmentUBOData;
 		Buffer worldEnvironmentUBO;

@@ -1,6 +1,8 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+#define SUN_CSM_COUNT 3
+
 layout(push_constant) uniform PushConsts
 {
 	mat4 invCamMVPMat;
@@ -15,7 +17,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	vec3 sunDirection;
 	float worldTime;
 	//
-	mat4 sunMVP;
+	mat4 sunMVPs[SUN_CSM_COUNT];
 } weubo;
 
 #ifdef SHADER_STAGE_VERTEX
@@ -67,7 +69,8 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	layout(set = 0, binding = 5) uniform sampler3D SCATTERING_TEXTURE_NAME;
 	layout(set = 0, binding = 6) uniform sampler3D SINGLE_MIE_SCATTERING_TEXTURE_NAME;
 	layout(set = 0, binding = 7) uniform sampler2D IRRADIANCE_TEXTURE_NAME;
-	layout(set = 0, binding = 9) uniform texture2D testShadowMap;
+	layout(set = 0, binding = 9) uniform texture2DArray testShadowMap;
+	layout(set = 0, binding = 10) uniform sampler2DArray shadowmapSampler;
 
 	
 
@@ -81,7 +84,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	//	vec3 BRDF_Diffuse (in vec3 normal, in vec3 view, in vec3 lightDir, in vec3 Kalbedo, in vec3 Kspecular, in float Kr, in float lightOcclusion)
 
 	
-	vec3 calcSkyLighting (in vec3 albedo, in vec3 normal, in vec3 viewDir, in vec2 KrKm, in vec3 lightDir, in float depth, in float sunOcclusion);
+	vec3 calcSkyLighting (in vec3 albedo, in vec3 normal, in vec3 viewDir, in vec2 KrKm, in vec3 lightDir, in float depth, in float sunOcclusion, in float ambientOcclusion);
 	vec3 BRDF_CookTorrance (in vec3 normal, in vec3 view, in vec3 lightDir, in vec3 Kspecular, in float Kr);
 	
 	const vec3 earthCenter = vec3(0, 0, -ATMOSPHERE.bottom_radius);
@@ -99,11 +102,14 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		return vec3(fenc * g, 1.0f - f * 0.5f);
 	}
 	
+	float getSunOcclusion (in vec3 viewPos);
+	
 	void main()
 	{	
 		vec4  gbuffer_AlbedoRoughness = texture(sampler2D(gbuffer_AlbedoRoughnessTexture, inputSampler), inUV);
 		vec4  gbuffer_NormalsMetalness = texture(sampler2D(gbuffer_NormalsMetalnessTexture, inputSampler), inUV);
 		float gbuffer_Depth = texture(sampler2D(gbuffer_DepthTexture, inputSampler), inUV).x;
+		float gbuffer_AO = gbuffer_NormalsMetalness.z;
 		
 		// Normals are packed [0,1] in the gbuffer, need to put them back to [-1,1]
 		gbuffer_NormalsMetalness.xyz = decodeNormal(gbuffer_NormalsMetalness.xy);//normalize(gbuffer_NormalsMetalness.xyz * 2.0f - 1.0f);
@@ -137,27 +143,22 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 			radiance += transmittance * GetSolarLuminance() * 1e-3 * 1e-3;
 			
 		vec3 Rd = vec3(0);
-		float sunOcclusion = 0;
-		
-		vec4 shadowCoord = weubo.sunMVP * vec4(vec3(inViewRay, -1) * z_eye, 1);
-		float bias = clamp(0.005 * tan(acos(max(dot(testLightDir, gbuffer_NormalsMetalness.xyz), 0))), 0, 0.01f);
-		
-		if (texture(sampler2D(testShadowMap, inputSampler), shadowCoord.xy * 0.5f + 0.5f).r < shadowCoord.z - 0.005f)
-		{
-			sunOcclusion = 1;
-		}
-		
+		float sunOcclusion = getSunOcclusion(vec3(inViewRay, -1) * z_eye);
+				
 		if (gbuffer_Depth != 0.0f)
-			Rd = calcSkyLighting(gbuffer_AlbedoRoughness.rgb, gbuffer_NormalsMetalness.rgb, normalize(inRay), vec2(gbuffer_AlbedoRoughness.a, gbuffer_NormalsMetalness.a), testLightDir, z_eye, sunOcclusion);
+			Rd = calcSkyLighting(gbuffer_AlbedoRoughness.rgb, gbuffer_NormalsMetalness.rgb, normalize(inRay), vec2(gbuffer_AlbedoRoughness.a, gbuffer_NormalsMetalness.a), testLightDir, z_eye, sunOcclusion, gbuffer_AO);
 		
 		vec3 finalColor = Rd * transmittance + radiance;
+		
+		//if (inUV.x < 0.25 && inUV.y < 0.25)
+		//	finalColor = abs(texture(sampler2D(testShadowMap, inputSampler), inUV * 4.0f).r - 1) > 0 ? vec3(10) : vec3(0);
 		
 		out_color = vec4(finalColor, 1);
 		//out_color.rgb = vec3(abs(z_eye - z_eye_old));
 	}
 	
 	//100000.0f, 0.1f
-	vec3 calcSkyLighting (in vec3 albedo, in vec3 normal, in vec3 viewDir, in vec2 KrKm, in vec3 lightDir, in float depth, in float sunOcclusion)
+	vec3 calcSkyLighting (in vec3 albedo, in vec3 normal, in vec3 viewDir, in vec2 KrKm, in vec3 lightDir, in float depth, in float sunOcclusion, in float ambientOcclusion)
 	{
 		vec3 at_cameraPosition = vec3(0, 0, max(pushConsts.cameraPosition.y, 1)) / 1000.0f - earthCenter;
 		vec3 at_ray = normalize(inRay.xzy);		
@@ -174,7 +175,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		vec3  Kspecular = mix(vec3(1.0f - Kr) * 0.18f + 0.04f, albedo, smoothstep(0.2f, 0.45f, Km));
 
 		vec3 Ralbedo   = Kalbedo * max(0.0f, dot(normal, lightDir)) * (vec3(1) - Kspecular) * (1.0f - sunOcclusion);
-		vec3 Rambient  = Kambient * 0.25f + albedo * 2.5f;
+		vec3 Rambient  = Kambient * 0.5f * mix(0.5f, 1.0f, ambientOcclusion) + albedo * 1.5f * mix(0.5f, 1.0f, ambientOcclusion);
 		vec3 Rspecular = BRDF_CookTorrance(normal, viewDir, lightDir, Kspecular, Kr);
 		
 		vec3 dielectric = Ralbedo + Rambient + Rspecular;
@@ -218,6 +219,44 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		
 		return (F * D * G) / (4.0f * NdotL * NdotV);
 	}
+		
+	#define PCF_WIDTH 2 // kernel size would be 2(PCF_WIDTH) + 1, so 2(4) + 1 = 9
 	
+	float getSunOcclusion (in vec3 viewPos)
+	{
+		for (int c = 0; c < SUN_CSM_COUNT; c ++)
+		{
+			vec4 shadowCoord = weubo.sunMVPs[c] * vec4(viewPos, 1);
+			
+			if (all(lessThan(shadowCoord.xyz, vec3(1))) && all(greaterThan(shadowCoord.xy, vec2(0))))
+			{
+				float avgOcclusion = 0;
+				int scaledPCFWidth = int(round(PCF_WIDTH / float(c + 1)));
+				
+				for (int x = -scaledPCFWidth; x <= scaledPCFWidth; x ++)
+				{
+					for (int y = -scaledPCFWidth; y <= scaledPCFWidth; y ++)
+					{
+						// Gather the surrounding texels for depth values
+						vec4 texels = textureGather(shadowmapSampler, vec3(shadowCoord.xy + vec2(x, y) / 4096.0f, c), 0);
+						
+						// Do depth-comparisons
+						texels = step(texels, vec4(shadowCoord.z - 0.0005f));
+						
+						// Bilinearly filter the comparisons
+						vec2 sampleCoord = fract(shadowCoord.xy * 4096.0f + 0.5f);
+						
+						float x0 = mix(texels.x, texels.y, sampleCoord.x);
+						float x1 = mix(texels.w, texels.z, sampleCoord.x);
+						avgOcclusion += mix(x1, x0, sampleCoord.y);
+					}
+				}
+
+				return avgOcclusion / float((2 * scaledPCFWidth + 1) * (2 * scaledPCFWidth + 1));
+			}
+		}
+		
+		return 0;
+	}	
 
 #endif

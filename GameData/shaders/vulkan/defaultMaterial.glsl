@@ -86,7 +86,7 @@
 	{	
 		vec2 texcoords = inUV;
 	
-		if (px > -1 && false)
+		if (true)
 		{
 			vec3 N = normalize(inNormal);
 			vec3 T = normalize(inTangent);
@@ -94,9 +94,9 @@
 			mat3 TBN = mat3(T, B, N);
 		
 			vec3 viewDir = normalize(TBN * camPos - TBN * vertex);
-			float height_scale = 0.25f;
+			float height_scale = 0.1f;
 			
-			const float numLayers = 16;
+			const float numLayers = 12;
 			float layerDepth = 1 / numLayers;
 			float currentLayerDepth = 0;
 		
@@ -104,19 +104,19 @@
 			vec2 deltaTexCoords = P / numLayers * vec2(1, -1);
 		
 			vec2 currentTexCoords = inUV;
-			float currentDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(currentTexCoords, 4)).r;
+			float currentDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(currentTexCoords, 5)).r;
 			
 			while (currentLayerDepth < currentDepth)
 			{
 				currentTexCoords -= deltaTexCoords;
-				currentDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(currentTexCoords, 4)).r;
+				currentDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(currentTexCoords, 5)).r;
 				currentLayerDepth += layerDepth;
 			}
 			
 			vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
 			
 			float afterDepth = currentDepth - currentLayerDepth;
-			float beforeDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(prevTexCoords, 4)).r - currentLayerDepth + layerDepth;
+			float beforeDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(prevTexCoords, 5)).r - currentLayerDepth + layerDepth;
 			
 			float weight = afterDepth / (afterDepth - beforeDepth);
 			
@@ -124,7 +124,7 @@
 		}
 		
 		albedo_roughness = vec4(texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 0)).rgb, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 2)).r);
-		normal_metalness = vec4(encodeNormal(calcNormal(texcoords)), 1.0f, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 3)).r);
+		normal_metalness = vec4(encodeNormal(calcNormal(texcoords)), texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 4)).r, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 3)).r);
 	}
 
 #endif

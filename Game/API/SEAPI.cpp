@@ -33,6 +33,8 @@
 #include <Game/Game.h>
 
 #include <Rendering/Renderer/Renderer.h>
+#include <Rendering/World/WorldRenderer.h>
+#include <Rendering/World/CSM.h>
 
 #include <sunpos.h>
 
@@ -40,6 +42,7 @@ SEAPI::SEAPI (StarlightEngine *enginePtr)
 {
 	engine = enginePtr;
 	worldEnvironmentUBO = nullptr;
+	worldRenderer = nullptr;
 }
 
 SEAPI::~SEAPI ()
@@ -82,6 +85,11 @@ void SEAPI::init ()
 	worldEnvironmentUBO = engine->renderer->createBuffer(sizeof(WorldEnvironmentUBO), BUFFER_USAGE_UNIFORM_BUFFER_BIT, MEMORY_USAGE_CPU_ONLY, false);
 }
 
+void SEAPI::setWorldRendererPtr (WorldRenderer *worldRendererPtr)
+{
+	worldRenderer = worldRendererPtr;
+}
+
 void SEAPI::update (float delta)
 {
 	// Update the world/environment UBO
@@ -110,10 +118,7 @@ void SEAPI::update (float delta)
 				glm::vec3(sin(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle), sin(0.5 * M_PI - coords.dZenithAngle), cos(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle)));
 		//weData.sunDirection = glm::normalize(glm::vec3(-cos(weData.worldTime / float(SECONDS_IN_DAY) * M_PI * 2.0f), sin(weData.worldTime / float(SECONDS_IN_DAY) * M_PI * 2.0f), 0));
 
-		//worldEnvironmentUBOData.sunDirection = glm::normalize(glm::vec3(-1, 1, 0.1f));
-
-		glm::mat4 sunProj = glm::ortho<float>(-8, 8, 8, -8, -8, 8);
-		glm::mat4 sunView = glm::lookAt(Game::instance()->mainCamera.position + engine->api->getSunDirection(), Game::instance()->mainCamera.position, glm::vec3(0, 1, 0));
+		worldEnvironmentUBOData.sunDirection = glm::normalize(glm::vec3(1, 1, 0.1f));
 
 		glm::vec3 playerLookDir = glm::vec3(cos(Game::instance()->mainCamera.lookAngles.y) * sin(Game::instance()->mainCamera.lookAngles.x), sin(Game::instance()->mainCamera.lookAngles.y), cos(Game::instance()->mainCamera.lookAngles.y) * cos(Game::instance()->mainCamera.lookAngles.x));
 		glm::vec3 playerLookRight = glm::vec3(sin(Game::instance()->mainCamera.lookAngles.x - M_PI * 0.5f), 0, cos(Game::instance()->mainCamera.lookAngles.x - M_PI * 0.5f));
@@ -121,7 +126,16 @@ void SEAPI::update (float delta)
 
 		glm::mat4 camViewMat = glm::lookAt(Game::instance()->mainCamera.position, Game::instance()->mainCamera.position + playerLookDir, playerLookUp);
 
-		worldEnvironmentUBOData.sunMVP = sunProj * sunView * glm::inverse(camViewMat);
+		glm::mat4 biasMatrix(
+		0.5, 0.0, 0.0, 0.0,
+		0.0, 0.5, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		0.5, 0.5, 0.0, 1.0
+		);
+
+		worldEnvironmentUBOData.sunMVPs[0] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(0) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(camViewMat);
+		worldEnvironmentUBOData.sunMVPs[1] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(1) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(camViewMat);
+		worldEnvironmentUBOData.sunMVPs[2] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(2) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(camViewMat);
 
 		void *uboDataPtr = engine->renderer->mapBuffer(worldEnvironmentUBO);
 		memcpy(uboDataPtr, &worldEnvironmentUBOData, sizeof(WorldEnvironmentUBO));

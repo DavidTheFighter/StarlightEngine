@@ -74,6 +74,8 @@
 
 #define SECONDS_IN_DAY (24 * 60 * 60)
 
+#define M_SQRT_2 1.4142135624
+
 #define COMPILER_BARRIER() asm volatile("" ::: "memory")
 
 #define DEBUG_ASSERT(x) if (!(x)) { printf("%s Assertion failed @ file %s, line %i\n", ERR_PREFIX, __FILE__, __LINE__); throw std::runtime_error("failed assertion"); }

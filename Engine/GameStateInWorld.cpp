@@ -43,6 +43,7 @@
 #include <Resources/ResourceManager.h>
 
 #include <Game/Game.h>
+#include <Game/API/SEAPI.h>
 
 GameStateInWorld::GameStateInWorld (StarlightEngine *enginePtr)
 {
@@ -74,6 +75,8 @@ void GameStateInWorld::init ()
 	postprocess = new PostProcess(engine);
 	deferredRenderer->game = testGame;
 
+	engine->api->setWorldRendererPtr(worldRenderer);
+
 	// Setup a test material
 	{
 		MaterialDef dirt = {};
@@ -83,7 +86,10 @@ void GameStateInWorld::init ()
 		strcpy(dirt.textureFiles[1], "GameData/textures/dirt/dirt-normals.png");
 		strcpy(dirt.textureFiles[2], "GameData/textures/dirt/dirt-roughness.png");
 		strcpy(dirt.textureFiles[3], "GameData/textures/dirt/dirt-metalness.png");
-		strcpy(dirt.textureFiles[4], "");
+		strcpy(dirt.textureFiles[4], "GameData/textures/dirt/dirt-ao.png");
+		strcpy(dirt.textureFiles[5], "GameData/textures/dirt/dirt-height.png");
+		strcpy(dirt.textureFiles[6], "");
+		strcpy(dirt.textureFiles[7], "");
 
 		dirt.enableAnisotropy = true;
 		dirt.linearFiltering = true;
@@ -99,7 +105,10 @@ void GameStateInWorld::init ()
 		strcpy(slate.textureFiles[1], "GameData/textures/slate/slate-normals.png");
 		strcpy(slate.textureFiles[2], "GameData/textures/slate/slate-roughness.png");
 		strcpy(slate.textureFiles[3], "GameData/textures/slate/slate-metalness.png");
-		strcpy(slate.textureFiles[4], "");
+		strcpy(slate.textureFiles[4], "GameData/textures/slate/slate-ao.png");
+		strcpy(slate.textureFiles[5], "GameData/textures/slate/slate-height.png");
+		strcpy(slate.textureFiles[6], "");
+		strcpy(slate.textureFiles[7], "");
 
 		slate.enableAnisotropy = true;
 		slate.linearFiltering = true;
@@ -258,10 +267,10 @@ void GameStateInWorld::init ()
 	deferredRenderer->init();
 	postprocess->init();
 
-	deferredRenderer->setGBuffer(worldRenderer->gbuffer_AlbedoRoughnessView, worldRenderer->gbuffer_NormalMetalnessView, worldRenderer->gbuffer_DepthView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	deferredRenderer->setGBuffer(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
 	worldRenderer->setGBufferDimensions({engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
-	deferredRenderer->setGBuffer(worldRenderer->gbuffer_AlbedoRoughnessView, worldRenderer->gbuffer_NormalMetalnessView, worldRenderer->gbuffer_DepthView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
-	postprocess->setInputs(worldRenderer->gbuffer_AlbedoRoughnessView, worldRenderer->gbuffer_NormalMetalnessView, worldRenderer->gbuffer_DepthView, deferredRenderer->deferredOutputView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	deferredRenderer->setGBuffer(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	postprocess->setInputs(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], deferredRenderer->deferredOutputView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
 
 	engine->renderer->setSwapchainTexture(engine->mainWindow, postprocess->postprocessOutputTextureView, worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -342,8 +351,8 @@ void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, 
 	if (eventData.window == gameState->engine->mainWindow)
 	{
 		gameState->worldRenderer->setGBufferDimensions({eventData.width, eventData.height});
-		gameState->deferredRenderer->setGBuffer(gameState->worldRenderer->gbuffer_AlbedoRoughnessView, gameState->worldRenderer->gbuffer_NormalMetalnessView, gameState->worldRenderer->gbuffer_DepthView, {gameState->engine->mainWindow->getWidth(), gameState->engine->mainWindow->getHeight()});
-		gameState->postprocess->setInputs(gameState->worldRenderer->gbuffer_AlbedoRoughnessView, gameState->worldRenderer->gbuffer_NormalMetalnessView, gameState->worldRenderer->gbuffer_DepthView, gameState->deferredRenderer->deferredOutputView, {gameState->engine->mainWindow->getWidth(), gameState->engine->mainWindow->getHeight()});
+		gameState->deferredRenderer->setGBuffer(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], {gameState->engine->mainWindow->getWidth(), gameState->engine->mainWindow->getHeight()});
+		gameState->postprocess->setInputs(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], gameState->deferredRenderer->deferredOutputView, {gameState->engine->mainWindow->getWidth(), gameState->engine->mainWindow->getHeight()});
 		gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->postprocess->postprocessOutputTextureView, gameState->worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		//gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->worldRenderer->gbuffer_AlbedoRoughnessView, gameState->presentSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

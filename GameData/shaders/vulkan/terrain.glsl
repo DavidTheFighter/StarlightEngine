@@ -315,7 +315,7 @@
 		float h = clamp(dot(fragNormal, normalize(vec3(0.5f, 0.5f, 0))), 0.3f, 1.0f);
 		
 		albedo_roughness = vec4(malbedo, mroughness);
-		normal_metalness = vec4(encodeNormal(fragNormal), 0, mmetalness);
+		normal_metalness = vec4(encodeNormal(fragNormal), 1, mmetalness);
 	}
 
 #endif

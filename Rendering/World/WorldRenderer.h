@@ -37,6 +37,8 @@
 #include <Rendering/Renderer/RendererObjects.h>
 #include <World/SortedOctree.h>
 
+#include <Rendering/World/CSM.h>
+
 class WorldHandler;
 class StarlightEngine;
 class TerrainRenderer;
@@ -64,23 +66,32 @@ class WorldRenderer
 {
 	public:
 
-		TextureView gbuffer_AlbedoRoughnessView;
-		TextureView gbuffer_NormalMetalnessView;
-		TextureView gbuffer_DepthView;
-
 		RenderPass gbufferRenderPass;
 		Framebuffer gbufferFramebuffer;
 
 		RenderPass shadowsRenderPass;
-		Framebuffer shadowsFramebuffer;
+		std::vector<Framebuffer> sunCSMFramebuffers;
 
-		Texture gbuffer_AlbedoRoughness; // RGB - Albedo, A - Roughness
-		Texture gbuffer_NormalMetalness; // RGB - World Normal, A - Metalness
-		Texture gbuffer_Depth;
 		Sampler testSampler;
 
-		Texture sunShadows;
-		TextureView sunShadowsView;
+		/*
+		 * The GBuffer textures, all 32-bit. Packed as following:
+		 * 1st Texture:
+		 * 		RGB - Albedo
+		 * 		A   - Roughness
+		 *
+		 * 2nd Texture: (packed by bit masking in a single channel)
+		 * 		11:11 - RG normals, packed octahedral
+		 * 		5     - Metalness
+		 * 		5     - Ambient occlusion
+		 *
+		 * 3rd Texture:
+		 * 		R   - Depth
+		 */
+		Texture gbuffer[3];
+		TextureView gbufferView[3];
+
+		CSM *sunCSM;
 
 		StarlightEngine *engine;
 		WorldHandler *world;
