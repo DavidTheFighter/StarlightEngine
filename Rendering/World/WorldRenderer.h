@@ -72,6 +72,11 @@ class WorldRenderer
 		RenderPass shadowsRenderPass;
 		std::vector<Framebuffer> sunCSMFramebuffers;
 
+		uint32_t cmdBufferIndex; // To implement multi-buffering, in most cases triple-buffering, so frame processing can overlap safely
+
+		std::vector<Semaphore> gbufferFillSemaphores;
+		std::vector<Semaphore> shadowmapsSemaphores;
+
 		Sampler testSampler;
 
 		/*
@@ -97,8 +102,6 @@ class WorldRenderer
 		WorldHandler *world;
 
 		TerrainRenderer *terrainRenderer;
-
-		CommandPool testCommandPool;
 
 		glm::mat4 camProjMat;
 		glm::mat4 camViewMat;
@@ -131,6 +134,11 @@ class WorldRenderer
 		bool isDestroyed; // So that when an instance is deleted, destroy() is always called, either by the user or by the destructor
 
 		suvec2 gbufferRenderDimensions;
+
+		CommandPool renderWorldCommandPool;
+
+		std::vector<CommandBuffer> gbufferFillCmdBuffers;
+		std::vector<CommandBuffer> shadowmapCmdBuffers;
 
 		size_t worldStreamingBufferOffset;
 		Buffer worldStreamingBuffer;

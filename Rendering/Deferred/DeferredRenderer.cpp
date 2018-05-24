@@ -67,6 +67,8 @@ DeferredRenderer::DeferredRenderer (StarlightEngine *enginePtr, WorldRenderer *w
 	deferredInputsDescriptorPool = nullptr;
 	deferredInputDescriptorSet = nullptr;
 	game = nullptr;
+
+	cmdBufferIndex = 0;
 }
 
 DeferredRenderer::~DeferredRenderer ()
@@ -97,30 +99,30 @@ void DeferredRenderer::renderDeferredLighting ()
 	seqmemcpy(pushConstData, &prjMat, sizeof(glm::vec2), seqOffset);
 	seqmemcpy(pushConstData, &aspectRatio_tanHalfFOV, sizeof(glm::vec2), seqOffset);
 
-	CommandBuffer cmdBuffer = deferredCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
-	cmdBuffer->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	cmdBufferIndex ++;
+	cmdBufferIndex %= lightingCmdBuffers.size();
 
-	cmdBuffer->beginRenderPass(deferredRenderPass, deferredFramebuffer, {0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}, clearValues, SUBPASS_CONTENTS_INLINE);
-	cmdBuffer->setScissors(0, {{0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}});
-	cmdBuffer->setViewports(0, {{0, 0, gbufferSize.x, gbufferSize.y, 0.0f, 1.0f}});
-	cmdBuffer->beginDebugRegion("Deferred Lighting", glm::vec4(0.9f, 0.85f, 0.1f, 1.0f));
+	lightingCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, deferredPipeline);
-	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {deferredInputDescriptorSet});
-	cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT, 0, lightingPcSize, pushConstData);
+	lightingCmdBuffers[cmdBufferIndex]->beginRenderPass(deferredRenderPass, deferredFramebuffer, {0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}, clearValues, SUBPASS_CONTENTS_INLINE);
+	lightingCmdBuffers[cmdBufferIndex]->setScissors(0, {{0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}});
+	lightingCmdBuffers[cmdBufferIndex]->setViewports(0, {{0, 0, gbufferSize.x, gbufferSize.y, 0.0f, 1.0f}});
+	lightingCmdBuffers[cmdBufferIndex]->beginDebugRegion("Deferred Lighting", glm::vec4(0.9f, 0.85f, 0.1f, 1.0f));
+
+	lightingCmdBuffers[cmdBufferIndex]->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, deferredPipeline);
+	lightingCmdBuffers[cmdBufferIndex]->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {deferredInputDescriptorSet});
+	lightingCmdBuffers[cmdBufferIndex]->pushConstants(SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT, 0, lightingPcSize, pushConstData);
 
 	// Vertex positions contained in the shader as constants
-	cmdBuffer->draw(6);
+	lightingCmdBuffers[cmdBufferIndex]->draw(6);
 
-	cmdBuffer->endDebugRegion();
-	cmdBuffer->endRenderPass();
-	cmdBuffer->endCommands();
-	std::vector<Semaphore> waitSems = {};
-	std::vector<PipelineStageFlags> waitSemStages = {};
+	lightingCmdBuffers[cmdBufferIndex]->endDebugRegion();
+	lightingCmdBuffers[cmdBufferIndex]->endRenderPass();
+	lightingCmdBuffers[cmdBufferIndex]->endCommands();
+	std::vector<Semaphore> waitSems = {worldRenderer->gbufferFillSemaphores[worldRenderer->cmdBufferIndex], worldRenderer->shadowmapsSemaphores[worldRenderer->cmdBufferIndex]};
+	std::vector<PipelineStageFlags> waitSemStages = {PIPELINE_STAGE_FRAGMENT_SHADER_BIT, PIPELINE_STAGE_FRAGMENT_SHADER_BIT};
 
-	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {cmdBuffer}, waitSems, waitSemStages);
-	engine->renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);
-	deferredCommandPool->freeCommandBuffer(cmdBuffer);
+	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {lightingCmdBuffers[cmdBufferIndex]}, waitSems, waitSemStages, {lightingSemaphores[cmdBufferIndex]});
 }
 
 void DeferredRenderer::init ()
@@ -131,7 +133,11 @@ void DeferredRenderer::init ()
 	createDeferredLightingRenderPass();
 	createDeferredLightingPipeline();
 
-	deferredCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
+	deferredCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_RESET_COMMAND_BUFFER_BIT);
+	lightingCmdBuffers = deferredCommandPool->allocateCommandBuffers(COMMAND_BUFFER_LEVEL_PRIMARY, 3);
+
+	lightingSemaphores = engine->renderer->createSemaphores(3);
+
 	deferredInputsSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST);
 	atmosphereTextureSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_LINEAR, SAMPLER_FILTER_LINEAR);
 	shadowsSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_LINEAR, SAMPLER_FILTER_LINEAR);
@@ -312,6 +318,9 @@ void DeferredRenderer::destroy ()
 	destroyed = true;
 
 	engine->renderer->destroyDescriptorPool(deferredInputsDescriptorPool);
+
+	for (size_t i = 0; i < lightingSemaphores.size(); i ++)
+		engine->renderer->destroySemaphore(lightingSemaphores[i]);
 
 	engine->renderer->destroySampler(deferredInputsSampler);
 	engine->renderer->destroySampler(atmosphereTextureSampler);

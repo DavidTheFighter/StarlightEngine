@@ -59,6 +59,7 @@ class Renderer
 
 		virtual Fence createFence (bool createAsSignaled = false) = 0;
 		virtual Semaphore createSemaphore () = 0;
+		virtual std::vector<Semaphore> createSemaphores (uint32_t count) = 0;
 
 		virtual Texture createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory = false, uint32_t mipLevelCount = 1, uint32_t arrayLayerCount = 1, TextureType type = TEXTURE_TYPE_2D) = 0;
 		virtual TextureView createTextureView (Texture texture, TextureViewType viewType = TEXTURE_VIEW_TYPE_2D, TextureSubresourceRange subresourceRange = {0, 1, 0, 1}, ResourceFormat viewFormat = RESOURCE_FORMAT_UNDEFINED) = 0;

@@ -43,10 +43,13 @@ class PostProcess
 
 		TextureView postprocessOutputTextureView;
 
+		uint32_t cmdBufferIndex;
+		std::vector<Semaphore> finalCombineSemaphores;
+
 		PostProcess (StarlightEngine *enginePtr);
 		virtual ~PostProcess ();
 
-		void renderPostProcessing ();
+		void renderPostProcessing (Semaphore deferredLightingOutputSemaphore);
 
 		void init ();
 		void destroy ();
@@ -65,6 +68,7 @@ class PostProcess
 		Pipeline combinePipeline;
 
 		CommandPool postprocessCommandPool;
+		std::vector<CommandBuffer> finalCombineCmdBuffers;
 
 		DescriptorPool combineDescriptorPool;
 		DescriptorSet combineDescriptorSet;

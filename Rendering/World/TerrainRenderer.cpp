@@ -255,10 +255,6 @@ void TerrainRenderer::update ()
 
 	if ((dirtyClipmap0Regions.size() + dirtyClipmap1Regions.size() + dirtyClipmap2Regions.size() + dirtyClipmap3Regions.size() + dirtyClipmap4Regions.size()) > 0)
 	{
-		clipmapUpdateCommandBuffer->resetCommands();
-
-		//CommandBuffer cmdBuffer = clipmapUpdateCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
-
 		clipmapUpdateCommandBuffer->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 		clipmapUpdateCommandBuffer->setTextureLayout(terrainClipmap_Elevation, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {0, 1, 0, 5}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_TRANSFER_BIT);
 

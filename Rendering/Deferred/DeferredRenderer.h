@@ -48,6 +48,9 @@ class DeferredRenderer
 		TextureView deferredOutputView;
 		glm::mat4 invCamMVPMat;
 
+		uint32_t cmdBufferIndex;
+		std::vector<Semaphore> lightingSemaphores;
+
 		DeferredRenderer (StarlightEngine *enginePtr, WorldRenderer *worldRendererPtr);
 		virtual ~DeferredRenderer ();
 
@@ -74,6 +77,8 @@ class DeferredRenderer
 
 		CommandPool deferredCommandPool;
 		CommandBuffer deferredCommandBuffer;
+
+		std::vector<CommandBuffer> lightingCmdBuffers;
 
 		bool gbufferDirty;
 		TextureView gbuffer_AlbedoRoughnessView; // rgb - albedo, a - roughness

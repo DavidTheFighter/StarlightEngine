@@ -341,7 +341,9 @@ void GameStateInWorld::render ()
 {
 	worldRenderer->render3DWorld();
 	deferredRenderer->renderDeferredLighting();
-	postprocess->renderPostProcessing();
+	postprocess->renderPostProcessing(deferredRenderer->lightingSemaphores[deferredRenderer->cmdBufferIndex]);
+
+	engine->renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);
 }
 
 void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, void *usrPtr)

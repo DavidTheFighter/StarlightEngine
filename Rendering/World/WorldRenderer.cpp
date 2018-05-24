@@ -53,7 +53,7 @@ WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHan
 	gbufferRenderPass = nullptr;
 	gbufferFramebuffer = nullptr;
 
-	testCommandPool = nullptr;
+	renderWorldCommandPool = nullptr;
 
 	worldStreamingBuffer = nullptr;
 	worldStreamingBufferOffset = 0;
@@ -62,6 +62,10 @@ WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHan
 	testSampler = nullptr;
 
 	sunCSM = nullptr;
+
+	shadowsRenderPass = nullptr;
+
+	cmdBufferIndex = 0;
 }
 
 WorldRenderer::~WorldRenderer ()
@@ -86,40 +90,43 @@ void WorldRenderer::render3DWorld ()
 	clearValues[2].depthStencil =
 	{	0, 0};
 
-	CommandBuffer cmdBuffer = testCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
-	cmdBuffer->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	cmdBufferIndex ++;
+	cmdBufferIndex %= gbufferFillCmdBuffers.size();
 
-	cmdBuffer->beginRenderPass(gbufferRenderPass, gbufferFramebuffer, {0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}, clearValues, SUBPASS_CONTENTS_INLINE);
-	cmdBuffer->setScissors(0, {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}});
-	cmdBuffer->setViewports(0, {{0, 0, (float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 0.0f, 1.0f}});
+	gbufferFillCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-	cmdBuffer->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
+	gbufferFillCmdBuffers[cmdBufferIndex]->beginRenderPass(gbufferRenderPass, gbufferFramebuffer, {0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}, clearValues, SUBPASS_CONTENTS_INLINE);
+	gbufferFillCmdBuffers[cmdBufferIndex]->setScissors(0, {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}});
+	gbufferFillCmdBuffers[cmdBufferIndex]->setViewports(0, {{0, 0, (float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 0.0f, 1.0f}});
 
-	renderWorldStaticMeshes(cmdBuffer, camProjMat * camViewMat, false);
-	terrainRenderer->renderTerrain(cmdBuffer);
+	gbufferFillCmdBuffers[cmdBufferIndex]->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
 
-	cmdBuffer->endDebugRegion();
+	renderWorldStaticMeshes(gbufferFillCmdBuffers[cmdBufferIndex], camProjMat * camViewMat, false);
+	terrainRenderer->renderTerrain(gbufferFillCmdBuffers[cmdBufferIndex]);
 
-	cmdBuffer->endRenderPass();
+	gbufferFillCmdBuffers[cmdBufferIndex]->endDebugRegion();
+	gbufferFillCmdBuffers[cmdBufferIndex]->endRenderPass();
+	gbufferFillCmdBuffers[cmdBufferIndex]->endCommands();
 
+	shadowmapCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 	clearValues[2].depthStencil = {1, 0};
 
-	cmdBuffer->beginDebugRegion("Render Sun CSM", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
+	shadowmapCmdBuffers[cmdBufferIndex]->beginDebugRegion("Render Sun CSM", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
 	for (uint32_t i = 0; i < sunCSM->getCascadeCount(); i ++)
 	{
-		cmdBuffer->beginDebugRegion("Cascade #" + toString(i), glm::vec4(1, 1, 0, 1));
-		cmdBuffer->beginRenderPass(shadowsRenderPass, sunCSMFramebuffers[i], {0, 0, sunCSM->getShadowSize(), sunCSM->getShadowSize()}, {clearValues[2]}, SUBPASS_CONTENTS_INLINE);
-		cmdBuffer->setScissors(0, {{0, 0, sunCSM->getShadowSize(), sunCSM->getShadowSize()}});
-		cmdBuffer->setViewports(0, {{0, 0, (float) sunCSM->getShadowSize(), (float) sunCSM->getShadowSize(), 0.0f, 1.0f}});
+		shadowmapCmdBuffers[cmdBufferIndex]->beginDebugRegion("Cascade #" + toString(i), glm::vec4(1, 1, 0, 1));
+		shadowmapCmdBuffers[cmdBufferIndex]->beginRenderPass(shadowsRenderPass, sunCSMFramebuffers[i], {0, 0, sunCSM->getShadowSize(), sunCSM->getShadowSize()}, {clearValues[2]}, SUBPASS_CONTENTS_INLINE);
+		shadowmapCmdBuffers[cmdBufferIndex]->setScissors(0, {{0, 0, sunCSM->getShadowSize(), sunCSM->getShadowSize()}});
+		shadowmapCmdBuffers[cmdBufferIndex]->setViewports(0, {{0, 0, (float) sunCSM->getShadowSize(), (float) sunCSM->getShadowSize(), 0.0f, 1.0f}});
 
-		renderWorldStaticMeshes(cmdBuffer, sunCSM->getCamProjMat(i) * sunCSM->getCamViewMat(), true);
+		renderWorldStaticMeshes(shadowmapCmdBuffers[cmdBufferIndex], sunCSM->getCamProjMat(i) * sunCSM->getCamViewMat(), true);
 
-		cmdBuffer->endRenderPass ();
-		cmdBuffer->endDebugRegion();
+		shadowmapCmdBuffers[cmdBufferIndex]->endRenderPass ();
+		shadowmapCmdBuffers[cmdBufferIndex]->endDebugRegion();
 	}
-	cmdBuffer->endDebugRegion();
 
-	cmdBuffer->endCommands();
+	shadowmapCmdBuffers[cmdBufferIndex]->endDebugRegion();
+	shadowmapCmdBuffers[cmdBufferIndex]->endCommands();
 
 	std::vector<Semaphore> waitSems = {};
 	std::vector<PipelineStageFlags> waitSemStages = {};
@@ -130,9 +137,8 @@ void WorldRenderer::render3DWorld ()
 		waitSemStages.push_back(PIPELINE_STAGE_VERTEX_SHADER_BIT);
 	}
 
-	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {cmdBuffer}, waitSems, waitSemStages);
-	engine->renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);
-	testCommandPool->freeCommandBuffer(cmdBuffer);
+	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {gbufferFillCmdBuffers[cmdBufferIndex]}, waitSems, waitSemStages, {gbufferFillSemaphores[cmdBufferIndex]});
+	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {shadowmapCmdBuffers[cmdBufferIndex]}, {}, {}, {shadowmapsSemaphores[cmdBufferIndex]});
 }
 
 void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4 camMVPMat, bool renderDepth)
@@ -290,7 +296,12 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 {
 	gbufferRenderDimensions = gbufferDimensions;
 
-	testCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
+	renderWorldCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_RESET_COMMAND_BUFFER_BIT);
+	gbufferFillCmdBuffers = renderWorldCommandPool->allocateCommandBuffers(COMMAND_BUFFER_LEVEL_PRIMARY, 3);
+	shadowmapCmdBuffers = renderWorldCommandPool->allocateCommandBuffers(COMMAND_BUFFER_LEVEL_PRIMARY, 3);;
+
+	gbufferFillSemaphores = engine->renderer->createSemaphores(3);
+	shadowmapsSemaphores = engine->renderer->createSemaphores(3);
 
 	testSampler = engine->renderer->createSampler();
 
@@ -351,13 +362,21 @@ void WorldRenderer::destroy ()
 
 	destroyGBuffer();
 
+	delete sunCSM;
+
 	for (size_t i = 0; i < sunCSMFramebuffers.size(); i ++)
 		engine->renderer->destroyFramebuffer(sunCSMFramebuffers[i]);
+
+	for (size_t i = 0; i < gbufferFillSemaphores.size(); i ++)
+		engine->renderer->destroySemaphore(gbufferFillSemaphores[i]);
+
+	for (size_t i = 0; i < shadowmapsSemaphores.size(); i ++)
+		engine->renderer->destroySemaphore(shadowmapsSemaphores[i]);
 
 	engine->renderer->destroyRenderPass(gbufferRenderPass);
 	engine->renderer->destroyRenderPass(shadowsRenderPass);
 
-	engine->renderer->destroyCommandPool(testCommandPool);
+	engine->renderer->destroyCommandPool(renderWorldCommandPool);
 	engine->renderer->destroySampler(testSampler);
 
 	engine->renderer->unmapBuffer(worldStreamingBuffer);

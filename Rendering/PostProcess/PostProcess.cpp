@@ -57,6 +57,8 @@ PostProcess::PostProcess (StarlightEngine *enginePtr)
 	inputSampler = nullptr;
 
 	postprocessCommandPool = nullptr;
+
+	cmdBufferIndex = 0;
 }
 
 PostProcess::~PostProcess ()
@@ -65,37 +67,37 @@ PostProcess::~PostProcess ()
 		destroy();
 }
 
-void PostProcess::renderPostProcessing ()
+void PostProcess::renderPostProcessing (Semaphore deferredLightingOutputSemaphore)
 {
 	std::vector<ClearValue> clearValues = std::vector<ClearValue>(1);
 	clearValues[0].color =
 	{	0, 0, 0, 0};
 
-	CommandBuffer cmdBuffer = postprocessCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
-	cmdBuffer->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	cmdBufferIndex ++;
+	cmdBufferIndex %= finalCombineCmdBuffers.size();
 
-	cmdBuffer->beginRenderPass(postprocessRenderPass, postprocessFramebuffer, {0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}, clearValues, SUBPASS_CONTENTS_INLINE);
-	cmdBuffer->setScissors(0, {{0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}});
-	cmdBuffer->setViewports(0, {{0, 0, gbufferSize.x, gbufferSize.y, 0.0f, 1.0f}});
-	cmdBuffer->beginDebugRegion("Post Processing", glm::vec4(1.0f, 0.5f, 1.0f, 1.0f));
+	finalCombineCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-	cmdBuffer->beginDebugRegion("Final/Combine", glm::vec4(0.8f, 0, 0, 1.0f));
-	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, combinePipeline);
-	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {combineDescriptorSet});
+	finalCombineCmdBuffers[cmdBufferIndex]->beginRenderPass(postprocessRenderPass, postprocessFramebuffer, {0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}, clearValues, SUBPASS_CONTENTS_INLINE);
+	finalCombineCmdBuffers[cmdBufferIndex]->setScissors(0, {{0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}});
+	finalCombineCmdBuffers[cmdBufferIndex]->setViewports(0, {{0, 0, gbufferSize.x, gbufferSize.y, 0.0f, 1.0f}});
+	finalCombineCmdBuffers[cmdBufferIndex]->beginDebugRegion("Post Processing", glm::vec4(1.0f, 0.5f, 1.0f, 1.0f));
+
+	finalCombineCmdBuffers[cmdBufferIndex]->beginDebugRegion("Final/Combine", glm::vec4(0.8f, 0, 0, 1.0f));
+	finalCombineCmdBuffers[cmdBufferIndex]->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, combinePipeline);
+	finalCombineCmdBuffers[cmdBufferIndex]->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {combineDescriptorSet});
 
 	// Vertex positions contained in the shader as constants
-	cmdBuffer->draw(6);
-	cmdBuffer->endDebugRegion();
+	finalCombineCmdBuffers[cmdBufferIndex]->draw(6);
+	finalCombineCmdBuffers[cmdBufferIndex]->endDebugRegion();
 
-	cmdBuffer->endDebugRegion();
-	cmdBuffer->endRenderPass();
-	cmdBuffer->endCommands();
-	std::vector<Semaphore> waitSems = {};
-	std::vector<PipelineStageFlags> waitSemStages = {};
+	finalCombineCmdBuffers[cmdBufferIndex]->endDebugRegion();
+	finalCombineCmdBuffers[cmdBufferIndex]->endRenderPass();
+	finalCombineCmdBuffers[cmdBufferIndex]->endCommands();
+	std::vector<Semaphore> waitSems = {deferredLightingOutputSemaphore};
+	std::vector<PipelineStageFlags> waitSemStages = {PIPELINE_STAGE_FRAGMENT_SHADER_BIT};
 
-	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {cmdBuffer}, waitSems, waitSemStages);
-	engine->renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);
-	postprocessCommandPool->freeCommandBuffer(cmdBuffer);
+	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {finalCombineCmdBuffers[cmdBufferIndex]}, waitSems, waitSemStages);
 }
 
 void PostProcess::init ()
@@ -111,7 +113,10 @@ void PostProcess::init ()
 	combineDescriptorSet = combineDescriptorPool->allocateDescriptorSet();
 	inputSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST, 1);
 
-	postprocessCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, 0);
+	postprocessCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_RESET_COMMAND_BUFFER_BIT);
+	finalCombineCmdBuffers = postprocessCommandPool->allocateCommandBuffers(COMMAND_BUFFER_LEVEL_PRIMARY, 3);
+
+	finalCombineSemaphores = engine->renderer->createSemaphores(3);
 }
 
 void PostProcess::destroy ()
@@ -119,6 +124,9 @@ void PostProcess::destroy ()
 	destroyed = true;
 
 	engine->renderer->destroyDescriptorPool(combineDescriptorPool);
+
+	for (size_t i = 0; i < finalCombineSemaphores.size(); i ++)
+		engine->renderer->destroySemaphore(finalCombineSemaphores[i]);
 
 	engine->renderer->destroyFramebuffer(postprocessFramebuffer);
 

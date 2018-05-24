@@ -69,6 +69,7 @@ class VulkanRenderer : public Renderer
 
 		Fence createFence (bool createAsSignaled);
 		Semaphore createSemaphore ();
+		std::vector<Semaphore> createSemaphores (uint32_t count);
 
 		Texture createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, uint32_t arrayLayerCount, TextureType type);
 		TextureView createTextureView (Texture texture, TextureViewType viewType, TextureSubresourceRange subresourceRange, ResourceFormat viewFormat);

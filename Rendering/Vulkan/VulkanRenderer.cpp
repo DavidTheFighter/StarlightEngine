@@ -685,6 +685,16 @@ Semaphore VulkanRenderer::createSemaphore ()
 	return vulkanSem;
 }
 
+std::vector<Semaphore> VulkanRenderer::createSemaphores (uint32_t count)
+{
+	std::vector<Semaphore> sems;
+
+	for (uint32_t i = 0; i < count; i ++)
+		sems.push_back(createSemaphore());
+
+	return sems;
+}
+
 /*
  DescriptorSetLayout VulkanRenderer::createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &bindings)
  {

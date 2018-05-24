@@ -89,7 +89,9 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	
 	const vec3 earthCenter = vec3(0, 0, -ATMOSPHERE.bottom_radius);
 	
-	#define PI 3.1415926f
+	#define PI 3.141592654f
+	#define SQRT_PI 1.772453851f
+	#define INV_PI 0.3183098862f
 	
 	const float sunSize = 0.9999f;
 	
@@ -117,10 +119,9 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		const float nearClip = 100000.0f;
 		const float farClip = 0.1f;
 		
-		float projA = farClip / (farClip - nearClip);
-		float projB = (-farClip * nearClip) / (farClip - nearClip);
+		const float projA = farClip / (farClip - nearClip);
+		const float projB = (-farClip * nearClip) / (farClip - nearClip);
 		float z_eye = projB / (gbuffer_Depth - projA);
-		float z_eye_old = pushConsts.prjMat_aspectRatio_tanHalfFOV.y / (pushConsts.prjMat_aspectRatio_tanHalfFOV.x + gbuffer_Depth);
 	
 		vec3 testLightDir = weubo.sunDirection;
 	
@@ -170,11 +171,11 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		
 		float Kr = KrKm.x;
 		float Km = KrKm.y;
-		vec3  Kalbedo   = albedo * irradiance * 1e-3 / PI;
-		vec3  Kambient  = albedo * sky_irradiance * 1e-3 / PI;
+		vec3  Kalbedo   = albedo * irradiance * 1e-3 * INV_PI;
+		vec3  Kambient  = albedo * sky_irradiance * 1e-3 * INV_PI;
 		vec3  Kspecular = mix(vec3(1.0f - Kr) * 0.18f + 0.04f, albedo, smoothstep(0.2f, 0.45f, Km));
 
-		vec3 Ralbedo   = Kalbedo * max(0.0f, dot(normal, lightDir)) * (vec3(1) - Kspecular) * (1.0f - sunOcclusion);
+		vec3 Ralbedo   = Kalbedo * clamp(dot(normal, lightDir), 0.0f, 1.0f) * (vec3(1) - Kspecular) * (1.0f - sunOcclusion);
 		vec3 Rambient  = Kambient * 0.5f * mix(0.5f, 1.0f, ambientOcclusion) + albedo * 1.5f * mix(0.5f, 1.0f, ambientOcclusion);
 		vec3 Rspecular = BRDF_CookTorrance(normal, viewDir, lightDir, Kspecular, Kr);
 		
@@ -191,9 +192,9 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	
 	float g_smith_shlick_beckmann (in float NdotV, in float NdotL, in float Kr)
 	{
-		float k = Kr * Kr * sqrt(PI);
-		float i_v = NdotV / (NdotV * (1 - k) + k);
-		float i_l = NdotL / (NdotL * (1 - k) + k);
+		float k = Kr * Kr * SQRT_PI;
+		float i_v = NdotV / (NdotV - NdotV * k + k);
+		float i_l = NdotL / (NdotL - NdotL * k + k);
 		
 		return i_v * i_l;
 	}
@@ -217,7 +218,8 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		float G = g_smith_shlick_beckmann(NdotV, NdotL, Kr);
 		float D = d_ggx(NdotH, Kr);
 		
-		return (F * D * G) / (4.0f * NdotL * NdotV);
+		//return (F * D * G) / (4.0f * NdotL * NdotV);
+		return (D * G * 0.25f * (1.0f / NdotL * NdotV)) * F;
 	}
 		
 	#define PCF_WIDTH 2 // kernel size would be 2(PCF_WIDTH) + 1, so 2(4) + 1 = 9
@@ -231,20 +233,21 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 			if (all(lessThan(shadowCoord.xyz, vec3(1))) && all(greaterThan(shadowCoord.xy, vec2(0))))
 			{
 				float avgOcclusion = 0;
-				int scaledPCFWidth = int(round(PCF_WIDTH / float(c + 1)));
-				
-				for (int x = -scaledPCFWidth; x <= scaledPCFWidth; x ++)
+				float scaledPCFWidth = round(PCF_WIDTH / float(c + 1));
+				vec2 shadowmapSize = vec2(textureSize(shadowmapSampler, 0).xy);	
+			
+				for (float x = -scaledPCFWidth; x <= scaledPCFWidth; x ++)
 				{
-					for (int y = -scaledPCFWidth; y <= scaledPCFWidth; y ++)
+					for (float y = -scaledPCFWidth; y <= scaledPCFWidth; y ++)
 					{
 						// Gather the surrounding texels for depth values
-						vec4 texels = textureGather(shadowmapSampler, vec3(shadowCoord.xy + vec2(x, y) / 4096.0f, c), 0);
+						vec4 texels = textureGather(shadowmapSampler, vec3(shadowCoord.xy + vec2(x, y) / shadowmapSize, c), 0);
 						
 						// Do depth-comparisons
 						texels = step(texels, vec4(shadowCoord.z - 0.0005f));
 						
 						// Bilinearly filter the comparisons
-						vec2 sampleCoord = fract(shadowCoord.xy * 4096.0f + 0.5f);
+						vec2 sampleCoord = fract(shadowCoord.xy * shadowmapSize + vec2(0.5f));
 						
 						float x0 = mix(texels.x, texels.y, sampleCoord.x);
 						float x1 = mix(texels.w, texels.z, sampleCoord.x);
@@ -252,11 +255,11 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 					}
 				}
 
-				return avgOcclusion / float((2 * scaledPCFWidth + 1) * (2 * scaledPCFWidth + 1));
+				return avgOcclusion / ((2.0f * scaledPCFWidth + 1.0f) * (2.0f * scaledPCFWidth + 1.0f));
 			}
 		}
 		
 		return 0;
-	}	
-
+	}
+	
 #endif

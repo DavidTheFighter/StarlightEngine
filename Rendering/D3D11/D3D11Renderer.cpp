@@ -150,6 +150,16 @@ Semaphore D3D11Renderer::createSemaphore ()
 {
 }
 
+std::vector<Semaphore> D3D11Renderer::createSemaphores (uint32_t count)
+{
+	std::vector<Semaphore> sems;
+
+	for (uint32_t i = 0; i < count; i ++)
+		sems.push_back(createSemaphore());
+
+	return sems;
+}
+
 Texture D3D11Renderer::createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, TextureType type)
 {
 }
