@@ -120,12 +120,6 @@ void SEAPI::update (float delta)
 
 		worldEnvironmentUBOData.sunDirection = glm::normalize(glm::vec3(1, 1, 0.1f));
 
-		glm::vec3 playerLookDir = glm::vec3(cos(Game::instance()->mainCamera.lookAngles.y) * sin(Game::instance()->mainCamera.lookAngles.x), sin(Game::instance()->mainCamera.lookAngles.y), cos(Game::instance()->mainCamera.lookAngles.y) * cos(Game::instance()->mainCamera.lookAngles.x));
-		glm::vec3 playerLookRight = glm::vec3(sin(Game::instance()->mainCamera.lookAngles.x - M_PI * 0.5f), 0, cos(Game::instance()->mainCamera.lookAngles.x - M_PI * 0.5f));
-		glm::vec3 playerLookUp = glm::cross(playerLookRight, playerLookDir);
-
-		glm::mat4 camViewMat = glm::lookAt(Game::instance()->mainCamera.position, Game::instance()->mainCamera.position + playerLookDir, playerLookUp);
-
 		glm::mat4 biasMatrix(
 		0.5, 0.0, 0.0, 0.0,
 		0.0, 0.5, 0.0, 0.0,
@@ -133,9 +127,9 @@ void SEAPI::update (float delta)
 		0.5, 0.5, 0.0, 1.0
 		);
 
-		worldEnvironmentUBOData.sunMVPs[0] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(0) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(camViewMat);
-		worldEnvironmentUBOData.sunMVPs[1] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(1) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(camViewMat);
-		worldEnvironmentUBOData.sunMVPs[2] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(2) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(camViewMat);
+		worldEnvironmentUBOData.sunMVPs[0] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(0) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(worldRenderer->camViewMat);
+		worldEnvironmentUBOData.sunMVPs[1] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(1) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(worldRenderer->camViewMat);
+		worldEnvironmentUBOData.sunMVPs[2] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(2) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(worldRenderer->camViewMat);
 
 		void *uboDataPtr = engine->renderer->mapBuffer(worldEnvironmentUBO);
 		memcpy(uboDataPtr, &worldEnvironmentUBOData, sizeof(WorldEnvironmentUBO));

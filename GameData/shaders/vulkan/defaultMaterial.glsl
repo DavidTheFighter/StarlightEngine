@@ -6,7 +6,8 @@
 	layout(push_constant) uniform PushConsts
 	{
 		mat4 mvp;
-		vec3 cameraPosition;
+		vec4 cameraPosition;
+		vec4 cameraCellOffset;
 	} pushConsts;
 	
 	layout(location = 0) in vec3 inVertex;
@@ -35,9 +36,9 @@
 		
 	void main()
 	{	
-		gl_Position = pushConsts.mvp * vec4(rotateByQuaternion(inVertex * inInstancePosition_Scale.w / 10.0, inInstanceRotation) + inInstancePosition_Scale.xyz, 1);
+		gl_Position = pushConsts.mvp * vec4(rotateByQuaternion(inVertex * inInstancePosition_Scale.w / 10.0, inInstanceRotation) + inInstancePosition_Scale.xyz - pushConsts.cameraCellOffset.xyz, 1);
 		vertex = rotateByQuaternion(inVertex * inInstancePosition_Scale.w / 10.0, inInstanceRotation) + inInstancePosition_Scale.xyz;
-		camPos = pushConsts.cameraPosition;
+		camPos = pushConsts.cameraPosition.xyz;
 		
 		outUV = inUV;
 		outNormal = rotateByQuaternion(inNormal, inInstanceRotation);

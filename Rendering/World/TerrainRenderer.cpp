@@ -36,6 +36,8 @@
 
 #include <World/WorldHandler.h>
 
+#include <Game/Game.h>
+
 TerrainRenderer::TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr, WorldRenderer *worldRendererPtr)
 {
 	engine = enginePtr;
@@ -428,7 +430,7 @@ void TerrainRenderer::update ()
 		clipmapStagingBuffersToDelete.push_back(dirtyClipmap4Regions[i].stagingData);
 }
 
-const size_t pcSize = sizeof(glm::mat4) + sizeof(svec2) * 2 + sizeof(glm::vec4) + sizeof(int32_t);
+const size_t pcSize = sizeof(glm::mat4) + sizeof(svec2) + sizeof(svec2) + sizeof(glm::vec4) + sizeof(glm::vec4) + sizeof(int32_t);
 ResourceMaterial testTerrainGraniteMaterial = nullptr;
 ResourceMaterial testTerrainGrassMaterial = nullptr;
 
@@ -437,6 +439,7 @@ void TerrainRenderer::renderTerrain (CommandBuffer &cmdBuffer)
 	svec2 cameraCellCoords = {(float) floor((worldRenderer->cameraPosition.x - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE)), (float) floor((worldRenderer->cameraPosition.z - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE))};
 	svec2 cellCoordStart = {0, 0};
 	int32_t instanceCountWidth = 16;
+	glm::vec3 cameraCellOffset = glm::floor(Game::instance()->mainCamera.position / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
 
 	glm::mat4 camMVP = worldRenderer->camProjMat * worldRenderer->camViewMat;
 
@@ -448,6 +451,7 @@ void TerrainRenderer::renderTerrain (CommandBuffer &cmdBuffer)
 	seqmemcpy(pushConstData, &cameraCellCoords.x, sizeof(svec2), seqOffset);
 	seqmemcpy(pushConstData, &cellCoordStart.x, sizeof(svec2), seqOffset);
 	seqmemcpy(pushConstData, &worldRenderer->cameraPosition.x, sizeof(glm::vec4), seqOffset);
+	seqmemcpy(pushConstData, &cameraCellOffset.x, sizeof(glm::vec4), seqOffset);
 	seqmemcpy(pushConstData, &instanceCountWidth, sizeof(int32_t), seqOffset);
 
 	//printf("%f - %f - %f\n", worldRenderer->cameraPosition.x, worldRenderer->cameraPosition.y, worldRenderer->cameraPosition.z);

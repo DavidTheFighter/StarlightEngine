@@ -427,7 +427,7 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 		layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
 		layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
 
-		info.inputPushConstantRanges = {{0, sizeof(glm::mat4) + sizeof(glm::vec3), SHADER_STAGE_VERTEX_BIT}};
+		info.inputPushConstantRanges = {{0, sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4), SHADER_STAGE_VERTEX_BIT}};
 		info.inputSetLayouts = {layoutBindings};
 
 		pipe->pipeline = renderer->createGraphicsPipeline(info, pipelineRenderPass, 0);

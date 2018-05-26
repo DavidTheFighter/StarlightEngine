@@ -34,6 +34,7 @@
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/World/TerrainRenderer.h>
 
+#include <Game/Game.h>
 #include <Game/API/SEAPI.h>
 
 #include <World/WorldHandler.h>
@@ -143,9 +144,11 @@ void WorldRenderer::render3DWorld ()
 
 void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4 camMVPMat, bool renderDepth)
 {
+	glm::vec3 cameraCellOffset = glm::floor(Game::instance()->mainCamera.position / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
+
 	//double sT = engine->getTime();
 	glm::vec4 frustum[6];
-	getFrustum(camMVPMat, frustum);
+	getFrustum(camMVPMat * glm::translate(glm::mat4(1), -cameraCellOffset), frustum);
 	LevelStaticObjectStreamingData streamData = getStaticObjStreamingData(frustum);
 	//printf("Stream took: %fms\n", (engine->getTime() - sT) * 1000.0);
 
@@ -168,6 +171,7 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4
 		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, renderDepth ? materialPipeline->depthPipeline : materialPipeline->pipeline);
 		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVPMat[0][0]);
 		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::vec3), &cameraPosition.x);
+		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4) + sizeof(glm::vec4), sizeof(glm::vec3), &cameraCellOffset.x);
 
 		uint32_t drawCallCount = 0;
 		for (auto mat = pipeIt->second.begin(); mat != pipeIt->second.end(); mat ++)
@@ -256,14 +260,7 @@ void WorldRenderer::traverseOctreeNode (SortedOctree<LevelStaticObjectType, Leve
 		auto &materialList = data.data[objType.materialDefUniqueNameHash];
 		if (materialList.find(objType.meshDefUniqueNameHash) == materialList.end())
 		{
-			std::vector<std::vector<LevelStaticObject> > dataList;
-
-			for (uint32_t l = 0; l < mesh->meshLODs.size(); l ++)
-			{
-				dataList.push_back(std::vector<LevelStaticObject>());
-			}
-
-			materialList[objType.meshDefUniqueNameHash] = dataList;
+			materialList[objType.meshDefUniqueNameHash] = std::vector<std::vector<LevelStaticObject> >(mesh->meshLODs.size(), std::vector<LevelStaticObject>());
 		}
 
 		std::vector<LevelStaticObject> &dataList = materialList[objType.meshDefUniqueNameHash][lod];

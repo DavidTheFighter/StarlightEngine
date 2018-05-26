@@ -31,6 +31,7 @@
 		vec2 cameraCellCoord;
 		vec2 cellCoordStart;
 		vec4 cameraPosition;
+		vec4 cameraCellOffset;
 		int instanceCountWidth;
 	} pushConsts;
 
@@ -97,6 +98,7 @@
 		vec2 cameraCellCoord;
 		vec2 cellCoordStart;
 		vec4 cameraPosition;
+		vec4 cameraCellOffset;
 		int instanceCountWidth;
 	} pushConsts;
 	
@@ -160,6 +162,7 @@
 		float heightmapValue = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord).x;
 
 		vertex.xz += cellCoordOffset * 256.0f;
+		vertex.xyz -= pushConsts.cameraCellOffset.xyz;
 		vertex.y += heightmapValue * 8192.0f - 4096.0f;
 		
 		outVertex = vertex;
