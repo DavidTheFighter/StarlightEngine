@@ -14,7 +14,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <dirent.h>
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
@@ -36,6 +35,7 @@
 #ifdef __linux__
 #include <unistd.h>
 #include <libshaderc/shaderc.hpp>
+#include <dirent.h>
 #elif defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -75,8 +75,6 @@
 #define SECONDS_IN_DAY (24 * 60 * 60)
 
 #define M_SQRT_2 1.4142135624
-
-#define COMPILER_BARRIER() asm volatile("" ::: "memory")
 
 #define DEBUG_ASSERT(x) if (!(x)) { printf("%s Assertion failed @ file %s, line %i\n", ERR_PREFIX, __FILE__, __LINE__); throw std::runtime_error("failed assertion"); }
 

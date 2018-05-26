@@ -25,11 +25,13 @@ VulkanSwapchain::VulkanSwapchain (VulkanRenderer* vulkanRendererParent)
 
 	swapchainDummySourceImage = VK_NULL_HANDLE;
 	swapchainDummySourceImageView = VK_NULL_HANDLE;
+	swapchainDummySourceImageMemory = NULL;
 	swapchainDummySampler = VK_NULL_HANDLE;
 
 	mainWindow = vulkanRendererParent->onAllocInfo.mainWindow;
 
-	WindowSwapchain swapchain = {.window = mainWindow};
+	WindowSwapchain swapchain = {};
+	swapchain.window = mainWindow;
 	VK_CHECK_RESULT(glfwCreateWindowSurface(renderer->instance, static_cast<GLFWwindow*>(mainWindow->getWindowObjectPtr()), nullptr, &swapchain.surface));
 
 	swapchains[mainWindow] = swapchain;
@@ -53,7 +55,7 @@ VulkanSwapchain::~VulkanSwapchain ()
 
 	vkDestroyCommandPool(renderer->device, swapchainCommandPool, nullptr);
 
-	vmaDestroyImage(renderer->memAllocator, swapchainDummySourceImage);
+	vmaDestroyImage(renderer->memAllocator, swapchainDummySourceImage, swapchainDummySourceImageMemory);
 	vkDestroyImageView(renderer->device, swapchainDummySourceImageView, nullptr);
 	vkDestroySampler(renderer->device, swapchainDummySampler, nullptr);
 
@@ -131,7 +133,8 @@ void VulkanSwapchain::init ()
 
 void VulkanSwapchain::initSwapchain (Window *wnd)
 {
-	WindowSwapchain swapchain = {.window = wnd};
+	WindowSwapchain swapchain = {};
+	swapchain.window = wnd;
 
 	auto it = swapchains.find(wnd);
 
@@ -245,7 +248,8 @@ void VulkanSwapchain::createSwapchain (Window *wnd)
 		imageCount = swapchain.swapchainDetails.capabilities.maxImageCount;
 	}
 
-	VkSwapchainCreateInfoKHR createInfo = {.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+	VkSwapchainCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	createInfo.surface = swapchain.surface;
 	createInfo.minImageCount = imageCount;
 	createInfo.imageFormat = surfaceFormat.format;
@@ -272,7 +276,8 @@ void VulkanSwapchain::createSwapchain (Window *wnd)
 
 	for (size_t i = 0; i < swapchain.swapchainImages.size(); i ++)
 	{
-		VkImageViewCreateInfo imageViewInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+		VkImageViewCreateInfo imageViewInfo = {};
+		imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		imageViewInfo.image = swapchain.swapchainImages[i];
 		imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		imageViewInfo.format = swapchain.swapchainImageFormat;
@@ -326,7 +331,8 @@ void VulkanSwapchain::setSwapchainSourceImage (Window *wnd, VkImageView imageVie
 	std::vector<VkWriteDescriptorSet> writes;
 
 	{
-		VkWriteDescriptorSet writeInfo = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		VkWriteDescriptorSet writeInfo = {};
+		writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writeInfo.dstSet = swapchain.swapchainDescriptorSet;
 		writeInfo.dstBinding = 0;
 		writeInfo.dstArrayElement = 0;
@@ -338,7 +344,8 @@ void VulkanSwapchain::setSwapchainSourceImage (Window *wnd, VkImageView imageVie
 	}
 
 	{
-		VkWriteDescriptorSet writeInfo = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		VkWriteDescriptorSet writeInfo = {};
+		writeInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writeInfo.dstSet = swapchain.swapchainDescriptorSet;
 		writeInfo.dstBinding = 1;
 		writeInfo.dstArrayElement = 0;
@@ -396,7 +403,7 @@ void VulkanSwapchain::prerecordCommandBuffers (WindowSwapchain &swapchain)
 
 		debugMarkerBeginRegion(swapchain.swapchainCommandBuffers[i], "Render to Swapchain", glm::vec4(1, 0, 0, 1));
 
-		std::array<VkClearValue, 1> clearValues = {};
+		std::vector<VkClearValue> clearValues(1);
 		clearValues[0].color =
 		{	0.0f, 0.0f, 0.0f, 1.0f};
 
@@ -477,7 +484,7 @@ void VulkanSwapchain::createRenderPass (WindowSwapchain &swapchain)
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-	std::array<VkAttachmentDescription, 1> attachments = {colorAttachment};
+	std::vector<VkAttachmentDescription> attachments = {colorAttachment};
 	VkRenderPassCreateInfo renderPassCreateInfo = {};
 	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -494,7 +501,7 @@ void VulkanSwapchain::createRenderPass (WindowSwapchain &swapchain)
 
 void VulkanSwapchain::createGraphicsPipeline (WindowSwapchain &swapchain)
 {
-	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages = {};
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages(2);
 	shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	shaderStages[0].pName = "main";
@@ -602,7 +609,7 @@ void VulkanSwapchain::createFramebuffers (WindowSwapchain &swapchain)
 
 	for (size_t i = 0; i < swapchain.swapchainFramebuffers.size(); i ++)
 	{
-		std::array<VkImageView, 1> attachments = {swapchain.swapchainImageViews[i]};
+		std::vector<VkImageView> attachments = {swapchain.swapchainImageViews[i]};
 
 		VkFramebufferCreateInfo framebufferCreateInfo = {};
 		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -642,7 +649,8 @@ void VulkanSwapchain::createSyncPrimitives (WindowSwapchain &swapchain)
 
 void VulkanSwapchain::createDummySourceImage ()
 {
-	VkImageCreateInfo imageCreateInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+	VkImageCreateInfo imageCreateInfo = {};
+	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.extent =
 	{	1, 1, 1};
 	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -656,12 +664,14 @@ void VulkanSwapchain::createDummySourceImage ()
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageCreateInfo.flags = 0;
 
-	VmaMemoryRequirements imageMemReqs = {.ownMemory = false, .usage = VMA_MEMORY_USAGE_GPU_ONLY};
-	VkMappedMemoryRange dummySourceImageMem = {};
+	VmaAllocationCreateInfo vmaAllocInfo = {};
+	vmaAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+	vmaAllocInfo.flags = 0;
 
-	VK_CHECK_RESULT(vmaCreateImage(renderer->memAllocator, &imageCreateInfo, &imageMemReqs, &swapchainDummySourceImage, &dummySourceImageMem, nullptr));
+	VK_CHECK_RESULT(vmaCreateImage(renderer->memAllocator, &imageCreateInfo, &vmaAllocInfo, &swapchainDummySourceImage, &swapchainDummySourceImageMemory, nullptr));
 
-	VkImageViewCreateInfo imageViewCreateInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+	VkImageViewCreateInfo imageViewCreateInfo = {};
+	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	imageViewCreateInfo.image = swapchainDummySourceImage;
 	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	imageViewCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
@@ -673,7 +683,8 @@ void VulkanSwapchain::createDummySourceImage ()
 
 	VK_CHECK_RESULT(vkCreateImageView(renderer->device, &imageViewCreateInfo, nullptr, &swapchainDummySourceImageView));
 
-	VkSamplerCreateInfo samplerCreateInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+	VkSamplerCreateInfo samplerCreateInfo = {};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
 	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
 	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -695,19 +706,22 @@ void VulkanSwapchain::createDummySourceImage ()
 	StagingBuffer stagingBuffer = renderer->createAndMapStagingBuffer(sizeof(dummyImageData), dummyImageData);
 
 	VkCommandBuffer cmdBuffer;
-	VkCommandBufferAllocateInfo allocInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+	VkCommandBufferAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.commandBufferCount = 1;
 	allocInfo.commandPool = swapchainCommandPool;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
 	VK_CHECK_RESULT(vkAllocateCommandBuffers(renderer->device, &allocInfo, &cmdBuffer));
 
-	VkCommandBufferBeginInfo beginInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 	VK_CHECK_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
 
-	VkImageMemoryBarrier barrier = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+	VkImageMemoryBarrier barrier = {};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -743,7 +757,8 @@ void VulkanSwapchain::createDummySourceImage ()
 
 	VK_CHECK_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-	VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &cmdBuffer;
 
@@ -792,7 +807,9 @@ VkSurfaceFormatKHR VulkanSwapchain::chooseSwapSurfaceFormat (const std::vector<V
 {
 	if (availableFormats.size() == 1 && availableFormats[0].format == VK_FORMAT_UNDEFINED)
 	{
-		VkSurfaceFormatKHR surfaceFormat = {.format = VK_FORMAT_B8G8R8A8_UNORM, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+		VkSurfaceFormatKHR surfaceFormat = {};
+		surfaceFormat.format = VK_FORMAT_B8G8R8A8_UNORM;
+		surfaceFormat.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 
 		return surfaceFormat;
 	}

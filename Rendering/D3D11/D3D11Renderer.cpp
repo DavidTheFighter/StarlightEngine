@@ -86,6 +86,7 @@ CommandPool D3D11Renderer::createCommandPool (QueueType queue, CommandPoolFlags 
 
 void D3D11Renderer::submitToQueue (QueueType queue, const std::vector<CommandBuffer>& cmdBuffers, const std::vector<Semaphore>& waitSemaphores, const std::vector<PipelineStageFlags>& waitSemaphoreStages, const std::vector<Semaphore>& signalSemaphores, Fence fence)
 {
+	
 }
 
 void D3D11Renderer::waitForQueueIdle (QueueType queue)
@@ -123,18 +124,22 @@ void D3D11Renderer::writeDescriptorSets (const std::vector<DescriptorWriteInfo>&
 
 RenderPass D3D11Renderer::createRenderPass (const std::vector<AttachmentDescription>& attachments, const std::vector<SubpassDescription>& subpasses, const std::vector<SubpassDependency>& dependencies)
 {
+	return nullptr;
 }
 
 Framebuffer D3D11Renderer::createFramebuffer (RenderPass renderPass, const std::vector<TextureView>& attachments, uint32_t width, uint32_t height, uint32_t layers)
 {
+	return nullptr;
 }
 
 ShaderModule D3D11Renderer::createShaderModule (std::string file, ShaderStageFlagBits stage)
 {
+	return nullptr;
 }
 
 Pipeline D3D11Renderer::createGraphicsPipeline (const PipelineInfo& pipelineInfo, RenderPass renderPass, uint32_t subpass)
 {
+	return nullptr;
 }
 
 DescriptorPool D3D11Renderer::createDescriptorPool (const std::vector<DescriptorSetLayoutBinding>& layoutBindings, uint32_t poolBlockAllocSize)
@@ -144,10 +149,12 @@ DescriptorPool D3D11Renderer::createDescriptorPool (const std::vector<Descriptor
 
 Fence D3D11Renderer::createFence (bool createAsSignaled)
 {
+	return nullptr;
 }
 
 Semaphore D3D11Renderer::createSemaphore ()
 {
+	return nullptr;
 }
 
 std::vector<Semaphore> D3D11Renderer::createSemaphores (uint32_t count)
@@ -162,14 +169,17 @@ std::vector<Semaphore> D3D11Renderer::createSemaphores (uint32_t count)
 
 Texture D3D11Renderer::createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, TextureType type)
 {
+	return nullptr;
 }
 
 TextureView D3D11Renderer::createTextureView (Texture texture, TextureViewType viewType, TextureSubresourceRange subresourceRange, ResourceFormat viewFormat)
 {
+	return nullptr;
 }
 
 Sampler D3D11Renderer::createSampler (SamplerAddressMode addressMode, SamplerFilter minFilter, SamplerFilter magFilter, float anisotropy, svec3 min_max_biasLod, SamplerMipmapMode mipmapMode)
 {
+	return nullptr;
 }
 
 Buffer D3D11Renderer::createBuffer (size_t size, BufferUsageFlags usage, MemoryUsage memUsage, bool ownMemory)
@@ -211,10 +221,12 @@ void D3D11Renderer::mapBuffer (Buffer buffer, size_t dataSize, const void* data)
 
 StagingBuffer D3D11Renderer::createStagingBuffer (size_t dataSize)
 {
+	return nullptr;
 }
 
 StagingBuffer D3D11Renderer::createAndMapStagingBuffer (size_t dataSize, const void* data)
 {
+	return nullptr;
 }
 
 void D3D11Renderer::mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, const void* data)

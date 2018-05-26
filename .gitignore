@@ -3,3 +3,9 @@
 /.project
 /.settings/
 /glslangValidator.exe
+/.vs
+/x64
+/StarlightEngine.vcxproj.user
+/StarlightEngine.vcxproj.filters
+/StarlightEngine.vcxproj
+/StarlightEngine.sln

@@ -66,7 +66,8 @@ bool VulkanRenderer_tryAllocFromDescriptorPoolObject (VulkanRenderer *renderer, 
 
 		VkDescriptorSetLayout descLayout = renderer->pipelineHandler->createDescriptorSetLayout(pool->layoutBindings);
 
-		VkDescriptorSetAllocateInfo descSetAllocInfo = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+		VkDescriptorSetAllocateInfo descSetAllocInfo = {};
+		descSetAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		descSetAllocInfo.descriptorPool = poolObj.pool;
 		descSetAllocInfo.descriptorSetCount = 1;
 		descSetAllocInfo.pSetLayouts = &descLayout;

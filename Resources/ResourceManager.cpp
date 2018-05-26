@@ -55,6 +55,8 @@ ResourceManager::~ResourceManager ()
 	renderer->destroyCommandPool(mainThreadTransferCommandPool);
 	renderer->destroyDescriptorPool(mainThreadDescriptorPool);
 	// TODO Free all remaining resources when an instance of ResourceManager is deleted
+	
+	printf("Remaining resources - %u, %u, %u\n", loadedMaterials.size(), loadedTextures.size(), loadedStaticMeshes.size());
 }
 
 void ResourceManager::loadGameDefsFile (const std::string &file)
@@ -662,9 +664,6 @@ ResourceMesh ResourceManager::loadMeshImmediate (const std::string &file, const 
 
 		renderer->setObjectDebugName(meshRes->meshBuffer, OBJECT_TYPE_BUFFER, debugMarkerName + "[" + mesh + "]");
 
-		// Probably don't need this here, but I'm putting it here anyway
-		COMPILER_BARRIER();
-
 		loadedMeshes[std::make_tuple(file, mesh, rendererOptimizedMeshFormat, true)] = std::make_pair(meshRes, 1);
 
 		return meshRes;
@@ -767,8 +766,6 @@ ResourceTexture ResourceManager::loadTextureImmediate (const std::string &file, 
 
 		texRes->textureView = renderer->createTextureView(texRes->texture, TEXTURE_VIEW_TYPE_2D, {0, texRes->mipmapLevels, 0, 1});
 
-		// Probably don't need this here, but I'm putting here anyway. fight me
-		COMPILER_BARRIER();
 		loadedTextures[file] = std::make_pair(texRes, 1);
 
 		return texRes;
@@ -842,8 +839,6 @@ ResourceTexture ResourceManager::loadTextureArrayImmediate (const std::vector<st
 
 		texRes->textureView = renderer->createTextureView(texRes->texture, TEXTURE_VIEW_TYPE_2D_ARRAY, {0, texRes->mipmapLevels, 0, (uint32_t) files.size()});
 
-		// Probably don't need this here, but I'm putting here anyway. fight me
-		COMPILER_BARRIER();
 		loadedTextures[files[0]] = std::make_pair(texRes, 1);
 
 		return texRes;

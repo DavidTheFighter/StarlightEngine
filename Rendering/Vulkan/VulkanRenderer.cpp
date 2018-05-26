@@ -74,14 +74,16 @@ void VulkanRenderer::initRenderer ()
 {
 	std::vector<const char*> instanceExtensions = getInstanceExtensions();
 
-	VkApplicationInfo appInfo = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO};
+	VkApplicationInfo appInfo = {};
+	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pApplicationName = APP_NAME;
 	appInfo.pEngineName = ENGINE_NAME;
 	appInfo.applicationVersion = VK_MAKE_VERSION(APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_REVISION);
 	appInfo.engineVersion = VK_MAKE_VERSION(ENGINE_VERSION_MAJOR, ENGINE_VERSION_MINOR, ENGINE_VERSION_REVISION);
 	appInfo.apiVersion = VK_API_VERSION_1_0;
 
-	VkInstanceCreateInfo instCreateInfo = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+	VkInstanceCreateInfo instCreateInfo = {};
+	instCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	instCreateInfo.pApplicationInfo = &appInfo;
 	instCreateInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
 	instCreateInfo.ppEnabledExtensionNames = instanceExtensions.data();
@@ -96,7 +98,8 @@ void VulkanRenderer::initRenderer ()
 
 	if (validationLayersEnabled)
 	{
-		VkDebugReportCallbackCreateInfoEXT createInfo = {.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT};
+		VkDebugReportCallbackCreateInfoEXT createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
 		createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		createInfo.pfnCallback = debugCallback;
 
@@ -139,7 +142,8 @@ void VulkanRenderer::cleanupVulkan ()
 
 CommandPool VulkanRenderer::createCommandPool (QueueType queue, CommandPoolFlags flags)
 {
-	VkCommandPoolCreateInfo poolCreateInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+	VkCommandPoolCreateInfo poolCreateInfo = {};
+	poolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	poolCreateInfo.flags = toVkCommandPoolCreateFlags(flags);
 
 	switch (queue)
@@ -183,7 +187,7 @@ void VulkanRenderer::submitToQueue (QueueType queue, const std::vector<CommandBu
 	DEBUG_ASSERT(cmdBuffers.size() > 0);
 	DEBUG_ASSERT(waitSemaphores.size() == waitSemaphoreStages.size());
 
-	VkCommandBuffer vkCmdBuffers[cmdBuffers.size()];
+	std::vector<VkCommandBuffer> vkCmdBuffers(cmdBuffers.size());
 
 	std::vector<VkSemaphore> vulkanWaitSemaphores(waitSemaphores.size()), vulkanSignalSemaphores(signalSemaphores.size());
 	std::vector<VkPipelineStageFlags> vulkanWaitStages(waitSemaphores.size());
@@ -204,9 +208,10 @@ void VulkanRenderer::submitToQueue (QueueType queue, const std::vector<CommandBu
 		vulkanSignalSemaphores[i] = static_cast<VulkanSemaphore*>(signalSemaphores[i])->semHandle;
 	}
 
-	VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = static_cast<uint32_t>(cmdBuffers.size());
-	submitInfo.pCommandBuffers = vkCmdBuffers;
+	submitInfo.pCommandBuffers = vkCmdBuffers.data();
 	submitInfo.waitSemaphoreCount = static_cast<uint32_t>(vulkanWaitSemaphores.size());
 	submitInfo.pWaitSemaphores = vulkanWaitSemaphores.data();
 	submitInfo.pWaitDstStageMask = vulkanWaitStages.data();
@@ -293,14 +298,14 @@ void VulkanRenderer::resetFences (const std::vector<Fence> &fences)
 {
 	DEBUG_ASSERT(fences.size() > 0);
 
-	VkFence vulkanFences[fences.size()];
+	std::vector<VkFence> vulkanFences(fences.size());
 
 	for (size_t i = 0; i < fences.size(); i ++)
 	{
 		vulkanFences[i] = static_cast<VulkanFence*>(fences[i])->fenceHandle;
 	}
 
-	VK_CHECK_RESULT(vkResetFences(device, static_cast<uint32_t>(fences.size()), vulkanFences));
+	VK_CHECK_RESULT(vkResetFences(device, static_cast<uint32_t>(fences.size()), vulkanFences.data()));
 }
 
 void VulkanRenderer::waitForFence (Fence fence, double timeoutInSeconds)
@@ -324,7 +329,7 @@ void VulkanRenderer::waitForFences (const std::vector<Fence> &fences, bool waitF
 {
 	DEBUG_ASSERT(fences.size() > 0);
 
-	VkFence vulkanFences[fences.size()];
+	std::vector<VkFence> vulkanFences(fences.size());
 
 	for (size_t i = 0; i < fences.size(); i ++)
 	{
@@ -333,7 +338,7 @@ void VulkanRenderer::waitForFences (const std::vector<Fence> &fences, bool waitF
 
 	uint64_t timeoutInNanoseconds = static_cast<uint64_t>(timeoutInSeconds * 1.0e9);
 
-	VkResult waitResult = vkWaitForFences(device, static_cast<uint32_t>(fences.size()), vulkanFences, waitForAll, timeoutInNanoseconds);
+	VkResult waitResult = vkWaitForFences(device, static_cast<uint32_t>(fences.size()), vulkanFences.data(), waitForAll, timeoutInNanoseconds);
 
 	switch (waitResult)
 	{
@@ -368,7 +373,8 @@ void VulkanRenderer::writeDescriptorSets (const std::vector<DescriptorWriteInfo>
 	for (size_t i = 0; i < writes.size(); i ++)
 	{
 		const DescriptorWriteInfo &writeInfo = writes[i];
-		VkWriteDescriptorSet write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		VkWriteDescriptorSet write = {};
+		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.dstSet = static_cast<VulkanDescriptorSet*>(writeInfo.dstSet)->setHandle;
 		write.descriptorCount = writeInfo.descriptorCount;
 		write.descriptorType = toVkDescriptorType(writeInfo.descriptorType);
@@ -518,7 +524,8 @@ RenderPass VulkanRenderer::createRenderPass (const std::vector<AttachmentDescrip
 		vkDependencies.push_back(vkDependency);
 	}
 
-	VkRenderPassCreateInfo renderPassCreateInfo = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+	VkRenderPassCreateInfo renderPassCreateInfo = {};
+	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(vkAttachments.size());
 	renderPassCreateInfo.pAttachments = vkAttachments.data();
 	renderPassCreateInfo.subpassCount = static_cast<uint32_t>(vkSubpasses.size());
@@ -540,7 +547,8 @@ Framebuffer VulkanRenderer::createFramebuffer (RenderPass renderPass, const std:
 		imageAttachments.push_back(static_cast<VulkanTextureView*>(attachments[i])->imageView);
 	}
 
-	VkFramebufferCreateInfo framebufferCreateInfo = {.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+	VkFramebufferCreateInfo framebufferCreateInfo = {};
+	framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	framebufferCreateInfo.renderPass = static_cast<VulkanRenderPass*>(renderPass)->renderPassHandle;
 	framebufferCreateInfo.attachmentCount = static_cast<uint32_t>(imageAttachments.size());
 	framebufferCreateInfo.pAttachments = imageAttachments.data();
@@ -666,7 +674,8 @@ Fence VulkanRenderer::createFence (bool createAsSignaled)
 {
 	VulkanFence *vulkanFence = new VulkanFence();
 
-	VkFenceCreateInfo fenceCreateInfo = {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+	VkFenceCreateInfo fenceCreateInfo = {};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceCreateInfo.flags = createAsSignaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
 
 	VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &vulkanFence->fenceHandle));
@@ -678,7 +687,8 @@ Semaphore VulkanRenderer::createSemaphore ()
 {
 	VulkanSemaphore *vulkanSem = new VulkanSemaphore();
 
-	VkSemaphoreCreateInfo semCreateInfo = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+	VkSemaphoreCreateInfo semCreateInfo = {};
+	semCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
 	VK_CHECK_RESULT(vkCreateSemaphore(device, &semCreateInfo, nullptr, &vulkanSem->semHandle));
 
@@ -734,7 +744,8 @@ Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, Text
 	tex->depth = uint32_t(extent.z);
 	tex->textureFormat = format;
 
-	VkImageCreateInfo imageCreateInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+	VkImageCreateInfo imageCreateInfo = {};
+	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.extent = toVkExtent(extent);
 	imageCreateInfo.imageType = toVkImageType(type);
 	imageCreateInfo.mipLevels = mipLevelCount;
@@ -747,9 +758,11 @@ Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, Text
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageCreateInfo.flags = 0;
 
-	VmaMemoryRequirements imageMemReqs = {.ownMemory = ownMemory, .usage = toVmaMemoryUsage(memUsage)};
+	VmaAllocationCreateInfo allocInfo = {};
+	allocInfo.usage = toVmaMemoryUsage(memUsage);
+	allocInfo.flags = (ownMemory ? VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT : 0);
 
-	VK_CHECK_RESULT(vmaCreateImage(memAllocator, &imageCreateInfo, &imageMemReqs, &tex->imageHandle, &tex->imageMemory, nullptr));
+	VK_CHECK_RESULT(vmaCreateImage(memAllocator, &imageCreateInfo, &allocInfo, &tex->imageHandle, &tex->imageMemory, nullptr));
 
 	return tex;
 }
@@ -758,7 +771,8 @@ TextureView VulkanRenderer::createTextureView (Texture texture, TextureViewType 
 {
 	VulkanTexture *vkTex = static_cast<VulkanTexture*>(texture);
 
-	VkImageViewCreateInfo imageViewCreateInfo = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+	VkImageViewCreateInfo imageViewCreateInfo = {};
+	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	imageViewCreateInfo.image = vkTex->imageHandle;
 	imageViewCreateInfo.viewType = toVkImageViewType(viewType);
 	imageViewCreateInfo.format = viewFormat == RESOURCE_FORMAT_UNDEFINED ? vkTex->imageFormat : toVkFormat(viewFormat);
@@ -777,7 +791,8 @@ TextureView VulkanRenderer::createTextureView (Texture texture, TextureViewType 
 
 Sampler VulkanRenderer::createSampler (SamplerAddressMode addressMode, SamplerFilter minFilter, SamplerFilter magFilter, float anisotropy, svec3 min_max_biasLod, SamplerMipmapMode mipmapMode)
 {
-	VkSamplerCreateInfo samplerCreateInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+	VkSamplerCreateInfo samplerCreateInfo = {};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	samplerCreateInfo.minFilter = toVkFilter(minFilter);
 	samplerCreateInfo.magFilter = toVkFilter(magFilter);
 	samplerCreateInfo.addressModeU = toVkSamplerAddressMode(addressMode);
@@ -809,16 +824,17 @@ Buffer VulkanRenderer::createBuffer (size_t size, BufferUsageFlags usage, Memory
 	VulkanBuffer *vkBuffer = new VulkanBuffer();
 	vkBuffer->memorySize = static_cast<VkDeviceSize>(size);
 
-	VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+	VkBufferCreateInfo bufferInfo = {};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = size;
 	bufferInfo.usage = usage;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	VmaMemoryRequirements bufferMemReqs = {};
-	bufferMemReqs.ownMemory = ownMemory;
-	bufferMemReqs.usage = toVmaMemoryUsage(memUsage);
+	VmaAllocationCreateInfo allocInfo = {};
+	allocInfo.usage = toVmaMemoryUsage(memUsage);
+	allocInfo.flags = (ownMemory ? VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT : 0);
 
-	VK_CHECK_RESULT(vmaCreateBuffer(memAllocator, &bufferInfo, &bufferMemReqs, &vkBuffer->bufferHandle, &vkBuffer->bufferMemory, nullptr));
+	VK_CHECK_RESULT(vmaCreateBuffer(memAllocator, &bufferInfo, &allocInfo, &vkBuffer->bufferHandle, &vkBuffer->bufferMemory, nullptr));
 
 	return vkBuffer;
 }
@@ -829,7 +845,7 @@ void *VulkanRenderer::mapBuffer (Buffer buffer)
 
 	void *mappedBufferMemory = nullptr;
 
-	VK_CHECK_RESULT(vmaMapMemory(memAllocator, &vkBuffer->bufferMemory, &mappedBufferMemory));
+	VK_CHECK_RESULT(vmaMapMemory(memAllocator, vkBuffer->bufferMemory, &mappedBufferMemory));
 
 	return mappedBufferMemory;
 }
@@ -838,7 +854,7 @@ void VulkanRenderer::unmapBuffer(Buffer buffer)
 {
 	VulkanBuffer *vkBuffer = static_cast<VulkanBuffer*>(buffer);
 
-	vmaUnmapMemory(memAllocator, &vkBuffer->bufferMemory);
+	vmaUnmapMemory(memAllocator, vkBuffer->bufferMemory);
 }
 
 void *VulkanRenderer::mapTexture (Texture texture)
@@ -847,7 +863,7 @@ void *VulkanRenderer::mapTexture (Texture texture)
 
 	void *mappedImageMemory = nullptr;
 
-	VK_CHECK_RESULT(vmaMapMemory(memAllocator, &vulkanTexture->imageMemory, &mappedImageMemory));
+	VK_CHECK_RESULT(vmaMapMemory(memAllocator, vulkanTexture->imageMemory, &mappedImageMemory));
 
 	return mappedImageMemory;
 }
@@ -856,7 +872,7 @@ void VulkanRenderer::unmapTexture (Texture texture)
 {
 	VulkanTexture *vulkanTexture = static_cast<VulkanTexture*> (texture);
 
-	vmaUnmapMemory(memAllocator, &vulkanTexture->imageMemory);
+	vmaUnmapMemory(memAllocator, vulkanTexture->imageMemory);
 }
 
 StagingBuffer VulkanRenderer::createStagingBuffer (size_t dataSize)
@@ -871,11 +887,11 @@ StagingBuffer VulkanRenderer::createStagingBuffer (size_t dataSize)
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	bufferCreateInfo.queueFamilyIndexCount = 0;
 
-	VmaMemoryRequirements bufferMemReqs = {};
-	bufferMemReqs.ownMemory = false;
-	bufferMemReqs.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+	VmaAllocationCreateInfo allocInfo = {};
+	allocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+	allocInfo.flags = 0;
 
-	VK_CHECK_RESULT(vmaCreateBuffer(memAllocator, &bufferCreateInfo, &bufferMemReqs, &stagingBuffer->bufferHandle, &stagingBuffer->bufferMemory, nullptr));
+	VK_CHECK_RESULT(vmaCreateBuffer(memAllocator, &bufferCreateInfo, &allocInfo, &stagingBuffer->bufferHandle, &stagingBuffer->bufferMemory, nullptr));
 
 	return stagingBuffer;
 }
@@ -902,9 +918,9 @@ void VulkanRenderer::mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataS
 
 	void *mappedBufferMemory = nullptr;
 
-	VK_CHECK_RESULT(vmaMapMemory(memAllocator, &vkStagingBuffer->bufferMemory, &mappedBufferMemory));
+	VK_CHECK_RESULT(vmaMapMemory(memAllocator, vkStagingBuffer->bufferMemory, &mappedBufferMemory));
 	memcpy(mappedBufferMemory, data, dataSize);
-	vmaUnmapMemory(memAllocator, &vkStagingBuffer->bufferMemory);
+	vmaUnmapMemory(memAllocator, vkStagingBuffer->bufferMemory);
 }
 
 void VulkanRenderer::destroyCommandPool (CommandPool pool)
@@ -989,7 +1005,7 @@ void VulkanRenderer::destroyTexture (Texture texture)
 	VulkanTexture *vkTex = static_cast<VulkanTexture*>(texture);
 
 	if (vkTex->imageHandle != VK_NULL_HANDLE)
-		vmaDestroyImage(memAllocator, vkTex->imageHandle);
+		vmaDestroyImage(memAllocator, vkTex->imageHandle, vkTex->imageMemory);
 
 	delete vkTex;
 }
@@ -1019,7 +1035,7 @@ void VulkanRenderer::destroyBuffer (Buffer buffer)
 	VulkanBuffer *vkBuffer = static_cast<VulkanBuffer*>(buffer);
 
 	if (vkBuffer->bufferHandle != VK_NULL_HANDLE)
-		vmaDestroyBuffer(memAllocator, vkBuffer->bufferHandle);
+		vmaDestroyBuffer(memAllocator, vkBuffer->bufferHandle, vkBuffer->bufferMemory);
 
 	delete vkBuffer;
 }
@@ -1029,7 +1045,7 @@ void VulkanRenderer::destroyStagingBuffer (StagingBuffer stagingBuffer)
 	VulkanStagingBuffer *vkBuffer = static_cast<VulkanStagingBuffer*>(stagingBuffer);
 
 	if (vkBuffer->bufferHandle != VK_NULL_HANDLE)
-		vmaDestroyBuffer(memAllocator, vkBuffer->bufferHandle);
+		vmaDestroyBuffer(memAllocator, vkBuffer->bufferHandle, vkBuffer->bufferMemory);
 
 	delete vkBuffer;
 }
@@ -1106,7 +1122,8 @@ void VulkanRenderer::setObjectDebugName (void *obj, RendererObjectType objType, 
 				break;
 		}
 
-		VkDebugMarkerObjectNameInfoEXT nameInfo = {.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT};
+		VkDebugMarkerObjectNameInfoEXT nameInfo = {};
+		nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
 		nameInfo.objectType = toVkDebugReportObjectTypeEXT(objType);
 		nameInfo.object = objHandle;
 		nameInfo.pObjectName = name.c_str();
@@ -1149,7 +1166,8 @@ void VulkanRenderer::createLogicalDevice ()
 	float queuePriority = 1.0f;
 	for (size_t i = 0; i < deviceQueueInfo.uniqueQueueFamilies.size(); i ++)
 	{
-		VkDeviceQueueCreateInfo queueCreateInfo = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+		VkDeviceQueueCreateInfo queueCreateInfo = {};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queueCreateInfo.queueFamilyIndex = deviceQueueInfo.uniqueQueueFamilies[i];
 		queueCreateInfo.queueCount = deviceQueueInfo.uniqueQueueFamilyQueueCount[i];
 		queueCreateInfo.pQueuePriorities = &queuePriority;
@@ -1189,7 +1207,8 @@ void VulkanRenderer::createLogicalDevice ()
 	enabledDeviceFeatures.tessellationShader = true;
 	enabledDeviceFeatures.fillModeNonSolid = true;
 
-	VkDeviceCreateInfo deviceCreateInfo = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+	VkDeviceCreateInfo deviceCreateInfo = {};
+	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
 	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(enabledDeviceExtensions.size());

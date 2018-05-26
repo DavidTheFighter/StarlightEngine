@@ -14,7 +14,7 @@
 struct VulkanTexture : public RendererTexture
 {
 		VkImage imageHandle;
-		VkMappedMemoryRange imageMemory;
+		VmaAllocation imageMemory;
 
 		VkFormat imageFormat;
 };
@@ -66,14 +66,14 @@ struct VulkanShaderModule : public RendererShaderModule
 struct VulkanStagingBuffer : public RendererStagingBuffer
 {
 		VkBuffer bufferHandle;
-		VkMappedMemoryRange bufferMemory;
+		VmaAllocation bufferMemory;
 		VkDeviceSize memorySize;
 };
 
 struct VulkanBuffer : public RendererBuffer
 {
 		VkBuffer bufferHandle;
-		VkMappedMemoryRange bufferMemory;
+		VmaAllocation bufferMemory;
 		VkDeviceSize memorySize;
 };
 

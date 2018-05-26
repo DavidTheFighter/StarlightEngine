@@ -76,6 +76,7 @@ class VulkanSwapchain
 
 		VkImage swapchainDummySourceImage;
 		VkImageView swapchainDummySourceImageView;
+		VmaAllocation swapchainDummySourceImageMemory;
 		VkSampler swapchainDummySampler;
 
 		VkDescriptorSetLayout swapchainDescriptorLayout;

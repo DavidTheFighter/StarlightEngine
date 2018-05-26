@@ -74,7 +74,8 @@ inline void debugMarkerEndRegion (VkCommandBuffer cmdBuffer)
 template<typename VulkanObject>
 inline void debugMarkerSetName (VkDevice device, VulkanObject obj, VkDebugReportObjectTypeEXT objType, const std::string &name)
 {
-	VkDebugMarkerObjectNameInfoEXT nameInfo = {.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT};
+	VkDebugMarkerObjectNameInfoEXT nameInfo = {};
+	nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
 	nameInfo.objectType = objType;
 	nameInfo.object = (uint64_t) obj;
 	nameInfo.pObjectName = name.c_str();

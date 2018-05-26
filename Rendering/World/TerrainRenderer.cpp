@@ -490,9 +490,6 @@ void TerrainRenderer::init ()
 
 	terrainClipmapView_Elevation = engine->renderer->createTextureView(terrainClipmap_Elevation, TEXTURE_VIEW_TYPE_2D_ARRAY, {0, 1, 0, 5});
 
-	StagingBuffer st = engine->renderer->createStagingBuffer(513 * 513 * 2);
-	engine->renderer->mapStagingBuffer(st, 513 * 513 * 2, heightmapData.get());
-
 	CommandBuffer buf = engine->renderer->beginSingleTimeCommand(clipmapUpdateCommandPool);
 
 	buf->setTextureLayout(transferClipmap_Elevation, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_SRC_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
@@ -651,6 +648,9 @@ void TerrainRenderer::destroy ()
 
 	engine->renderer->destroySemaphore(clipmapUpdateSemaphore);
 	engine->renderer->destroyCommandPool(clipmapUpdateCommandPool);
+
+	for (size_t i = 0; i < clipmapStagingBuffersToDelete.size(); i++)
+		engine->renderer->destroyStagingBuffer(clipmapStagingBuffersToDelete[i]);
 }
 
 const uint32_t ivunt_vertexFormatSize = 44;

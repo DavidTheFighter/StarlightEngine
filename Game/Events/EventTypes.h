@@ -84,7 +84,7 @@ typedef struct EventMouseScrollData
 		Window *window;
 		double deltaX;
 		double deltaY;
-};
+} EventMouseScrollData;
 
 typedef void (*EventWindowResizeCallback) (const EventWindowResizeData&, void*);
 typedef void (*EventCursorMoveCallback) (const EventCursorMoveData&, void*);

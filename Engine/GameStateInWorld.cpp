@@ -294,6 +294,7 @@ void GameStateInWorld::destroy ()
 	engine->resources->returnMaterial("slate");
 	engine->resources->returnStaticMesh("bridge");
 	engine->resources->returnStaticMesh("boulder");
+	engine->resources->returnStaticMesh("LOD Test");
 
 	engine->resources->returnPipeline("engine.defaultMaterial");
 

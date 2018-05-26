@@ -77,7 +77,7 @@ DeferredRenderer::~DeferredRenderer ()
 		destroy();
 }
 
-uint32_t lightingPcSize = (uint32_t) (sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4) + sizeof(glm::vec4));
+const uint32_t lightingPcSize = (uint32_t) (sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4) + sizeof(glm::vec4));
 
 void DeferredRenderer::renderDeferredLighting ()
 {

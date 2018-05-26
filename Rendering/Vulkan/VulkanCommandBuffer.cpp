@@ -45,7 +45,8 @@ VulkanCommandBuffer::~VulkanCommandBuffer ()
 
 void VulkanCommandBuffer::beginCommands (CommandBufferUsageFlags flags)
 {
-	VkCommandBufferBeginInfo beginInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = toVkCommandBufferUsageFlags(flags);
 
 	VK_CHECK_RESULT(vkBeginCommandBuffer(bufferHandle, &beginInfo));
@@ -63,7 +64,8 @@ void VulkanCommandBuffer::resetCommands ()
 
 void VulkanCommandBuffer::beginRenderPass (RenderPass renderPass, Framebuffer framebuffer, const Scissor &renderArea, const std::vector<ClearValue> &clearValues, SubpassContents contents)
 {
-	VkRenderPassBeginInfo beginInfo = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+	VkRenderPassBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	beginInfo.renderPass = static_cast<VulkanRenderPass*>(renderPass)->renderPassHandle;
 	beginInfo.framebuffer = static_cast<VulkanFramebuffer*>(framebuffer)->framebufferHandle;
 	beginInfo.renderArea.offset =
@@ -143,14 +145,15 @@ void VulkanCommandBuffer::bindDescriptorSets (PipelineBindPoint point, uint32_t 
 
 void VulkanCommandBuffer::transitionTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource)
 {
-	VkImageMemoryBarrier barrier = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+	VkImageMemoryBarrier barrier = {};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout = toVkImageLayout(oldLayout);
 	barrier.newLayout = toVkImageLayout(newLayout);
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = static_cast<VulkanTexture*>(texture)->imageHandle;
 	barrier.subresourceRange =
-	{	isDepthFormat(texture->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT, subresource.baseMipLevel, subresource.levelCount, subresource.baseArrayLayer, subresource.layerCount};
+	{ VkAccessFlags(isDepthFormat(texture->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT), subresource.baseMipLevel, subresource.levelCount, subresource.baseArrayLayer, subresource.layerCount};
 
 	VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 	VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -214,14 +217,15 @@ void VulkanCommandBuffer::transitionTextureLayout (Texture texture, TextureLayou
 
 void VulkanCommandBuffer::setTextureLayout (Texture texture, TextureLayout oldLayout, TextureLayout newLayout, TextureSubresourceRange subresource, PipelineStageFlags srcStage, PipelineStageFlags dstStage)
 {
-	VkImageMemoryBarrier imageMemoryBarrier = {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+	VkImageMemoryBarrier imageMemoryBarrier = {};
+	imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	imageMemoryBarrier.oldLayout = toVkImageLayout(oldLayout);
 	imageMemoryBarrier.newLayout = toVkImageLayout(newLayout);
 	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	imageMemoryBarrier.image = static_cast<VulkanTexture*>(texture)->imageHandle;
 	imageMemoryBarrier.subresourceRange =
-	{	isDepthFormat(texture->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT, subresource.baseMipLevel, subresource.levelCount, subresource.baseArrayLayer, subresource.layerCount};
+	{ VkImageAspectFlags(isDepthFormat(texture->textureFormat) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT), subresource.baseMipLevel, subresource.levelCount, subresource.baseArrayLayer, subresource.layerCount};
 
 	// Source layouts (old)
 	// Source access mask controls actions that have to be finished on the old layout

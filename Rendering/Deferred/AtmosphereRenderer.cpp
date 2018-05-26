@@ -33,7 +33,6 @@
 
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/Deferred/Atmosphere/constants.h>
-#include <Rendering/Deferred/Atmosphere/functions.glsl.inc>
 #include <Rendering/Deferred/Atmosphere/definitions.glsl.inc>
 
 AtmosphereRenderer::AtmosphereRenderer (StarlightEngine *enginePtr)
@@ -242,7 +241,7 @@ void AtmosphereRenderer::loadScatteringSourceInclude ()
 	double sun_k_r, sun_k_g, sun_k_b;
 	ComputeSpectralRadianceToLuminanceFactors(wavelengths, solar_irradiance, 0 /* lambda_power */, &sun_k_r, &sun_k_g, &sun_k_b);
 
-	auto density_layer = [kLengthUnitInMeters](const DensityProfileLayer& layer)
+	auto density_layer = [](const DensityProfileLayer& layer)
 	{
 		return "DensityProfileLayer(" +
 		std::to_string(layer.width / kLengthUnitInMeters) + "," +
@@ -332,7 +331,7 @@ void AtmosphereRenderer::loadScatteringSourceInclude ()
 		std::to_string(sun_k_r) + "," +
 		std::to_string(sun_k_g) + "," +
 		std::to_string(sun_k_b) + ");\n" +
-		functions_glsl;
+		readFileStr(engine->getWorkingDir() + "GameData/shaders/atm-functions.glsl");
 	};
 
 	atmosphereShaderInclude = glsl_header_factory_({kLambdaR, kLambdaG, kLambdaB}) +

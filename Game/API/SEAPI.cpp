@@ -47,7 +47,7 @@ SEAPI::SEAPI (StarlightEngine *enginePtr)
 
 SEAPI::~SEAPI ()
 {
-	
+	engine->renderer->destroyBuffer(worldEnvironmentUBO);
 }
 
 /*

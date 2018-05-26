@@ -90,13 +90,13 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	renderer->initRenderer();
 
 	resources = new ResourceManager(renderer, workingDir);
-	guiRenderer = new GUIRenderer(renderer);
-	guiRenderer->temp_engine = this;
+	//guiRenderer = new GUIRenderer(renderer);
+	//guiRenderer->temp_engine = this;
 
 	api = new SEAPI(this);
 	api->init();
 
-	guiRenderer->init();
+	//guiRenderer->init();
 }
 
 void StarlightEngine::destroy ()
@@ -109,13 +109,13 @@ void StarlightEngine::destroy ()
 		gameStates.pop_back();
 	}
 
-	guiRenderer->destroy();
+	//guiRenderer->destroy();
 
-	delete guiRenderer;
+	//delete guiRenderer;
+	delete api;
 	delete resources;
 	delete mainWindow;
 	delete renderer;
-	delete api;
 }
 
 void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &eventData, void *usrPtr)
