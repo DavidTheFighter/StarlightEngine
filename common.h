@@ -76,7 +76,7 @@
 
 #define M_SQRT_2 1.4142135624
 
-#define DEBUG_ASSERT(x) if (!(x)) { printf("%s Assertion failed @ file %s, line %i\n", ERR_PREFIX, __FILE__, __LINE__); throw std::runtime_error("failed assertion"); }
+#define DEBUG_ASSERT(x) if (!(x)) { printf("%s Assertion \"%s\" failed @ file %s, line %i\n", ERR_PREFIX, #x, __FILE__, __LINE__); throw std::runtime_error("failed assertion"); }
 
 #ifndef M_PI
 #define M_PI 3.1415926
@@ -165,6 +165,20 @@ typedef struct simple_unsigned_integer_vector_4
 {
 		uint32_t x, y, z, w;
 } suvec4;
+
+typedef struct
+{
+	svec3 pos0;
+	uint32_t color0;
+	svec3 pos1;
+	uint32_t color1;
+} PhysicsDebugLine;
+
+typedef struct
+{
+	uint32_t numLines;
+	std::vector<PhysicsDebugLine> lines;
+} PhysicsDebugRenderData;
 
 struct Camera
 {

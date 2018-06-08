@@ -301,6 +301,8 @@ typedef struct ResourceStaticMeshDefinition
 typedef struct ResourceLevelDefinition
 {
 		char uniqueName[RESOURCE_DEF_MAX_NAME_LENGTH];
+		char fileName[RESOURCE_DEF_MAX_FILE_LENGTH];
+		
 } LevelDef;
 
 #endif /* RESOURCES_RESOURCES_H_ */

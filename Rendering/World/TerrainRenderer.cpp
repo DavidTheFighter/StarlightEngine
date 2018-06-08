@@ -482,7 +482,7 @@ void TerrainRenderer::init ()
 	clipmapUpdateCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_RESET_COMMAND_BUFFER_BIT);
 	clipmapUpdateCommandBuffer = clipmapUpdateCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
 
-	terrainClipmapSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+	terrainClipmapSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);// , SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST);
 	terrainTextureSampler = engine->renderer->createSampler();
 
 	transferClipmap_Elevation = engine->renderer->createTexture({513, 513, 1}, RESOURCE_FORMAT_R16_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_TRANSFER_SRC_BIT, MEMORY_USAGE_GPU_ONLY, true, 1, 1);
@@ -659,11 +659,11 @@ void TerrainRenderer::buildTerrainCellGrids()
 {
 	{
 		std::vector<svec2> vertices;
-		float increment = 256 / 4.0f;
+		float increment = (257 / 4.0f) * (256 / 257.0f);
 
 		for (float x = 0; x < 256; x += increment)
 		{
-			for (float z = 0; z < 256; z += increment)
+			for (float z = 0; z < 256; z += increment) 
 			{
 				vertices.push_back({x, z});
 				vertices.push_back({x, z + increment});
@@ -739,7 +739,7 @@ void TerrainRenderer::createGraphicsPipeline ()
 	PipelineRasterizationInfo rastInfo = {};
 	rastInfo.clockwiseFrontFace = false;
 	rastInfo.cullMode = CULL_MODE_BACK_BIT;
-	rastInfo.lineWidth = 1;
+	rastInfo.lineWidth = 5;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;
 	rastInfo.rasterizerDiscardEnable = false;
 

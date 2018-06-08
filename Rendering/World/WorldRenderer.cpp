@@ -66,6 +66,8 @@ WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHan
 
 	shadowsRenderPass = nullptr;
 
+	physxDebugStreamingBuffer = nullptr;
+
 	cmdBufferIndex = 0;
 }
 
@@ -78,7 +80,9 @@ WorldRenderer::~WorldRenderer ()
 void WorldRenderer::update ()
 {
 	terrainRenderer->update();
-	sunCSM->update(camViewMat, glm::vec2(60 * (M_PI / 180.0f), 60 * (M_PI / 180.0f)) / (getGBufferDimensions().x / float(getGBufferDimensions().y)), {1, 20, 100, 500}, engine->api->getSunDirection());
+	sunCSM->update(camViewMat, glm::vec2(60 * (M_PI / 180.0f), 60 * (M_PI / 180.0f)) / (getGBufferDimensions().x / float(getGBufferDimensions().y)), {1, 10, 75, 400}, engine->api->getSunDirection());
+
+	
 }
 
 void WorldRenderer::render3DWorld ()
@@ -90,6 +94,24 @@ void WorldRenderer::render3DWorld ()
 	{	0, 0, 0, 0};
 	clearValues[2].depthStencil =
 	{	0, 0};
+
+	bool renderPhysicsDebug = false;
+	uint32_t physxDebugVertexCount = 0;
+
+	if (renderPhysicsDebug)
+	{
+		if (physxDebugStreamingBuffer != nullptr)
+			engine->renderer->destroyBuffer(physxDebugStreamingBuffer);
+
+		auto physDat = world->getDebugRenderData(world->getActiveLevelData());
+		
+		physxDebugStreamingBuffer = engine->renderer->createBuffer(physDat.numLines * sizeof(PhysicsDebugLine), BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_CPU_ONLY);
+		void *bufDat = engine->renderer->mapBuffer(physxDebugStreamingBuffer);
+		memcpy(bufDat, physDat.lines.data(), physDat.numLines * sizeof(PhysicsDebugLine));
+		engine->renderer->unmapBuffer(physxDebugStreamingBuffer);
+	
+		physxDebugVertexCount = physDat.numLines * 2;
+	}
 
 	cmdBufferIndex ++;
 	cmdBufferIndex %= gbufferFillCmdBuffers.size();
@@ -104,6 +126,24 @@ void WorldRenderer::render3DWorld ()
 
 	renderWorldStaticMeshes(gbufferFillCmdBuffers[cmdBufferIndex], camProjMat * camViewMat, false);
 	terrainRenderer->renderTerrain(gbufferFillCmdBuffers[cmdBufferIndex]);
+
+	if (renderPhysicsDebug)
+	{
+		glm::vec3 cameraCellOffset = glm::floor(Game::instance()->mainCamera.position / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
+		glm::mat4 camMVPMat = camProjMat * camViewMat;
+
+		gbufferFillCmdBuffers[cmdBufferIndex]->beginDebugRegion("Physics Debug Visualization", glm::vec4(0, 1, 1, 1));
+
+		gbufferFillCmdBuffers[cmdBufferIndex]->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, physxDebugPipeline);
+		gbufferFillCmdBuffers[cmdBufferIndex]->pushConstants(SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVPMat[0][0]);
+		gbufferFillCmdBuffers[cmdBufferIndex]->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::vec3), &cameraPosition.x);
+		gbufferFillCmdBuffers[cmdBufferIndex]->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4) + sizeof(glm::vec4), sizeof(glm::vec3), &cameraCellOffset.x);
+
+		gbufferFillCmdBuffers[cmdBufferIndex]->bindVertexBuffers(0, {physxDebugStreamingBuffer}, {0});
+		gbufferFillCmdBuffers[cmdBufferIndex]->draw(physxDebugVertexCount);
+
+		gbufferFillCmdBuffers[cmdBufferIndex]->endDebugRegion();
+	}
 
 	gbufferFillCmdBuffers[cmdBufferIndex]->endDebugRegion();
 	gbufferFillCmdBuffers[cmdBufferIndex]->endRenderPass();
@@ -308,6 +348,7 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 	engine->renderer->setObjectDebugName(worldStreamingBuffer, OBJECT_TYPE_BUFFER, "LevelStaticObj Streaming Buffer");
 
 	createRenderPasses();
+	createPipelines();
 	createGBuffer();
 
 	sunCSM = new CSM(engine->renderer, 4096, 3);
@@ -369,6 +410,8 @@ void WorldRenderer::destroy ()
 
 	for (size_t i = 0; i < shadowmapsSemaphores.size(); i ++)
 		engine->renderer->destroySemaphore(shadowmapsSemaphores[i]);
+
+	engine->renderer->destroyPipeline(physxDebugPipeline);
 
 	engine->renderer->destroyRenderPass(gbufferRenderPass);
 	engine->renderer->destroyRenderPass(shadowsRenderPass);
@@ -441,6 +484,108 @@ void WorldRenderer::createRenderPasses ()
 	}
 }
 
+void WorldRenderer::createPipelines()
+{
+	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/physx-debug-lines.glsl", SHADER_STAGE_VERTEX_BIT);
+	ShaderModule fragShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/physx-debug-lines.glsl", SHADER_STAGE_FRAGMENT_BIT);
+
+	VertexInputBinding meshVertexBindingDesc = {};
+	meshVertexBindingDesc.binding = 0;
+	meshVertexBindingDesc.stride = sizeof(svec3) + sizeof(uint32_t);
+	meshVertexBindingDesc.inputRate = VERTEX_INPUT_RATE_VERTEX;
+
+	std::vector<VertexInputAttrib> attribDesc = std::vector<VertexInputAttrib>(2);
+	attribDesc[0].binding = 0;
+	attribDesc[0].location = 0;
+	attribDesc[0].format = RESOURCE_FORMAT_R32G32B32_SFLOAT;
+	attribDesc[0].offset = 0;
+
+	attribDesc[1].binding = 0;
+	attribDesc[1].location = 1;
+	attribDesc[1].format = RESOURCE_FORMAT_R32_UINT;
+	attribDesc[1].offset = sizeof(svec3);
+
+	PipelineVertexInputInfo vertexInput = {};
+	vertexInput.vertexInputAttribs = attribDesc;
+	vertexInput.vertexInputBindings =
+	{meshVertexBindingDesc};
+
+	PipelineInputAssemblyInfo inputAssembly = {};
+	inputAssembly.primitiveRestart = false;
+	inputAssembly.topology = PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+	PipelineViewportInfo viewportInfo = {};
+	viewportInfo.scissors =
+	{
+		{0, 0, 1920, 1080}};
+	viewportInfo.viewports =
+	{
+		{0, 0, 1920, 1080}};
+
+	PipelineRasterizationInfo rastInfo = {};
+	rastInfo.clockwiseFrontFace = false;
+	rastInfo.cullMode = CULL_MODE_NONE;
+	rastInfo.lineWidth = 3;
+	rastInfo.polygonMode = POLYGON_MODE_LINE;
+	rastInfo.rasterizerDiscardEnable = false;
+
+	PipelineDepthStencilInfo depthInfo = {};
+	depthInfo.enableDepthTest = true;
+	depthInfo.enableDepthWrite = true;
+	depthInfo.minDepthBounds = 0;
+	depthInfo.maxDepthBounds = 1;
+	depthInfo.depthCompareOp = COMPARE_OP_GREATER;
+
+	PipelineColorBlendAttachment colorBlendAttachment = {};
+	colorBlendAttachment.blendEnable = false;
+	colorBlendAttachment.colorWriteMask = COLOR_COMPONENT_R_BIT | COLOR_COMPONENT_G_BIT | COLOR_COMPONENT_B_BIT | COLOR_COMPONENT_A_BIT;
+
+	PipelineColorBlendInfo colorBlend = {};
+	colorBlend.attachments =
+	{colorBlendAttachment, colorBlendAttachment};
+	colorBlend.logicOpEnable = false;
+	colorBlend.logicOp = LOGIC_OP_COPY;
+	colorBlend.blendConstants[0] = 1.0f;
+	colorBlend.blendConstants[1] = 1.0f;
+	colorBlend.blendConstants[2] = 1.0f;
+	colorBlend.blendConstants[3] = 1.0f;
+
+	PipelineDynamicStateInfo dynamicState = {};
+	dynamicState.dynamicStates =
+	{DYNAMIC_STATE_VIEWPORT, DYNAMIC_STATE_SCISSOR};
+
+	PipelineInfo info = {};
+
+	PipelineShaderStage vertShaderStage = {};
+	vertShaderStage.entry = "main";
+	vertShaderStage.module = vertShader;
+
+	PipelineShaderStage fragShaderStage = {};
+	fragShaderStage.entry = "main";
+	fragShaderStage.module = fragShader;
+
+	info.stages =
+	{vertShaderStage, fragShaderStage};
+
+	info.vertexInputInfo = vertexInput;
+	info.inputAssemblyInfo = inputAssembly;
+	info.viewportInfo = viewportInfo;
+	info.rasterizationInfo = rastInfo;
+	info.depthStencilInfo = depthInfo;
+	info.colorBlendInfo = colorBlend;
+	info.dynamicStateInfo = dynamicState;
+
+	std::vector<DescriptorSetLayoutBinding> layoutBindings;
+
+	info.inputPushConstantRanges = {{0, sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4), SHADER_STAGE_VERTEX_BIT}};
+	info.inputSetLayouts = {layoutBindings};
+
+	physxDebugPipeline = engine->renderer->createGraphicsPipeline(info, gbufferRenderPass, 0);
+
+	engine->renderer->destroyShaderModule(vertShader);
+	engine->renderer->destroyShaderModule(fragShader);
+}
+
 void WorldRenderer::setGBufferDimensions (suvec2 gbufferDimensions)
 {
 	engine->renderer->waitForDeviceIdle();
@@ -454,8 +599,6 @@ void WorldRenderer::setGBufferDimensions (suvec2 gbufferDimensions)
 
 	float hfov = 2.0f * std::atan(1 / camProjMat[1][1]);
 	float ar = camProjMat[1][1] / (camProjMat[0][0]);
-
-	printf("%f %f\n", hfov, ar);
 
 	camProjMat[1][1] *= -1;
 }

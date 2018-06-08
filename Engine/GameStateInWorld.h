@@ -37,7 +37,6 @@
 #include <Rendering/Renderer/RendererEnums.h>
 #include <Rendering/Renderer/RendererObjects.h>
 
-class WorldHandler;
 class WorldRenderer;
 class DeferredRenderer;
 class PostProcess;
@@ -48,7 +47,6 @@ class GameStateInWorld : public GameState
 	public:
 
 		StarlightEngine *engine;
-		WorldHandler *world;
 		WorldRenderer *worldRenderer;
 		DeferredRenderer *deferredRenderer;
 		PostProcess *postprocess;

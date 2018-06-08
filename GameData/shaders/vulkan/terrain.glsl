@@ -77,8 +77,8 @@
 	
 		const float dmax = 4096.0f;
 		const float dmin = 256.0f;
-		const float smult = 32.0f;
-		const float spow = 6;
+		const float smult = 64.0f;
+		const float spow = 8;
 		const float lvlInc = 4.0f;
 	
 		float lvl = floor(smult * pow((dmax - clamp(distToCamera, dmin, dmax) - dmin) / (dmax - dmin), spow));
@@ -112,6 +112,7 @@
 	layout(location = 0) out vec3 outVertex;
 	layout(location = 1) out vec2 outTerrainTexcoord;
 	layout(location = 2) out vec3 outHeightmapTexcoord;
+	layout(location = 3) out float outClipmapArrayLayer;
 
 	float getClipmapArrayLayer (float dist);
 
@@ -155,6 +156,8 @@
 			clipmapArrayLayer = getClipmapArrayLayer(distance(cellCoordOffset * 256.0f, pushConsts.cameraCellCoord * 256.0f + 128.0f));
 		}
 		
+		outClipmapArrayLayer = clipmapArrayLayer;
+		
 		cameraCellCoordOffset = cameraCellCoordOffsetArray[int(clipmapArrayLayer)];
 		
 		vec3 heightmapTexcoord = vec3((vertex.xz + cellCoordOffset * 256.0f - (pushConsts.cameraCellCoord + vec2(cameraCellCoordOffset)) * 256.0f) / (512.0f * pow(2, clipmapArrayLayer)), clipmapArrayLayer);
@@ -163,7 +166,7 @@
 
 		vertex.xz += cellCoordOffset * 256.0f;
 		vertex.xyz -= pushConsts.cameraCellOffset.xyz;
-		vertex.y += heightmapValue * 8192.0f - 4096.0f;
+		vertex.y += (-32768 + (heightmapValue - 0) * (32767 - (-32768)) / (1 - 0)) * (4096.0f / 32768.0f);
 		
 		outVertex = vertex;
 		
@@ -212,6 +215,7 @@
 	layout(location = 0) in vec3 inVertex;
 	layout(location = 1) in vec2 inTerrainTexcoord;
 	layout(location = 2) in vec3 inHeightmapTexcoord;
+	layout(location = 3) in float inClipmapArrayLayer;
 
 	vec3 calcNormal(vec3 inNormal, vec3 texNormals)
 	{

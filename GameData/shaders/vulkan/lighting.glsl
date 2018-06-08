@@ -128,7 +128,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		vec3 at_cameraPosition = vec3(0, 0, max(pushConsts.cameraPosition.y, 1)) / 1000.0f - earthCenter;
 		vec3 at_ray = normalize(inRay.xzy);		
 		vec3 at_worldPoint = at_cameraPosition + at_ray * z_eye * 1e-3;
-				
+			
 		vec3 transmittance;
 		vec3 radiance = vec3(0);//GetSkyRadiance(at_cameraPosition, at_ray, 0, testLightDir.xzy, transmittance) * 4.0f;
 	
@@ -222,7 +222,26 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		return (D * G * 0.25f * (1.0f / NdotL * NdotV)) * F;
 	}
 		
-	#define PCF_WIDTH 2 // kernel size would be 2(PCF_WIDTH) + 1, so 2(4) + 1 = 9
+	#define PCF_WIDTH 3 // kernel size would be 2(PCF_WIDTH) + 1, so 2(4) + 1 = 9
+	
+	float sampleShadowmapOcclusion (in vec3 uv, in float shadowmapSize, in vec3 shadowCoord, in float bias)
+	{
+		// Gather the surrounding texels for depth values
+		vec4 texels = textureGather(shadowmapSampler, uv, 0);
+		
+		// Do depth-comparisons
+		texels = step(texels, vec4(shadowCoord.z - bias));
+		
+		// Bilinearly filter the comparisons
+		vec2 sampleCoord = fract(shadowCoord.xy * shadowmapSize + vec2(0.5f));
+		
+		float x0 = mix(texels.x, texels.y, sampleCoord.x);
+		float x1 = mix(texels.w, texels.z, sampleCoord.x);
+		
+		return mix(x1, x0, sampleCoord.y);
+	}
+	
+	const ivec2 earlyBailGatherOffsets[4] = {ivec2(0, PCF_WIDTH + 2), ivec2(0, -PCF_WIDTH - 1), ivec2(PCF_WIDTH + 2, 0), ivec2(-PCF_WIDTH - 1, 0)};
 	
 	float getSunOcclusion (in vec3 viewPos)
 	{
@@ -234,24 +253,24 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 			{
 				float avgOcclusion = 0;
 				float scaledPCFWidth = round(PCF_WIDTH / float(c + 1));
-				vec2 shadowmapSize = vec2(textureSize(shadowmapSampler, 0).xy);	
+				float shadowmapSize = float(textureSize(shadowmapSampler, 0).x);	
+				float shadowmapSizeInv = 1.0f / shadowmapSize;
+			
+				// Early bailing technique
+				vec4 earlyBailSamples = textureGatherOffsets(shadowmapSampler, vec3(shadowCoord.xy, c), earlyBailGatherOffsets);
+				earlyBailSamples = step(earlyBailSamples, vec4(shadowCoord.z - 0.0005f));
+				float ssum = dot(earlyBailSamples, vec4(1)) * 0.25f;
+			
+				if (ssum < 0.001f)
+					return 0;
+				else if (ssum > 0.999f)
+					return 1;
 			
 				for (float x = -scaledPCFWidth; x <= scaledPCFWidth; x ++)
 				{
 					for (float y = -scaledPCFWidth; y <= scaledPCFWidth; y ++)
 					{
-						// Gather the surrounding texels for depth values
-						vec4 texels = textureGather(shadowmapSampler, vec3(shadowCoord.xy + vec2(x, y) / shadowmapSize, c), 0);
-						
-						// Do depth-comparisons
-						texels = step(texels, vec4(shadowCoord.z - 0.0005f));
-						
-						// Bilinearly filter the comparisons
-						vec2 sampleCoord = fract(shadowCoord.xy * shadowmapSize + vec2(0.5f));
-						
-						float x0 = mix(texels.x, texels.y, sampleCoord.x);
-						float x1 = mix(texels.w, texels.z, sampleCoord.x);
-						avgOcclusion += mix(x1, x0, sampleCoord.y);
+						avgOcclusion += sampleShadowmapOcclusion(vec3(shadowCoord.xy + vec2(x, y) * shadowmapSizeInv, c), shadowmapSize, shadowCoord.xyz, 0.0005f);
 					}
 				}
 

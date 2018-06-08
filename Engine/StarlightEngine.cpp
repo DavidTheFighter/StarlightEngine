@@ -39,6 +39,7 @@
 #include <Resources/ResourceManager.h>
 
 #include <World/WorldHandler.h>
+#include <World/Physics/WorldPhysics.h>
 
 #include <Game/API/SEAPI.h>
 
@@ -51,6 +52,7 @@ StarlightEngine::StarlightEngine (const std::vector<std::string> &launchArgs, ui
 	mainWindow = nullptr;
 	resources = nullptr;
 	guiRenderer = nullptr;
+	worldHandler = nullptr;
 	api = nullptr;
 
 	this->launchArgs = launchArgs;
@@ -72,7 +74,7 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 #ifdef __linux__
 	workingDir = "/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/";
 #elif defined(_WIN32)
-	workingDir = "A:\\Programming\\StarlightEngineDev-win\\StarlightEngine\\";
+	workingDir = "A:\\Programming\\StarlightEngineDev-win\\";
 #endif
 
 	mainWindow = new Window(rendererBackendType);
@@ -93,6 +95,9 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	//guiRenderer = new GUIRenderer(renderer);
 	//guiRenderer->temp_engine = this;
 
+	worldHandler = new WorldHandler(this);
+	worldHandler->init();
+
 	api = new SEAPI(this);
 	api->init();
 
@@ -109,6 +114,8 @@ void StarlightEngine::destroy ()
 		gameStates.pop_back();
 	}
 
+	worldHandler->destroy();
+
 	//guiRenderer->destroy();
 
 	//delete guiRenderer;
@@ -116,6 +123,7 @@ void StarlightEngine::destroy ()
 	delete resources;
 	delete mainWindow;
 	delete renderer;
+	delete worldHandler;
 }
 
 void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &eventData, void *usrPtr)
@@ -182,6 +190,8 @@ void StarlightEngine::update ()
 	}
 
 	lastUpdateTime = getTime();
+
+	worldHandler->worldPhysics->update(delta);
 
 	if (!gameStates.empty())
 		gameStates.back()->update(delta);

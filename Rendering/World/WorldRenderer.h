@@ -123,11 +123,14 @@ class WorldRenderer
 
 	private:
 
+		Pipeline physxDebugPipeline;
+
 		void traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data, const glm::vec4 (&frustum)[6]);
 
 		void createGBuffer ();
 		void destroyGBuffer ();
 		void createRenderPasses ();
+		void createPipelines();
 
 		LevelStaticObjectStreamingData getStaticObjStreamingData (const glm::vec4 (&frustum)[6]);
 
@@ -142,6 +145,7 @@ class WorldRenderer
 
 		size_t worldStreamingBufferOffset;
 		Buffer worldStreamingBuffer;
+		Buffer physxDebugStreamingBuffer;
 		void *worldStreamingBufferData;
 };
 

@@ -87,7 +87,7 @@
 	{	
 		vec2 texcoords = inUV;
 	
-		if (true)
+		if (false)
 		{
 			vec3 N = normalize(inNormal);
 			vec3 T = normalize(inTangent);

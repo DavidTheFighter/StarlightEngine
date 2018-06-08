@@ -48,7 +48,6 @@
 GameStateInWorld::GameStateInWorld (StarlightEngine *enginePtr)
 {
 	engine = enginePtr;
-	world = nullptr;
 	worldRenderer = nullptr;
 	presentSampler = nullptr;
 	testGame = nullptr;
@@ -65,12 +64,11 @@ void GameStateInWorld::init ()
 {
 	EventHandler::instance()->registerObserver(EVENT_WINDOW_RESIZE, windowResizedCallback, this);
 
-	world = new WorldHandler(engine);
 	testGame = new Game(engine->mainWindow);
 
 	Game::setInstance(testGame);
 
-	worldRenderer = new WorldRenderer(engine, world);
+	worldRenderer = new WorldRenderer(engine, engine->worldHandler);
 	deferredRenderer = new DeferredRenderer(engine, worldRenderer);
 	postprocess = new PostProcess(engine);
 	deferredRenderer->game = testGame;
@@ -182,12 +180,15 @@ void GameStateInWorld::init ()
 
 	LevelDef testLevel = {};
 	strcpy(testLevel.uniqueName, "Test Level");
+	strcpy(testLevel.fileName, "TestLevel");
 
 	engine->resources->addLevelDef(testLevel);
+	LevelDef *lvlDef = engine->resources->getLevelDef(std::string(testLevel.uniqueName));
 
-	world->setActiveLevel(engine->resources->getLevelDef(std::string(testLevel.uniqueName)));
+	engine->worldHandler->loadLevel(lvlDef);
+	engine->worldHandler->setActiveLevel(lvlDef);
 
-	LevelData &dat = *world->getActiveLevelData();
+	LevelData &dat = *engine->worldHandler->getActiveLevelData();
 
 	LevelStaticObjectType testObjType = {};
 	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("slate");
@@ -285,6 +286,8 @@ void GameStateInWorld::init ()
 
 void GameStateInWorld::destroy ()
 {
+	engine->worldHandler->unloadLevel(engine->resources->getLevelDef("Test Level"));
+
 	worldRenderer->destroy();
 	deferredRenderer->destroy();
 	postprocess->destroy();
@@ -299,8 +302,6 @@ void GameStateInWorld::destroy ()
 	engine->resources->returnPipeline("engine.defaultMaterial");
 
 	delete testGame;
-	delete world->getActiveLevel();
-	delete world;
 	delete worldRenderer;
 	delete deferredRenderer;
 	delete postprocess;
@@ -355,9 +356,12 @@ void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, 
 
 	if (eventData.window == gameState->engine->mainWindow)
 	{
-		gameState->worldRenderer->setGBufferDimensions({eventData.width, eventData.height});
-		gameState->deferredRenderer->setGBuffer(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], {gameState->engine->mainWindow->getWidth(), gameState->engine->mainWindow->getHeight()});
-		gameState->postprocess->setInputs(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], gameState->deferredRenderer->deferredOutputView, {gameState->engine->mainWindow->getWidth(), gameState->engine->mainWindow->getHeight()});
+		float resMult = 1;// 1920 / 2560.0f;
+		suvec2 scaledRes = {(uint32_t) round(eventData.width * resMult), (uint32_t) round(eventData.height * resMult)};
+
+		gameState->worldRenderer->setGBufferDimensions({scaledRes.x, scaledRes.y});
+		gameState->deferredRenderer->setGBuffer(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], {scaledRes.x, scaledRes.y});
+		gameState->postprocess->setInputs(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], gameState->deferredRenderer->deferredOutputView, {scaledRes.x, scaledRes.y});
 		gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->postprocess->postprocessOutputTextureView, gameState->worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		//gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->worldRenderer->gbuffer_AlbedoRoughnessView, gameState->presentSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

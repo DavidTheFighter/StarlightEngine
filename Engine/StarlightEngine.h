@@ -40,6 +40,8 @@ class GameState;
 class ResourceManager;
 class GUIRenderer;
 class SEAPI;
+class WorldPhysics;
+class WorldHandler;
 
 class StarlightEngine
 {
@@ -49,6 +51,7 @@ class StarlightEngine
 		Window *mainWindow;
 		ResourceManager *resources;
 		GUIRenderer *guiRenderer;
+		WorldHandler *worldHandler;
 		SEAPI *api;
 
 		StarlightEngine (const std::vector<std::string> &launchArgs, uint32_t engineUpdateFrequencyCap);
