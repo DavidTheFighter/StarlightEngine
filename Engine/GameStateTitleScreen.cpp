@@ -32,7 +32,6 @@
 #include <Engine/StarlightEngine.h>
 
 #include <Rendering/Renderer/Renderer.h>
-#include <Rendering/GUIRenderer.h>
 
 #include <Input/Window.h>
 
@@ -84,7 +83,7 @@ void GameStateTitleScreen::handleEvents ()
 
 void GameStateTitleScreen::update (float delta)
 {
-	engine->guiRenderer->writeTestGUI();
+	//engine->guiRenderer->writeTestGUI();
 }
 
 void GameStateTitleScreen::render ()
@@ -96,7 +95,7 @@ void GameStateTitleScreen::render ()
 
 	titleScreenGUICommandBuffer->beginCommands(0);
 
-	engine->guiRenderer->recordGUIRenderCommandList(titleScreenGUICommandBuffer, titleScreenFramebuffer, titleScreenFramebufferSize.x, titleScreenFramebufferSize.y);
+	//engine->guiRenderer->recordGUIRenderCommandList(titleScreenGUICommandBuffer, titleScreenFramebuffer, titleScreenFramebufferSize.x, titleScreenFramebufferSize.y);
 
 	titleScreenGUICommandBuffer->endCommands();
 
@@ -126,7 +125,7 @@ void GameStateTitleScreen::createTitleScreenRenderTargets ()
 	titleScreenRTDepthView = engine->renderer->createTextureView(titleScreenRTDepth);
 
 	titleScreenFramebufferSize = {(int32_t) titleScreenExtent.x, (int32_t) titleScreenExtent.y};
-	titleScreenFramebuffer = engine->renderer->createFramebuffer(engine->guiRenderer->guiRenderPass, {titleScreenRTView, titleScreenRTDepthView}, (uint32_t) titleScreenExtent.x, (uint32_t) titleScreenExtent.y, 1);
+	//titleScreenFramebuffer = engine->renderer->createFramebuffer(engine->guiRenderer->guiRenderPass, {titleScreenRTView, titleScreenRTDepthView}, (uint32_t) titleScreenExtent.x, (uint32_t) titleScreenExtent.y, 1);
 
 	engine->renderer->setSwapchainTexture(engine->mainWindow, titleScreenRTView, titleScreenSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }

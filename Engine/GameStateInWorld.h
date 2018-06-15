@@ -69,7 +69,6 @@ class GameStateInWorld : public GameState
 
 	private:
 
-		Sampler presentSampler;
 };
 
 #endif /* ENGINE_GAMESTATEINWORLD_H_ */

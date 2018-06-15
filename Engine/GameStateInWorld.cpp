@@ -49,7 +49,6 @@ GameStateInWorld::GameStateInWorld (StarlightEngine *enginePtr)
 {
 	engine = enginePtr;
 	worldRenderer = nullptr;
-	presentSampler = nullptr;
 	testGame = nullptr;
 	deferredRenderer = nullptr;
 	postprocess = nullptr;
@@ -273,9 +272,8 @@ void GameStateInWorld::init ()
 	deferredRenderer->setGBuffer(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
 	postprocess->setInputs(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], deferredRenderer->deferredOutputView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
 
-	engine->renderer->setSwapchainTexture(engine->mainWindow, postprocess->postprocessOutputTextureView, worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	presentSampler = engine->renderer->createSampler();
+	//engine->renderer->setSwapchainTexture(engine->mainWindow, postprocess->postprocessOutputTextureView, worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	engine->setGUIBackground(postprocess->postprocessOutputTextureView);
 
 	engine->resources->setPipelineRenderPass(worldRenderer->gbufferRenderPass, worldRenderer->shadowsRenderPass);
 
@@ -292,7 +290,6 @@ void GameStateInWorld::destroy ()
 	deferredRenderer->destroy();
 	postprocess->destroy();
 
-	engine->renderer->destroySampler(presentSampler);
 	engine->resources->returnMaterial("dirt");
 	engine->resources->returnMaterial("slate");
 	engine->resources->returnStaticMesh("bridge");
@@ -346,8 +343,6 @@ void GameStateInWorld::render ()
 	worldRenderer->render3DWorld();
 	deferredRenderer->renderDeferredLighting();
 	postprocess->renderPostProcessing(deferredRenderer->lightingSemaphores[deferredRenderer->cmdBufferIndex]);
-
-	engine->renderer->waitForQueueIdle(QUEUE_TYPE_GRAPHICS);
 }
 
 void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, void *usrPtr)
@@ -362,7 +357,9 @@ void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, 
 		gameState->worldRenderer->setGBufferDimensions({scaledRes.x, scaledRes.y});
 		gameState->deferredRenderer->setGBuffer(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], {scaledRes.x, scaledRes.y});
 		gameState->postprocess->setInputs(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], gameState->deferredRenderer->deferredOutputView, {scaledRes.x, scaledRes.y});
-		gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->postprocess->postprocessOutputTextureView, gameState->worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		
+		gameState->engine->setGUIBackground(gameState->postprocess->postprocessOutputTextureView);
+		//gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->postprocess->postprocessOutputTextureView, gameState->worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		//gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->worldRenderer->gbuffer_AlbedoRoughnessView, gameState->presentSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}

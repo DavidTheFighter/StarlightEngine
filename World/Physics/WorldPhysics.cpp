@@ -31,6 +31,8 @@
 
 #include <Engine/StarlightEngine.h>
 
+#include <Game/API/SEAPI.h>
+
 #include <World/WorldHandler.h>
 
 static PxDefaultAllocator physxAllocatorCallback;
@@ -72,7 +74,7 @@ void WorldPhysics::update(float delta)
 		physicsUpdateAccum -= delta;
 
 		// Do our own buffering of debug render data, as they can't be fetched while simulating
-		if (false)
+		if (bool(engine->api->getDebugVariable("physics")))
 		{
 			const PxRenderBuffer &rb = activeLvlData->physScene->getRenderBuffer();
 
@@ -87,10 +89,10 @@ void WorldPhysics::update(float delta)
 			memcpy(physicsRenderDataCpy.lines.data(), rb.getLines(), physicsRenderDataCpy.numLines * sizeof(PhysicsDebugLine));
 		}
 
-		double sT = glfwGetTime();
+		//double sT = glfwGetTime();
 		activeLvlData->physScene->simulate(updateFreq);
 		activeLvlData->physScene->fetchResults(true);
-		printf("Physics took: %f ms\n", (glfwGetTime() - sT) * 1000.0);
+		//printf("Physics took: %f ms\n", (glfwGetTime() - sT) * 1000.0);
 	}
 }
 

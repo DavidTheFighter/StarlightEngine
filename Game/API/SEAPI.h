@@ -76,6 +76,9 @@ class SEAPI
 
 		void setWorldRendererPtr (WorldRenderer *worldRendererPtr);
 
+		float getDebugVariable(const std::string &varName);
+		void setDebugVariable(const std::string &varName, float value);
+
 	private:
 
 		StarlightEngine *engine;
@@ -83,6 +86,8 @@ class SEAPI
 
 		WorldEnvironmentUBO worldEnvironmentUBOData;
 		Buffer worldEnvironmentUBO;
+
+		std::map<std::string, float> debugVariables;
 };
 
 #endif /* GAME_API_SEAPI_H_ */

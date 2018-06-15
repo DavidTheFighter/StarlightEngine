@@ -1,9 +1,31 @@
 /*
- * common.h
- *
- *  Created on: Aug 20, 2017
- *      Author: david
- */
+* MIT License
+*
+* Copyright (c) 2017 David Allen
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+*
+* common.h
+*
+* Created on: Aug 20, 2017
+*     Author: david
+*/
 
 #ifndef COMMON_H_
 #define COMMON_H_
@@ -31,6 +53,8 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <locale>
+#include <codecvt>
 
 #ifdef __linux__
 #include <unistd.h>
@@ -186,6 +210,78 @@ struct Camera
 		glm::vec2 lookAngles;
 };
 
+inline std::wstring utf8_to_utf16(const std::string& utf8)
+{
+	std::vector<unsigned long> unicode;
+	size_t i = 0;
+	while (i < utf8.size())
+	{
+		unsigned long uni;
+		size_t todo;
+		bool error = false;
+		unsigned char ch = utf8[i++];
+		if (ch <= 0x7F)
+		{
+			uni = ch;
+			todo = 0;
+		}
+		else if (ch <= 0xBF)
+		{
+			throw std::logic_error("not a UTF-8 string");
+		}
+		else if (ch <= 0xDF)
+		{
+			uni = ch & 0x1F;
+			todo = 1;
+		}
+		else if (ch <= 0xEF)
+		{
+			uni = ch & 0x0F;
+			todo = 2;
+		}
+		else if (ch <= 0xF7)
+		{
+			uni = ch & 0x07;
+			todo = 3;
+		}
+		else
+		{
+			throw std::logic_error("not a UTF-8 string");
+		}
+		for (size_t j = 0; j < todo; ++j)
+		{
+			if (i == utf8.size())
+				throw std::logic_error("not a UTF-8 string");
+			unsigned char ch = utf8[i++];
+			if (ch < 0x80 || ch > 0xBF)
+				throw std::logic_error("not a UTF-8 string");
+			uni <<= 6;
+			uni += ch & 0x3F;
+		}
+		if (uni >= 0xD800 && uni <= 0xDFFF)
+			throw std::logic_error("not a UTF-8 string");
+		if (uni > 0x10FFFF)
+			throw std::logic_error("not a UTF-8 string");
+		unicode.push_back(uni);
+	}
+	std::wstring utf16;
+	for (size_t i = 0; i < unicode.size(); ++i)
+	{
+		unsigned long uni = unicode[i];
+		if (uni <= 0xFFFF)
+		{
+			utf16 += (wchar_t) uni;
+		}
+		else
+		{
+			uni -= 0x10000;
+			utf16 += (wchar_t) ((uni >> 10) + 0xD800);
+			utf16 += (wchar_t) ((uni & 0x3FF) + 0xDC00);
+		}
+	}
+	return utf16;
+}
+
 template<typename T0>
 inline std::string toString (T0 arg)
 {
@@ -198,6 +294,21 @@ inline std::string toString (T0 arg)
 	ss >> str;
 
 	return str;
+}
+
+/*
+ * Gets the parent directory of the file. Does not include a separtor at the end of the string, e.g. "C:\Users\Someone\Documents"
+ */
+inline std::string getDirectoryOfFile(const std::string &file)
+{
+	size_t i = file.length() - 1;
+
+	while (i > 0 && file[i] != '/' && file[i] != '\\')
+	{
+		i--;
+	}
+
+	return file.substr(0, i);
 }
 
 inline size_t stringHash (const std::string &str)
@@ -221,7 +332,37 @@ inline std::vector<std::string> split (const std::string &s, char delim)
 
 inline std::vector<char> readFile (const std::string& filename)
 {
+#ifdef _WIN32
+	std::ifstream file(utf8_to_utf16(filename).c_str(), std::ios::ate | std::ios::binary);
+#else
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+#endif
+
+	if (!file.is_open())
+	{
+		printf("%s Failed to open file: %s\n", ERR_PREFIX, filename.c_str());
+
+		throw std::runtime_error("failed to open file!");
+	}
+	
+	size_t fileSize = (size_t) file.tellg();
+	std::vector<char> buffer(fileSize);
+
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
+
+	file.close();
+
+	return buffer;
+}
+
+inline std::string readFileStr(const std::string &filename)
+{
+#ifdef _WIN32
+	std::ifstream file(utf8_to_utf16(filename).c_str(), std::ios::ate | std::ios::binary);
+#else
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+#endif
 
 	if (!file.is_open())
 	{
@@ -238,7 +379,7 @@ inline std::vector<char> readFile (const std::string& filename)
 
 	file.close();
 
-	return buffer;
+	return std::string(buffer.data(), buffer.data() + buffer.size());
 }
 
 inline void writeFile (const std::string &filename, const std::vector<char> &data)
@@ -269,28 +410,6 @@ inline void writeFileStr (const std::string &filename, const std::string &data)
 
 	file.write(data.c_str(), data.length());
 	file.close();
-}
-
-inline std::string readFileStr (const std::string &filename)
-{
-	std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-	if (!file.is_open())
-	{
-		printf("%s Failed to open file: %s\n", ERR_PREFIX, filename.c_str());
-
-		throw std::runtime_error("failed to open file!");
-	}
-
-	size_t fileSize = (size_t) file.tellg();
-	std::vector<char> buffer(fileSize);
-
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-
-	file.close();
-
-	return std::string(buffer.data(), buffer.data() + buffer.size());
 }
 
 inline void seqmemcpy (char *to, const void *from, size_t size, size_t &offset)

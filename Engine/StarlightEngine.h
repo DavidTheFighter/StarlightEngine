@@ -34,6 +34,9 @@
 #include <Rendering/Renderer/RendererBackends.h>
 #include <Game/Events/EventHandler.h>
 
+#include <Rendering/Renderer/RendererEnums.h>
+#include <Rendering/Renderer/RendererObjects.h>
+
 class Window;
 class Renderer;
 class GameState;
@@ -42,6 +45,8 @@ class GUIRenderer;
 class SEAPI;
 class WorldPhysics;
 class WorldHandler;
+
+struct nk_context;
 
 class StarlightEngine
 {
@@ -53,6 +58,15 @@ class StarlightEngine
 		GUIRenderer *guiRenderer;
 		WorldHandler *worldHandler;
 		SEAPI *api;
+
+		struct nk_context *ctx;
+
+		RenderPass guiRenderPass;
+
+		// The image first rendered onto the gui, usually the final combined output from the rendered 3d world
+
+		TextureView finalOutputTextureView;
+		TextureView finalOutputTextureDepthView;
 
 		StarlightEngine (const std::vector<std::string> &launchArgs, uint32_t engineUpdateFrequencyCap);
 		virtual ~StarlightEngine ();
@@ -71,6 +85,8 @@ class StarlightEngine
 		bool isRunning ();
 		void quit ();
 
+		void setGUIBackground(TextureView background);
+
 		double getTime();
 		std::string getWorkingDir();
 
@@ -83,6 +99,22 @@ class StarlightEngine
 
 		std::string workingDir;
 
+		Texture finalOutputTexture;
+		Texture finalOutputTextureDepth;
+		Framebuffer finalOutputFramebuffer;
+
+		TextureView guiBackgroundTextureView;
+		DescriptorSet guiBackgroundDescriptor;
+
+		Sampler guiBackgroundSampler;
+		Sampler presentSampler;
+
+		Pipeline guiTexturePassthroughPipeline;
+
+		CommandPool engineCommandPool;
+		std::vector<CommandBuffer> guiCmdBuffers;
+		uint32_t cmdBufferIndex;
+
 		double lastUpdateTime;
 		float cpuTimer;
 		float lastLoopCPUTime;
@@ -91,6 +123,9 @@ class StarlightEngine
 
 		// Defines an upper limit to the frequency at which the game is allowed to update. Can be pretty high without causing any trouble. Defined in Hertz
 		uint32_t updateFrequencyCap;
+
+		void createGuiRenderPass();
+		void createGUITexturePassthroughPipeline();
 };
 
 #endif /* ENGINE_STARLIGHTENGINE_H_ */

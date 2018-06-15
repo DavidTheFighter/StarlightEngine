@@ -136,3 +136,13 @@ void SEAPI::update (float delta)
 		engine->renderer->unmapBuffer(worldEnvironmentUBO);
 	}
 }
+
+float SEAPI::getDebugVariable(const std::string &varName)
+{
+	return debugVariables[varName];
+}
+
+void SEAPI::setDebugVariable(const std::string &varName, float value)
+{
+	debugVariables[varName] = value;
+}

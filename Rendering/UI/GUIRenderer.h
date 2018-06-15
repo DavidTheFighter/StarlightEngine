@@ -27,8 +27,8 @@
  *     Author: david
  */
 
-#ifndef RENDERING_GUIRENDERER_H_
-#define RENDERING_GUIRENDERER_H_
+#ifndef RENDERING_UI_GUIRENDERER_H_
+#define RENDERING_UI_GUIRENDERER_H_
 
 #include <common.h>
 #include <Rendering/Renderer/RendererEnums.h>
@@ -50,7 +50,6 @@ class GUIRenderer
 	public:
 
 		CommandPool testGUICommandPool;
-		RenderPass guiRenderPass;
 
 		StarlightEngine *temp_engine;
 
@@ -71,11 +70,11 @@ class GUIRenderer
 		GUIRenderer (Renderer *engineRenderer);
 		virtual ~GUIRenderer ();
 
-		void init ();
+		void init (struct nk_context &ctx);
 		void destroy ();
 
-		void writeTestGUI ();
-		void recordGUIRenderCommandList (CommandBuffer cmdBuffer, Framebuffer framebuffer, uint32_t renderWidth, uint32_t renderHeight);
+		void writeTestGUI (struct nk_context &context);
+		void recordGUIRenderCommandList (CommandBuffer cmdBuffer, struct nk_context &nkctx, uint32_t renderWidth, uint32_t renderHeight);
 
 	private:
 
@@ -83,8 +82,7 @@ class GUIRenderer
 
 		Pipeline guiGraphicsPipeline;
 
-		void createRenderPass ();
 		void createGraphicsPipeline ();
 };
 
-#endif /* RENDERING_GUIRENDERER_H_ */
+#endif /* RENDERING_UI_GUIRENDERER_H_ */
