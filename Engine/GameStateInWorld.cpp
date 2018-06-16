@@ -98,12 +98,12 @@ void GameStateInWorld::init ()
 		MaterialDef slate = {};
 		strcpy(slate.uniqueName, "slate");
 		strcpy(slate.pipelineUniqueName, "engine.defaultMaterial");
-		strcpy(slate.textureFiles[0], "GameData/textures/slate/slate-albedo.png");
-		strcpy(slate.textureFiles[1], "GameData/textures/slate/slate-normals.png");
-		strcpy(slate.textureFiles[2], "GameData/textures/slate/slate-roughness.png");
-		strcpy(slate.textureFiles[3], "GameData/textures/slate/slate-metalness.png");
-		strcpy(slate.textureFiles[4], "GameData/textures/slate/slate-ao.png");
-		strcpy(slate.textureFiles[5], "GameData/textures/slate/slate-height.png");
+		strcpy(slate.textureFiles[0], "GameData/textures/slate/slate-albedo.dds2");
+		strcpy(slate.textureFiles[1], "GameData/textures/slate/slate-normals.dds2");
+		strcpy(slate.textureFiles[2], "GameData/textures/slate/slate-roughness.dds2");
+		strcpy(slate.textureFiles[3], "GameData/textures/slate/slate-metalness.dds2");
+		strcpy(slate.textureFiles[4], "GameData/textures/slate/slate-ao.dds2");
+		strcpy(slate.textureFiles[5], "GameData/textures/slate/slate-height.dds2");
 		strcpy(slate.textureFiles[6], "");
 		strcpy(slate.textureFiles[7], "");
 

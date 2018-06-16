@@ -162,6 +162,7 @@ class ResourceManager
 		ResourceMeshData loadRawMeshData (const std::string &file, const std::string &mesh);
 
 		void loadPNGTextureData (ResourceTexture tex);
+		void loadDDSTextureData(ResourceTexture tex);
 };
 
 #endif /* RESOURCES_RESOURCEMANAGER_H_ */

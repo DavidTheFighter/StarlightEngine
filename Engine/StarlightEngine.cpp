@@ -279,6 +279,17 @@ void StarlightEngine::update ()
 
 	worldHandler->worldPhysics->update(delta);
 
+	nk_input_begin(ctx);
+	int cursorX = (int) mainWindow->getCursorX(), cursorY = (int) mainWindow->getCursorY();
+
+	nk_input_motion(ctx, cursorX, cursorY);
+	nk_input_button(ctx, NK_BUTTON_LEFT, cursorX, cursorY, mainWindow->isMouseButtonPressed(0));
+	nk_input_button(ctx, NK_BUTTON_MIDDLE, cursorX, cursorY, mainWindow->isMouseButtonPressed(1));
+	nk_input_button(ctx, NK_BUTTON_RIGHT, cursorX, cursorY, mainWindow->isMouseButtonPressed(2));
+	nk_input_button(ctx, NK_BUTTON_DOUBLE, cursorX, cursorY, mainWindow->isMouseButtonPressed(3));
+
+	nk_input_end(ctx);
+
 	if (!gameStates.empty())
 		gameStates.back()->update(delta);
 
@@ -287,7 +298,6 @@ void StarlightEngine::update ()
 
 void StarlightEngine::render ()
 {
-
 	if (!gameStates.empty())
 		gameStates.back()->render();
 
@@ -300,10 +310,10 @@ void StarlightEngine::render ()
 	clearValues[0].color = {0, 0.4f, 1.0f, 1};
 	clearValues[1].depthStencil = {1, 0};
 
+	guiRenderer->writeTestGUI(*ctx);
+
 	uint32_t renderWidth = mainWindow->getWidth();
 	uint32_t renderHeight = mainWindow->getHeight();
-
-	guiRenderer->writeTestGUI(*ctx);
 
 	guiCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 	guiCmdBuffers[cmdBufferIndex]->beginDebugRegion("GUI", glm::vec4(0.929f, 0.22f, 1.0f, 1.0f));
@@ -385,11 +395,6 @@ void StarlightEngine::createGUITexturePassthroughPipeline()
 	ShaderModule vertShader = renderer->createShaderModule(getWorkingDir() + "GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_VERTEX_BIT);
 	ShaderModule fragShader = renderer->createShaderModule(getWorkingDir() + "GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_FRAGMENT_BIT);
 
-	VertexInputBinding bindingDesc;
-	bindingDesc.binding = 0;
-	bindingDesc.stride = static_cast<uint32_t>(sizeof(nk_vertex));
-	bindingDesc.inputRate = VERTEX_INPUT_RATE_VERTEX;
-
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";
 	vertShaderStage.module = vertShader;
@@ -398,25 +403,9 @@ void StarlightEngine::createGUITexturePassthroughPipeline()
 	fragShaderStage.entry = "main";
 	fragShaderStage.module = fragShader;
 
-	std::vector<VertexInputAttrib> attribDesc = std::vector<VertexInputAttrib>(3);
-	attribDesc[0].binding = 0;
-	attribDesc[0].location = 0;
-	attribDesc[0].format = RESOURCE_FORMAT_R32G32_SFLOAT;
-	attribDesc[0].offset = static_cast<uint32_t>(offsetof(nk_vertex, vertex));
-
-	attribDesc[1].binding = 0;
-	attribDesc[1].location = 1;
-	attribDesc[1].format = RESOURCE_FORMAT_R32G32_SFLOAT;
-	attribDesc[1].offset = static_cast<uint32_t>(offsetof(nk_vertex, uv));
-
-	attribDesc[2].binding = 0;
-	attribDesc[2].location = 2;
-	attribDesc[2].format = RESOURCE_FORMAT_R32G32B32A32_SFLOAT;
-	attribDesc[2].offset = static_cast<uint32_t>(offsetof(nk_vertex, color));
-
 	PipelineVertexInputInfo vertexInput = {};
-	vertexInput.vertexInputAttribs = attribDesc;
-	vertexInput.vertexInputBindings = {bindingDesc};
+	vertexInput.vertexInputAttribs = {};
+	vertexInput.vertexInputBindings = {};
 
 	PipelineInputAssemblyInfo inputAssembly = {};
 	inputAssembly.primitiveRestart = false;

@@ -78,23 +78,66 @@ GUIRenderer::~GUIRenderer()
 
 void GUIRenderer::writeTestGUI(struct nk_context &ctx)
 {
-	nk_input_begin(&ctx);
-	int cursorX = (int) temp_engine->mainWindow->getCursorX(), cursorY = (int) temp_engine->mainWindow->getCursorY();
+	float windowWidth = std::max((float) temp_engine->mainWindow->getWidth(), 1.0f);
+	float windowHeight = std::max((float) temp_engine->mainWindow->getHeight(), 1.0f);
 
-	nk_input_motion(&ctx, cursorX, cursorY);
-	nk_input_button(&ctx, NK_BUTTON_LEFT, cursorX, cursorY, temp_engine->mainWindow->isMouseButtonPressed(0));
-	nk_input_button(&ctx, NK_BUTTON_MIDDLE, cursorX, cursorY, temp_engine->mainWindow->isMouseButtonPressed(1));
-	nk_input_button(&ctx, NK_BUTTON_RIGHT, cursorX, cursorY, temp_engine->mainWindow->isMouseButtonPressed(2));
-	//
-	nk_input_end(&ctx);
+	struct nk_color table[NK_COLOR_COUNT];
 
-	float windowHeight = std::max((float) temp_engine->mainWindow->getHeight(),
-		1.0f);
+	table[NK_COLOR_TEXT] = nk_rgba(210, 210, 210, 255);
+	table[NK_COLOR_WINDOW] = nk_rgba(57, 67, 71, 0);
+	table[NK_COLOR_HEADER] = nk_rgba(51, 51, 56, 220);
+	table[NK_COLOR_BORDER] = nk_rgba(46, 46, 46, 255);
+	table[NK_COLOR_BUTTON] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_BUTTON_HOVER] = nk_rgba(58, 93, 121, 255);
+	table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(63, 98, 126, 255);
+	table[NK_COLOR_TOGGLE] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(45, 53, 56, 255);
+	table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_SELECT] = nk_rgba(57, 67, 61, 255);
+	table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_SLIDER] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(48, 83, 111, 245);
+	table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
+	table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
+	table[NK_COLOR_PROPERTY] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_EDIT] = nk_rgba(50, 58, 61, 225);
+	table[NK_COLOR_EDIT_CURSOR] = nk_rgba(210, 210, 210, 255);
+	table[NK_COLOR_COMBO] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_CHART] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_CHART_COLOR] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(255, 0, 0, 255);
+	table[NK_COLOR_SCROLLBAR] = nk_rgba(50, 58, 61, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(48, 83, 111, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
+	table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
+	table[NK_COLOR_TAB_HEADER] = nk_rgba(48, 83, 111, 255);
+	nk_style_from_table(&ctx, table);
 
-	nk_window_set_bounds(&ctx, "Hello!", nk_rect(0, 0, 250.0f, windowHeight));
+	if (nk_begin(&ctx, "Hello!", nk_rect(0, 0, 250.0f, windowHeight), NK_WINDOW_BACKGROUND | NK_WINDOW_NO_SCROLLBAR))
+	{
+		enum
+		{
+			EASY, HARD
+		};
+		static int op = EASY;
+		static int property = 20;
+		nk_layout_row_static(&ctx, 30, 80, 1);
+		if (nk_button_label(&ctx, "button"))
+			fprintf(stdout, "button pressed\n");
 
-	if (nk_begin(&ctx, "Hello!", nk_rect(0, 0, 250, 250),
-		NK_WINDOW_BORDER | NK_WINDOW_SCALABLE | NK_WINDOW_TITLE))
+		nk_layout_row_dynamic(&ctx, 30, 2);
+		if (nk_option_label(&ctx, "easy", op == EASY))
+			op = EASY;
+		if (nk_option_label(&ctx, "hard", op == HARD))
+			op = HARD;
+
+		nk_layout_row_dynamic(&ctx, 25, 1);
+		nk_property_int(&ctx, "Compression:", 0, &property, 100, 10, 1);
+	}
+	nk_end(&ctx);
+	nk_style_default(&ctx);
+
+	if (nk_begin(&ctx, "Hello!other", nk_rect(windowWidth - 250, 250, 250, windowHeight), NK_WINDOW_BORDER | NK_WINDOW_TITLE))
 	{
 		enum
 		{

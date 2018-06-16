@@ -744,6 +744,9 @@ ResourceTexture ResourceManager::loadTextureImmediate (const std::string &file, 
 			case TEXTURE_FILE_FORMAT_PNG:
 				loadPNGTextureData(texRes);
 				break;
+			case TEXTURE_FILE_FORMAT_DDS:
+				loadDDSTextureData(texRes);
+				break;
 			default:
 				break;
 		}
@@ -816,6 +819,9 @@ ResourceTexture ResourceManager::loadTextureArrayImmediate (const std::vector<st
 		{
 			case TEXTURE_FILE_FORMAT_PNG:
 				loadPNGTextureData(texRes);
+				break;
+			case TEXTURE_FILE_FORMAT_DDS:
+				loadDDSTextureData(texRes);
 				break;
 			default:
 				break;
@@ -908,7 +914,7 @@ void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 		// Make sure each texture has the same size
 		if (f > 0 && (fwidth != width || fheight != height))
 		{
-			printf("%s Couldn't load a texture array, one or more don't have consistent dimensions. Files: ", ERR_PREFIX);
+			printf("%s Couldn't load a texture array, one or more textures don't have consistent dimensions. Files: ", ERR_PREFIX);
 
 			for (uint32_t i = 0; i < tex->files.size(); i ++)
 			{
@@ -992,6 +998,235 @@ void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 	}
 
 	renderer->destroyStagingBuffer(stagingBuffer);
+}
+
+#ifndef MAKEFOURCC
+#define MAKEFOURCC(ch0, ch1, ch2, ch3)                              \
+                ((uint32_t)(uint8_t)(ch0) | ((uint32_t)(uint8_t)(ch1) << 8) |       \
+                ((uint32_t)(uint8_t)(ch2) << 16) | ((uint32_t)(uint8_t)(ch3) << 24 ))
+#endif /* defined(MAKEFOURCC) */
+
+inline ResourceFormat convertDXGIFormatToResourceFormat(uint32_t dxgi)
+{
+	switch (dxgi)
+	{
+		case 71: // BC1_UNORM
+			return RESOURCE_FORMAT_BC1_RGBA_UNORM_BLOCK;
+		case 72: // BC1_UNORM_SRGB
+			return RESOURCE_FORMAT_BC1_RGBA_SRGB_BLOCK;
+		case 74: // BC2_UNORM
+			return RESOURCE_FORMAT_BC2_UNORM_BLOCK;
+		case 75: // BC2_UNORM_SRGB
+			return RESOURCE_FORMAT_BC2_SRGB_BLOCK;
+		case 77: // BC3_UNORM
+			return RESOURCE_FORMAT_BC3_UNORM_BLOCK;
+		case 78: // BC3_UNORM_SRGB
+			return RESOURCE_FORMAT_BC3_SRGB_BLOCK;
+		case 80: // BC4_UNORM
+			return RESOURCE_FORMAT_BC4_UNORM_BLOCK;
+		case 81: // BC4_SNORM
+			return RESOURCE_FORMAT_BC4_SNORM_BLOCK;
+		case 83: // BC5_UNORM
+			return RESOURCE_FORMAT_BC5_UNORM_BLOCK;
+		case 84: // BC5_SNORM
+			return RESOURCE_FORMAT_BC5_SNORM_BLOCK;
+		case 95: // BC6H_UF16
+			return RESOURCE_FORMAT_BC6H_UFLOAT_BLOCK;
+		case 96: // BC6H_SF16
+			return RESOURCE_FORMAT_BC6H_SFLOAT_BLOCK;
+		case 98: // BC7_UNORM
+			return RESOURCE_FORMAT_BC7_UNORM_BLOCK;
+		case 99: // BC7_UNORM_SRGB
+			return RESOURCE_FORMAT_BC7_SRGB_BLOCK;
+		default:
+			return RESOURCE_FORMAT_UNDEFINED;
+	}
+}
+
+inline ResourceFormat getDDSFormat(const std::vector<char> &buffer)
+{
+	const DDSHeader &header = *reinterpret_cast<const DDSHeader*>(&buffer[4]);
+
+	switch (header.ddspf.dwFourCC)
+	{
+		case MAKEFOURCC('D', 'X', '1', '0'):
+		{
+			const DDSHeaderDXT10 &header10 = *reinterpret_cast<const DDSHeaderDXT10*>(&buffer[sizeof(uint32_t) + sizeof(DDSHeader)]);
+
+			return convertDXGIFormatToResourceFormat(header10.dxgiFormat);
+		}
+		case MAKEFOURCC('D', 'X', 'T', '1'):
+			return RESOURCE_FORMAT_BC1_RGBA_UNORM_BLOCK;
+		case MAKEFOURCC('D', 'X', 'T', '3'):
+			return RESOURCE_FORMAT_BC2_UNORM_BLOCK;
+		case MAKEFOURCC('D', 'X', 'T', '5'):
+			return RESOURCE_FORMAT_BC3_UNORM_BLOCK;
+		case MAKEFOURCC('B', 'C', '4', 'U'):
+			return RESOURCE_FORMAT_BC4_UNORM_BLOCK;
+		case MAKEFOURCC('B', 'C', '4', 'S'):
+			return RESOURCE_FORMAT_BC4_SNORM_BLOCK;
+		case MAKEFOURCC('B', 'C', '5', 'U'):
+			return RESOURCE_FORMAT_BC5_UNORM_BLOCK;
+		case MAKEFOURCC('B', 'C', '5', 'S'):
+			return RESOURCE_FORMAT_BC5_SNORM_BLOCK;
+	}
+}
+
+inline uint8_t getFormatBlockSize(ResourceFormat format)
+{
+	switch (format)
+	{
+		case RESOURCE_FORMAT_BC1_RGBA_UNORM_BLOCK:
+		case RESOURCE_FORMAT_BC1_RGBA_SRGB_BLOCK:
+		case RESOURCE_FORMAT_BC4_UNORM_BLOCK:
+		case RESOURCE_FORMAT_BC4_SNORM_BLOCK:
+			return 8;
+		case RESOURCE_FORMAT_BC2_UNORM_BLOCK:
+		case RESOURCE_FORMAT_BC2_SRGB_BLOCK:
+		case RESOURCE_FORMAT_BC3_UNORM_BLOCK:
+		case RESOURCE_FORMAT_BC3_SRGB_BLOCK:
+		case RESOURCE_FORMAT_BC5_UNORM_BLOCK:
+		case RESOURCE_FORMAT_BC5_SNORM_BLOCK:
+		case RESOURCE_FORMAT_BC6H_UFLOAT_BLOCK:
+		case RESOURCE_FORMAT_BC6H_SFLOAT_BLOCK:
+		case RESOURCE_FORMAT_BC7_UNORM_BLOCK:
+		case RESOURCE_FORMAT_BC7_SRGB_BLOCK:
+			return 16;
+		default:
+			return 0;
+	}
+}
+
+size_t getMipSizeCompressed(uint32_t width, uint32_t height, uint32_t level, uint32_t blockSize)
+{
+	return (((width / uint32_t(std::pow(2, level))) + 3) / 4) * (((height / uint32_t(std::pow(2, level))) + 3) / 4) * blockSize;
+}
+
+void ResourceManager::loadDDSTextureData(ResourceTexture tex)
+{
+	uint32_t width = 0, height = 0;
+	std::vector<std::vector<char>> buffers;
+	size_t firstTexOffset = 0;
+
+	tex->textureFormat = RESOURCE_FORMAT_UNDEFINED;
+
+	for (size_t i = 0; i < tex->files.size(); i++)
+	{
+		buffers.push_back(readFile(tex->files[i]));
+		std::vector<char> &buffer = buffers[i];
+
+		if (*(uint32_t*) (&buffer[0]) != DDS_MAGIC_NUM)
+		{
+			printf("%s Failed to load DDS texture: %s, contained an invalid magic number/file identifier (got %8x, should be %8x)\n", ERR_PREFIX, tex->files[i].c_str(), *(uint32_t*) (buffer[0]), DDS_MAGIC_NUM);
+
+			buffers.pop_back();
+			continue;
+		}
+
+		DDSHeader &header = *reinterpret_cast<DDSHeader*>(&buffer[4]);
+
+		if (!(header.ddspf.dwFlags & DDPF_FOURCC))
+		{
+			printf("%s Failed to load DDS texture: %s, pixel format's dwFlags state it doesn't contain a valid dwFourCC, thus an invalid format. Flags: %8x\n", ERR_PREFIX, tex->files[i].c_str(), header.ddspf.dwFlags);
+
+			buffers.pop_back();
+			continue;
+		}
+
+		uint32_t fwidth = header.dwWidth;
+		uint32_t fheight = header.dwHeight;
+		uint32_t fmipmapcount = header.dwMipMapCount;
+		ResourceFormat fformat = getDDSFormat(buffer);
+
+		if (i > 0 && (fwidth != width || fheight != height))
+		{
+			printf("%s Couldn't load slice %u in texture array, one or more textures don't have consistent dimensions. Files: ", ERR_PREFIX, i);
+
+			for (uint32_t i = 0; i < tex->files.size(); i++)
+			{
+				printf("%s%s", tex->files[i].c_str(), (i == tex->files.size() - 1 ? "" : ", "));
+			}
+			printf("\n");
+
+			buffers.pop_back();
+			continue;
+		}
+		else if (i > 0 && (fmipmapcount != tex->mipmapLevels))
+		{
+			printf("%s Couldn't load slice %u in texture array, one or more textures don't have a consistent number of mipmaps. Files: ", ERR_PREFIX, i);
+
+			for (uint32_t i = 0; i < tex->files.size(); i++)
+			{
+				printf("%s%s", tex->files[i].c_str(), (i == tex->files.size() - 1 ? "" : ", "));
+			}
+			printf("\n");
+
+			buffers.pop_back();
+			continue;
+		}
+		else if (i > 0 && (fformat != tex->textureFormat))
+		{
+			printf("%s Couldn't load slice %u in texture array, one or more textures don't have consistent formats. Files: ", ERR_PREFIX, i);
+
+			for (uint32_t i = 0; i < tex->files.size(); i++)
+			{
+				printf("%s%s", tex->files[i].c_str(), (i == tex->files.size() - 1 ? "" : ", "));
+			}
+			printf("\n");
+
+			buffers.pop_back();
+			continue;
+		}
+
+		width = fwidth;
+		height = fheight;
+		tex->mipmapLevels = header.dwMipMapCount;
+		tex->textureFormat = fformat;
+
+		firstTexOffset = 4 + sizeof(DDSHeader) + (header.ddspf.dwFourCC == MAKEFOURCC('D', 'X', '1', '0') ? sizeof(DDSHeaderDXT10) : 0);
+	}
+
+	tex->texture = renderer->createTexture({(float) width, (float) height, 1.0f}, tex->textureFormat, TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels, buffers.size());
+
+	printf("has %u mips\n", tex->mipmapLevels);
+
+	std::vector<StagingBuffer> mipStagingBuffers(tex->mipmapLevels);
+
+	for (uint32_t m = 0; m < tex->mipmapLevels; m++)
+		mipStagingBuffers[m] = renderer->createStagingBuffer(getMipSizeCompressed(width, height, m, getFormatBlockSize(tex->textureFormat)));
+	
+	for (uint32_t a = 0; a < uint32_t(buffers.size()); a++)
+	{
+		size_t texAccumOffset = firstTexOffset;
+		for (uint32_t m = 0; m < tex->mipmapLevels; m++)
+		{
+			size_t mipSize = getMipSizeCompressed(width, height, m, getFormatBlockSize(tex->textureFormat));
+			renderer->mapStagingBuffer(mipStagingBuffers[m], mipSize, &buffers[a][texAccumOffset]);
+
+			texAccumOffset += mipSize;
+		}
+
+		CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
+
+		for (uint32_t m = 0; m < tex->mipmapLevels; m++)
+		{
+			TextureSubresourceRange subresourceRange = {};
+			subresourceRange.baseMipLevel = m;
+			subresourceRange.baseArrayLayer = a;
+			subresourceRange.levelCount = 1;
+			subresourceRange.layerCount = 1;
+
+			//cmdBuffer->transitionTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+			cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+			cmdBuffer->stageBuffer(mipStagingBuffers[m], tex->texture, {m, a, 1}, {0, 0, 0}, {width / uint32_t(std::pow(2, m)), height / uint32_t(std::pow(2, m)), 1});
+			cmdBuffer->setTextureLayout(tex->texture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		}
+		
+		renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
+	}
+
+	for (size_t i = 0; i < mipStagingBuffers.size(); i++)
+		renderer->destroyStagingBuffer(mipStagingBuffers[i]);
 }
 
 ResourceMeshData ResourceManager::loadRawMeshData (const std::string &file, const std::string &mesh)
@@ -1219,7 +1454,7 @@ TextureFileFormat inferFileFormat (const std::string &file)
 
 	if (fileExtension == "png")
 		return TEXTURE_FILE_FORMAT_PNG;
-	else if (fileExtension == "dds")
+	else if (fileExtension == "dds" || fileExtension == "dds2")
 		return TEXTURE_FILE_FORMAT_DDS;
 	else if (fileExtension == "bmp")
 		return TEXTURE_FILE_FORMAT_BMP;

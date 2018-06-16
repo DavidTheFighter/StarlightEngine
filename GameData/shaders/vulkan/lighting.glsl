@@ -140,13 +140,13 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		else
 			radiance = GetSkyLuminance(at_cameraPosition, at_ray, 0, testLightDir.xzy, transmittance) * 1e-3;
 	
-		if (dot(normalize(at_ray), testLightDir.xzy) > sunSize && gbuffer_Depth == 0.0f)
+		if (dot(normalize(at_ray), testLightDir.xzy) > sunSize && gbuffer_Depth < 0.0001f)
 			radiance += transmittance * GetSolarLuminance() * 1e-3 * 1e-3;
 			
 		vec3 Rd = vec3(0);
 		float sunOcclusion = getSunOcclusion(vec3(inViewRay, -1) * z_eye);
 				
-		if (gbuffer_Depth != 0.0f)
+		if (gbuffer_Depth > 0)
 			Rd = calcSkyLighting(gbuffer_AlbedoRoughness.rgb, gbuffer_NormalsMetalness.rgb, normalize(inRay), vec2(gbuffer_AlbedoRoughness.a, gbuffer_NormalsMetalness.a), testLightDir, z_eye, sunOcclusion, gbuffer_AO);
 		
 		vec3 finalColor = Rd * transmittance + radiance;
@@ -261,9 +261,9 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 				earlyBailSamples = step(earlyBailSamples, vec4(shadowCoord.z - 0.0005f));
 				float ssum = dot(earlyBailSamples, vec4(1)) * 0.25f;
 			
-				if (ssum < 0.001f)
+				if (ssum < 0.0001f)
 					return 0;
-				else if (ssum > 0.999f)
+				else if (ssum > 0.9999f)
 					return 1;
 			
 				for (float x = -scaledPCFWidth; x <= scaledPCFWidth; x ++)

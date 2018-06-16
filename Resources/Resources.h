@@ -305,5 +305,50 @@ typedef struct ResourceLevelDefinition
 		
 } LevelDef;
 
+#define DDS_MAGIC_NUM 0x20534444
+
+#ifndef DDPF_FOURCC
+#define DDPF_FOURCC 0x4
+#endif
+
+typedef struct
+{
+	uint32_t dwSize;
+	uint32_t dwFlags;
+	uint32_t dwFourCC;
+	uint32_t dwRGBBitCount;
+	uint32_t dwRBitMask;
+	uint32_t dwGBitMask;
+	uint32_t dwBBitMask;
+	uint32_t dwABitMask;
+} DDSPixelFormat;
+
+typedef struct
+{
+	uint32_t dwSize;
+	uint32_t dwFlags;
+	uint32_t dwHeight;
+	uint32_t dwWidth;
+	uint32_t dwPitchOrLinearSize;
+	uint32_t dwDepth;
+	uint32_t dwMipMapCount;
+	uint32_t dwReserved1[11];
+	DDSPixelFormat ddspf;
+	uint32_t dwCaps;
+	uint32_t dwCaps2;
+	uint32_t dwCaps3;
+	uint32_t dwCaps4;
+	uint32_t dwReserved2;
+} DDSHeader;
+
+typedef struct
+{
+	uint32_t dxgiFormat;
+	uint32_t resourceDimension;
+	uint32_t miscFlag;
+	uint32_t arraySize;
+	uint32_t miscFlags2;
+} DDSHeaderDXT10;
+
 #endif /* RESOURCES_RESOURCES_H_ */
 

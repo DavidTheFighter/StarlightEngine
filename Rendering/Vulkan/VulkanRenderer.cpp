@@ -1207,6 +1207,7 @@ void VulkanRenderer::createLogicalDevice ()
 	enabledDeviceFeatures.tessellationShader = true;
 	enabledDeviceFeatures.fillModeNonSolid = true;
 	enabledDeviceFeatures.wideLines = true;
+	enabledDeviceFeatures.textureCompressionBC = true;
 
 	VkDeviceCreateInfo deviceCreateInfo = {};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
