@@ -42,18 +42,48 @@ ResourceManager::ResourceManager (Renderer *rendererInstance, const std::string 
 
 	std::vector<DescriptorSetLayoutBinding> layoutBindings;
 	layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
-	layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+	layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, MATERIAL_DEF_MAX_TEXTURE_NUM, SHADER_STAGE_FRAGMENT_BIT});
 
 	mainThreadDescriptorPool = renderer->createDescriptorPool(layoutBindings, 16);
 
 	pipelineRenderPass = nullptr;
 	pipelineShadowRenderPass = nullptr;
+
+	/*
+	 * Create the color textures
+	 */
+
+	colorBlackTex = renderer->createTexture({4, 4, 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY);
+	colorBlackTexView = renderer->createTextureView(colorBlackTex);
+	StagingBuffer colorTexStagingBuffer = renderer->createStagingBuffer(4 * 4 * 4);
+	
+	uint8_t colorBlackBuffer[4 * 4 * 4];
+	uint8_t colBlack[4] = {0, 0, 0, 255};
+
+	for (int i = 0; i < 16; i++)
+		memcpy(&colorBlackBuffer[i * 4], colBlack, 4);
+
+	renderer->mapStagingBuffer(colorTexStagingBuffer, sizeof(colorBlackBuffer), colorBlackBuffer);
+
+	CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
+
+	cmdBuffer->setTextureLayout(colorBlackTex, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+	cmdBuffer->stageBuffer(colorTexStagingBuffer, colorBlackTex);
+	cmdBuffer->setTextureLayout(colorBlackTex, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+	renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
+
+	renderer->destroyStagingBuffer(colorTexStagingBuffer);
 }
 
 ResourceManager::~ResourceManager ()
 {
 	renderer->destroyCommandPool(mainThreadTransferCommandPool);
 	renderer->destroyDescriptorPool(mainThreadDescriptorPool);
+
+	renderer->destroyTexture(colorBlackTex);
+	renderer->destroyTextureView(colorBlackTexView);
+
 	// TODO Free all remaining resources when an instance of ResourceManager is deleted
 	
 	printf("Remaining resources - %u, %u, %u\n", loadedMaterials.size(), loadedTextures.size(), loadedStaticMeshes.size());
@@ -86,7 +116,10 @@ ResourceMaterial ResourceManager::loadMaterialImmediate (const std::string &defU
 			if (std::string(matDef->textureFiles[i]).length() != 0)
 				texFiles.push_back(workingDir + std::string(matDef->textureFiles[i]));
 
-		mat->textures = loadTextureArrayImmediate(texFiles);
+		for (size_t i = 0; i < texFiles.size(); i++)
+			mat->textures[i] = loadTextureImmediate(texFiles[i]);
+
+		mat->usedTextureCount = (uint8_t) texFiles.size();
 
 		std::vector<DescriptorWriteInfo> writes(2);
 		writes[0].descriptorCount = 1;
@@ -98,10 +131,33 @@ ResourceMaterial ResourceManager::loadMaterialImmediate (const std::string &defU
 		writes[0].dstBinding = 0;
 		writes[0].dstArrayElement = 0;
 
-		writes[1].descriptorCount = 1;
+		std::vector<DescriptorImageInfo> texDescInfos;
+
+		for (size_t i = 0; i < texFiles.size(); i++)
+		{
+			DescriptorImageInfo imgInfo = {};
+			imgInfo.sampler = nullptr;
+			imgInfo.view = mat->textures[i]->textureView;
+			imgInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			texDescInfos.push_back(imgInfo);
+		}
+
+		// Fill in the rest w/ dummy textures as to not cause a validation error
+		while (texDescInfos.size() < 8)
+		{
+			DescriptorImageInfo imgInfo = {};
+			imgInfo.sampler = nullptr;
+			imgInfo.view = colorBlackTexView;
+			imgInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			texDescInfos.push_back(imgInfo);
+		}
+
+		writes[1].descriptorCount = texDescInfos.size();
 		writes[1].descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 		writes[1].dstSet = mat->descriptorSet;
-		writes[1].imageInfo = {{mat->sampler, mat->textures->textureView, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
+		writes[1].imageInfo = texDescInfos;
 		writes[1].dstBinding = 1;
 		writes[1].dstArrayElement = 0;
 
@@ -153,7 +209,8 @@ void ResourceManager::returnMaterial (size_t defUniqueNameHash)
 			mainThreadDescriptorPool->freeDescriptorSet(mat->descriptorSet);
 			renderer->destroySampler(mat->sampler);
 
-			returnTexture(mat->textures);
+			for (size_t i = 0; i < mat->usedTextureCount; i ++)
+				returnTexture(mat->textures[i]);
 
 			delete mat;
 
@@ -427,7 +484,7 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 
 		std::vector<DescriptorSetLayoutBinding> layoutBindings;
 		layoutBindings.push_back({0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT});
-		layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT});
+		layoutBindings.push_back({1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 8, SHADER_STAGE_FRAGMENT_BIT});
 
 		info.inputPushConstantRanges = {{0, sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4), SHADER_STAGE_VERTEX_BIT}};
 		info.inputSetLayouts = {layoutBindings};
@@ -1438,6 +1495,11 @@ std::vector<char> ResourceManager::getFormattedMeshData (const ResourceMeshData 
 	}
 
 	return meshDataArray;
+}
+
+RendererTextureView *ResourceManager::getBlackColorTexture()
+{
+	return colorBlackTexView;
 }
 
 TextureFileFormat inferFileFormat (const std::string &file)

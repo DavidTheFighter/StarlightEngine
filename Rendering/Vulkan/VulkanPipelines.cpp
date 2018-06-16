@@ -177,7 +177,7 @@ Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineIn
 	pipelineCreateInfo.basePipelineIndex = -1;
 
 	std::vector<VkPushConstantRange> vulkanPushConstantRanges;
-	std::vector<VkDescriptorSetLayout> vulkanSetLayouts;
+	std::vector<VkDescriptorSetLayout> vulkanDescSetLayouts;
 
 	for (size_t i = 0; i < pipelineInfo.inputPushConstantRanges.size(); i ++)
 	{
@@ -192,7 +192,7 @@ Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineIn
 
 	for (size_t i = 0; i < pipelineInfo.inputSetLayouts.size(); i ++)
 	{
-		vulkanSetLayouts.push_back(createDescriptorSetLayout(pipelineInfo.inputSetLayouts[i]));
+		vulkanDescSetLayouts.push_back(createDescriptorSetLayout(pipelineInfo.inputSetLayouts[i]));
 	}
 
 	VkPipelineLayoutCreateInfo layoutCreateInfo = {};
@@ -200,7 +200,7 @@ Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineIn
 	layoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(pipelineInfo.inputPushConstantRanges.size());
 	layoutCreateInfo.setLayoutCount = static_cast<uint32_t>(pipelineInfo.inputSetLayouts.size());
 	layoutCreateInfo.pPushConstantRanges = vulkanPushConstantRanges.data();
-	layoutCreateInfo.pSetLayouts = vulkanSetLayouts.data();
+	layoutCreateInfo.pSetLayouts = vulkanDescSetLayouts.data();
 
 	VK_CHECK_RESULT(vkCreatePipelineLayout(renderer->device, &layoutCreateInfo, nullptr, &vulkanPipeline->pipelineLayoutHandle));
 
@@ -232,72 +232,27 @@ VkDescriptorSetLayout VulkanPipelines::createDescriptorSetLayout (const std::vec
 	setLayoutCreateInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 	setLayoutCreateInfo.pBindings = bindings.data();
 
-	VkDescriptorSetLayout setLayout;
-
-	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(renderer->device, &setLayoutCreateInfo, nullptr, &setLayout));
-
-	return setLayout;
+	return createDescriptorSetLayout(setLayoutCreateInfo);
 }
 
-/*
- * This is for comparing descriptor set layout create infos to see if there's a descriptor set layout object
- * available in the cache with the same data
- */
-struct descriptorSetLayoutCacheFind : public std::unary_function<VulkanDescriptorSetLayoutCacheInfo, bool>
+inline bool compareDescSetLayoutCacheInfos(const VulkanDescriptorSetLayoutCacheInfo &c0, const VulkanDescriptorSetLayoutCacheInfo &c1)
 {
-		explicit descriptorSetLayoutCacheFind (const VulkanDescriptorSetLayoutCacheInfo& setLayoutCreateInfo)
-				: base(setLayoutCreateInfo)
-		{
+	// Check the obvious first
+	if (c0.bindings.size() != c1.bindings.size() || c0.flags != c1.flags)
+		return false;
 
-		}
-		;
+	// Check to make sure each binding is the same
+	for (size_t i = 0; i < c0.bindings.size(); i++)
+	{
+		const VkDescriptorSetLayoutBinding& bind0 = c0.bindings[i];
+		const VkDescriptorSetLayoutBinding& bind1 = c1.bindings[i];
 
-		bool compareBinding (const VkDescriptorSetLayoutBinding &bind0, const VkDescriptorSetLayoutBinding &bind1)
-		{
-			// This place needs to be updated w/ immutable sampler support for when (if) I implement it
-			return (bind0.binding == bind1.binding) && (bind0.descriptorCount == bind1.descriptorCount) && (bind0.descriptorType == bind1.descriptorType) && (bind0.stageFlags == bind1.stageFlags);
-		}
+		if ((bind0.binding != bind1.binding) || (bind0.descriptorCount != bind1.descriptorCount) || (bind0.descriptorType != bind1.descriptorType) || (bind0.stageFlags != bind1.stageFlags))
+			return false;
+	}
 
-		bool operator() (const std::pair<VulkanDescriptorSetLayoutCacheInfo, VkDescriptorSetLayout> &arg)
-		{
-			const VulkanDescriptorSetLayoutCacheInfo &comp = arg.first;
-
-			if (comp.flags != base.flags)
-				return false;
-
-			// Make sure all the bindings match up
-			{
-				// Make copies of each vector so we don't disturb the incoming data
-				std::vector<VkDescriptorSetLayoutBinding> compBindings = std::vector<VkDescriptorSetLayoutBinding>(comp.bindings);
-				std::vector<VkDescriptorSetLayoutBinding> baseBindings = std::vector<VkDescriptorSetLayoutBinding>(base.bindings);
-
-				size_t matchingCount = 0;
-
-				for (size_t i = 0; i < compBindings.size(); i ++)
-				{
-					for (size_t t = 0; t < baseBindings.size(); t ++)
-					{
-						if (compareBinding(compBindings[i], baseBindings[t]))
-						{
-							matchingCount ++;
-
-							baseBindings.erase(baseBindings.begin() + t);
-
-							break;
-						}
-					}
-				}
-
-				if (matchingCount != compBindings.size())
-					return false;
-			}
-
-			return true;
-		}
-
-		const VulkanDescriptorSetLayoutCacheInfo& base;
-
-};
+	return true;
+}
 
 /*
  * Attempts to reuse a descriptor set layout object from the cache, but will make a new one if needed.
@@ -308,20 +263,24 @@ VkDescriptorSetLayout VulkanPipelines::createDescriptorSetLayout (const VkDescri
 	cacheInfo.flags = setLayoutInfo.flags;
 	cacheInfo.bindings = std::vector<VkDescriptorSetLayoutBinding>(setLayoutInfo.pBindings, setLayoutInfo.pBindings + setLayoutInfo.bindingCount);
 
-	auto it = std::find_if(descriptorSetLayoutCache.begin(), descriptorSetLayoutCache.end(), descriptorSetLayoutCacheFind(cacheInfo));
-
-	if (it == descriptorSetLayoutCache.end())
+	// Try and find a matching cached set layout to use if possible
+	for (size_t i = 0; i < descriptorSetLayoutCache.size(); i++)
 	{
-		VkDescriptorSetLayout setLayout;
+		const VulkanDescriptorSetLayoutCacheInfo &candCacheInfo = descriptorSetLayoutCache[i].first;
 
-		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(renderer->device, &setLayoutInfo, nullptr, &setLayout));
-
-		descriptorSetLayoutCache.push_back(std::make_pair(cacheInfo, setLayout));
-
-		return setLayout;
+		if (compareDescSetLayoutCacheInfos(cacheInfo, candCacheInfo))
+			return descriptorSetLayoutCache[i].second;
 	}
 
-	return it->second;
+	// If there's no matchign cached set layout, make a new one and add it
+
+	VkDescriptorSetLayout setLayout;
+
+	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(renderer->device, &setLayoutInfo, nullptr, &setLayout));
+
+	descriptorSetLayoutCache.push_back(std::make_pair(cacheInfo, setLayout));
+
+	return setLayout;
 }
 
 std::vector<VkPipelineShaderStageCreateInfo> VulkanPipelines::getPipelineShaderStages (const std::vector<PipelineShaderStage> &stages)

@@ -51,7 +51,7 @@
 #elif defined(SHADER_STAGE_FRAGMENT)
 
 	layout(set = 0, binding = 0) uniform sampler materialSampler;
-	layout(set = 0, binding = 1) uniform texture2DArray materialTex; // Albedo, Normals, Roughness, Metalness, Unusued (maybe AO or something)
+	layout(set = 0, binding = 1) uniform texture2D materialTex[6]; // Albedo, Normals, Roughness, Metalness, Unusued (maybe AO or something)
 	//layout(set = 0, binding = 2) uniform texture2D materialTex1; // Normals
 	//layout(set = 0, binding = 3) uniform texture2D materialTex2; // Roughness
 	//layout(set = 0, binding = 4) uniform texture2D materialTex3; // Metalness
@@ -74,7 +74,7 @@
 		vec3 B = cross(N, T);
 		mat3 tbn = mat3(T, B, N);
 		
-		return tbn * normalize(texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 1)).rgb * 2.0f - 1.0f);
+		return tbn * normalize(texture(sampler2D(materialTex[1], materialSampler), texcoords).rgb * 2.0f - 1.0f);
 	}
 
 	vec2 encodeNormal (in vec3 normal)
@@ -105,27 +105,28 @@
 			vec2 deltaTexCoords = P / numLayers * vec2(1, -1);
 		
 			vec2 currentTexCoords = inUV;
-			float currentDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(currentTexCoords, 5)).r;
+			float currentDepth = texture(sampler2D(materialTex[5], materialSampler), currentTexCoords).r;
 			
 			while (currentLayerDepth < currentDepth)
 			{
 				currentTexCoords -= deltaTexCoords;
-				currentDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(currentTexCoords, 5)).r;
+				currentDepth = texture(sampler2D(materialTex[5], materialSampler), currentTexCoords).r;
 				currentLayerDepth += layerDepth;
 			}
 			
 			vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
 			
 			float afterDepth = currentDepth - currentLayerDepth;
-			float beforeDepth = texture(sampler2DArray(materialTex, materialSampler), vec3(prevTexCoords, 5)).r - currentLayerDepth + layerDepth;
+			float beforeDepth = texture(sampler2D(materialTex[5], materialSampler), prevTexCoords).r - currentLayerDepth + layerDepth;
 			
 			float weight = afterDepth / (afterDepth - beforeDepth);
 			
 			texcoords = prevTexCoords * weight + currentTexCoords * (1 - weight);
 		}
 		
-		albedo_roughness = vec4(texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 0)).rgb, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 2)).r);
-		normal_metalness = vec4(encodeNormal(calcNormal(texcoords)), texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 4)).r, texture(sampler2DArray(materialTex, materialSampler), vec3(texcoords, 3)).r);
+		//albedo_roughness = vec4(texture(sampler2D(materialTex[0], materialSampler), texcoords)).rgb, texture(sampler2D(materialTex[2], materialSampler), texcoords).r);
+		albedo_roughness = vec4(texture(sampler2D(materialTex[0], materialSampler), texcoords).rgb, texture(sampler2D(materialTex[2], materialSampler), texcoords).r);
+		normal_metalness = vec4(encodeNormal(calcNormal(texcoords)), texture(sampler2D(materialTex[4], materialSampler), texcoords).r, texture(sampler2D(materialTex[3], materialSampler), texcoords).r);
 	}
 
 #endif

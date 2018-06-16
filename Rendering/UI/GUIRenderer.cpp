@@ -385,11 +385,9 @@ void GUIRenderer::destroy()
 
 	temp_engine->resources->returnTexture(whiteTexture);
 	renderer->destroyTextureView(whiteTextureView);
-	//guiTextureDescriptorPool->freeDescriptorSet(whiteTextureDescriptor);
 
 	renderer->destroyTexture(fontAtlas);
 	renderer->destroyTextureView(fontAtlasView);
-	//guiTextureDescriptorPool->freeDescriptorSet(fontAtlasDescriptor);
 
 	renderer->destroyCommandPool(testGUICommandPool);
 	renderer->destroyDescriptorPool(guiTextureDescriptorPool);

@@ -705,36 +705,6 @@ std::vector<Semaphore> VulkanRenderer::createSemaphores (uint32_t count)
 	return sems;
 }
 
-/*
- DescriptorSetLayout VulkanRenderer::createDescriptorSetLayout (const std::vector<DescriptorSetLayoutBinding> &bindings)
- {
- VulkanDescriptorSetLayout *descriptorSetLayout = new VulkanDescriptorSetLayout();
- descriptorSetLayout->bindings = bindings;
-
- std::vector<VkDescriptorSetLayoutBinding> vulkanLayoutBindings;
-
- for (size_t i = 0; i < bindings.size(); i ++)
- {
- const DescriptorSetLayoutBinding &binding = bindings[i];
- VkDescriptorSetLayoutBinding layoutBinding = {};
- layoutBinding.binding = binding.binding;
- layoutBinding.descriptorCount = binding.descriptorCount;
- layoutBinding.descriptorType = toVkDescriptorType(binding.descriptorType);
- layoutBinding.stageFlags = toVkShaderStageFlags(binding.stageFlags);
-
- vulkanLayoutBindings.push_back(layoutBinding);
- }
-
- VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
- layoutCreateInfo.bindingCount = static_cast<uint32_t>(vulkanLayoutBindings.size());
- layoutCreateInfo.pBindings = vulkanLayoutBindings.data();
-
- VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &layoutCreateInfo, nullptr, &descriptorSetLayout->setLayoutHandle));
-
- return descriptorSetLayout;
- }
- */
-
 Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, uint32_t arrayLayerCount, TextureType type)
 {
 	VulkanTexture *tex = new VulkanTexture();

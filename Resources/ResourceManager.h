@@ -39,6 +39,8 @@ class  Renderer;
 struct RendererCommandPool;
 class  RendererDescriptorPool;
 struct RendererRenderPass;
+struct RendererTexture;
+struct RendererTextureView;
 
 /*
  * Manages resources such as meshes, textures, scripts, etc for the game. It
@@ -97,6 +99,8 @@ class ResourceManager
 
 		static std::vector<char> getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData = true);
 
+		RendererTextureView *getBlackColorTexture();
+
 	private:
 
 		std::string workingDir;
@@ -106,6 +110,10 @@ class ResourceManager
 		RendererDescriptorPool *mainThreadDescriptorPool;
 		RendererRenderPass *pipelineRenderPass;
 		RendererRenderPass *pipelineShadowRenderPass;
+
+		RendererTexture *colorBlackTex;
+		
+		RendererTextureView *colorBlackTexView;
 
 		std::map<size_t, MaterialDef*> loadedMaterialDefsMap;
 		//std::vector<MaterialDef*> loadedMaterialDefs;

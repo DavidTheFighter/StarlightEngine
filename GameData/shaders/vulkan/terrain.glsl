@@ -207,7 +207,12 @@
 	layout(set = 0, binding = 1) uniform texture2DArray heightmap;	
 	
 	layout(set = 0, binding = 2) uniform sampler textureSampler;
-	layout(set = 0, binding = 3) uniform texture2DArray terrainTextures[32]; // TexArray order: Albedo, normals, roughness, metalness, unused
+		
+	/*
+	 * TexArray order: Albedo, normals, roughness, metalness, unused
+	 * Accessed like the 2D array: terrainTextures[32][8]
+	 */
+	layout(set = 0, binding = 3) uniform texture2D terrainTextures[32 * 8]; 
 
 	layout(location = 0) out vec4 albedo_roughness; // rgb - albedo, a - roughness
 	layout(location = 1) out vec4 normal_metalness; // rgb - normals, a - metalness
@@ -230,7 +235,7 @@
 	const float uvScale = 1;
 	const float tightenFactor = 0.5f;
 	
-	vec3 triplanarSample (in int texIndex, in vec3 vertex, in vec3 normal, in float arrayLayer, in float blendSharpness)
+	vec3 triplanarSample (in int texIndex, in vec3 vertex, in vec3 normal, in int arrayLayer, in float blendSharpness)
 	{		
 		vec2 uvX = vertex.zy / uvScale;
 		vec2 uvY = vertex.xz / uvScale;
@@ -249,11 +254,11 @@
 		vec3 ttexZ = vec3(0);
 				
 		if (blend.x > 0)
-			ttexX = texture(sampler2DArray(terrainTextures[texIndex], textureSampler), vec3(uvX, arrayLayer)).rgb;
+			ttexX = texture(sampler2D(terrainTextures[texIndex * 8 + arrayLayer], textureSampler), uvX).rgb;
 		if (blend.y > 0)
-			ttexY = texture(sampler2DArray(terrainTextures[texIndex], textureSampler), vec3(uvY, arrayLayer)).rgb;
+			ttexY = texture(sampler2D(terrainTextures[texIndex * 8 + arrayLayer], textureSampler), uvY).rgb;
 		if (blend.z > 0)
-			ttexZ = texture(sampler2DArray(terrainTextures[texIndex], textureSampler), vec3(uvZ, arrayLayer)).rgb;
+			ttexZ = texture(sampler2D(terrainTextures[texIndex * 8 + arrayLayer], textureSampler), uvZ).rgb;
 		
 		return ttexX * blend.x + ttexY * blend.y + ttexZ * blend.z;
 	}

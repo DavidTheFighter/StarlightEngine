@@ -177,8 +177,9 @@ typedef struct ResourceMaterialObject
 {
 		std::string defUniqueName;
 		size_t pipelineHash;
+		uint8_t usedTextureCount; // The number of valid textures in the textures[..] array
 
-		ResourceTexture textures;
+		ResourceTexture textures[MATERIAL_DEF_MAX_TEXTURE_NUM];
 
 		RendererDescriptorSet *descriptorSet;
 		RendererSampler *sampler;

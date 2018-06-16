@@ -542,26 +542,71 @@ void TerrainRenderer::init ()
 		{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 		{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 		{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, SHADER_STAGE_FRAGMENT_BIT}
+		{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32 * 8, SHADER_STAGE_FRAGMENT_BIT}
 	}, 8);
 	heightmapDescriptorSet = heightmapDescriptorPool->allocateDescriptorSet();
+
+	// Set all of the material descriptors to black initially, so that any unused materials don't throw a validation error
+	std::vector<DescriptorImageInfo> dummyMaterialImgInfo;
+
+	for (uint32_t i = 0; i < 32 * 8; i++)
+	{
+		DescriptorImageInfo materialDescImgInfo = {};
+		materialDescImgInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		materialDescImgInfo.sampler = nullptr;
+		materialDescImgInfo.view = engine->resources->getBlackColorTexture();
+
+		dummyMaterialImgInfo.push_back(materialDescImgInfo);
+	}
+
+	DescriptorWriteInfo dummyMaterialWrite = {};
+	dummyMaterialWrite.descriptorCount = 32 * 8;
+	dummyMaterialWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	dummyMaterialWrite.dstArrayElement = 0;
+	dummyMaterialWrite.dstBinding = 3;
+	dummyMaterialWrite.dstSet = heightmapDescriptorSet;
+	dummyMaterialWrite.imageInfo = dummyMaterialImgInfo;
+
+	engine->renderer->writeDescriptorSets({dummyMaterialWrite});
+
+	std::vector<DescriptorImageInfo> graniteMaterialImgInfo;
+	std::vector<DescriptorImageInfo> grassMaterialImgInfo;
+
+	{
+		for (uint8_t i = 0; i < testTerrainGraniteMaterial->usedTextureCount; i++)
+		{
+			DescriptorImageInfo materialDescImgInfo = {};
+			materialDescImgInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			materialDescImgInfo.sampler = nullptr;
+			materialDescImgInfo.view = testTerrainGraniteMaterial->textures[i]->textureView;
+
+			graniteMaterialImgInfo.push_back(materialDescImgInfo);
+		}
+	}
+
+	{
+		for (uint8_t i = 0; i < testTerrainGrassMaterial->usedTextureCount; i++)
+		{
+			DescriptorImageInfo materialDescImgInfo = {};
+			materialDescImgInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			materialDescImgInfo.sampler = nullptr;
+			materialDescImgInfo.view = testTerrainGrassMaterial->textures[i]->textureView;
+
+			grassMaterialImgInfo.push_back(materialDescImgInfo);
+		}
+	}
 
 	DescriptorImageInfo heightmapDescriptorImageInfo = {};
 	heightmapDescriptorImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	heightmapDescriptorImageInfo.sampler = terrainClipmapSampler;
 	heightmapDescriptorImageInfo.view = terrainClipmapView_Elevation;
 
-	DescriptorImageInfo testTerrainGraniteMaterialDescriptorImageInfo = {};
-	testTerrainGraniteMaterialDescriptorImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	testTerrainGraniteMaterialDescriptorImageInfo.sampler = testTerrainGraniteMaterial->sampler;
-	testTerrainGraniteMaterialDescriptorImageInfo.view = testTerrainGraniteMaterial->textures->textureView;
+	DescriptorImageInfo matSamplerImgInfo = {};
+	matSamplerImgInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	matSamplerImgInfo.sampler = testTerrainGraniteMaterial->sampler;
+	matSamplerImgInfo.view = nullptr;
 
-	DescriptorImageInfo testTerrainGrassMaterialDescriptorImageInfo = {};
-	testTerrainGrassMaterialDescriptorImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	testTerrainGrassMaterialDescriptorImageInfo.sampler = testTerrainGrassMaterial->sampler;
-	testTerrainGrassMaterialDescriptorImageInfo.view = testTerrainGrassMaterial->textures->textureView;
-	
-	DescriptorWriteInfo swrite = {}, iwrite = {}, s1write = {}, i1write = {};
+	DescriptorWriteInfo swrite = {}, iwrite = {}, matSamplerWrite = {}, graniteMatWrite = {}, grassMatWrite = {};
 	swrite.descriptorCount = 1;
 	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
 	swrite.dstBinding = 0;
@@ -576,24 +621,31 @@ void TerrainRenderer::init ()
 	iwrite.imageInfo =
 	{	heightmapDescriptorImageInfo};
 
-	s1write.descriptorCount = 1;
-	s1write.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
-	s1write.dstBinding = 2;
-	s1write.dstSet = heightmapDescriptorSet;
-	s1write.imageInfo =
-	{	testTerrainGraniteMaterialDescriptorImageInfo};
+	matSamplerWrite.descriptorCount = 1;
+	matSamplerWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
+	matSamplerWrite.dstBinding = 2;
+	matSamplerWrite.dstSet = heightmapDescriptorSet;
+	matSamplerWrite.imageInfo =
+	{matSamplerImgInfo};
 
-	i1write.descriptorCount = 32;
-	i1write.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	i1write.dstBinding = 3;
-	i1write.dstSet = heightmapDescriptorSet;
-	i1write.imageInfo =
-	{	testTerrainGraniteMaterialDescriptorImageInfo, testTerrainGrassMaterialDescriptorImageInfo};
+	graniteMatWrite.descriptorCount = graniteMaterialImgInfo.size();
+	graniteMatWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	graniteMatWrite.dstBinding = 3;
+	graniteMatWrite.dstArrayElement = 0;
+	graniteMatWrite.dstSet = heightmapDescriptorSet;
+	graniteMatWrite.imageInfo = graniteMaterialImgInfo;
 
-	std::vector<DescriptorImageInfo> testFiller(30, testTerrainGrassMaterialDescriptorImageInfo);
-	i1write.imageInfo.insert(i1write.imageInfo.end(), testFiller.begin(), testFiller.end());
+	grassMatWrite.descriptorCount = grassMaterialImgInfo.size();
+	grassMatWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	grassMatWrite.dstBinding = 3;
+	grassMatWrite.dstArrayElement = 8;
+	grassMatWrite.dstSet = heightmapDescriptorSet;
+	grassMatWrite.imageInfo = grassMaterialImgInfo;
 
-	engine->renderer->writeDescriptorSets({swrite, iwrite, s1write, i1write});
+	//std::vector<DescriptorImageInfo> testFiller(30, testTerrainGrassMaterialDescriptorImageInfo);
+	//i1write.imageInfo.insert(i1write.imageInfo.end(), testFiller.begin(), testFiller.end());
+
+	engine->renderer->writeDescriptorSets({swrite, iwrite, matSamplerWrite, graniteMatWrite, grassMatWrite});
 
 	TextureBlitInfo blitInfo = {};
 	blitInfo.srcSubresource =
@@ -788,7 +840,7 @@ void TerrainRenderer::createGraphicsPipeline ()
 			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 			{2, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32, SHADER_STAGE_FRAGMENT_BIT}
+			{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 32 * 8, SHADER_STAGE_FRAGMENT_BIT}
 	}};
 
 	terrainPipeline = engine->renderer->createGraphicsPipeline(info, worldRenderer->gbufferRenderPass, 0);
