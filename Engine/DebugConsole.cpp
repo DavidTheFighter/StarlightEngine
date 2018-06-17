@@ -35,6 +35,9 @@
 
 #include <Input/Window.h>
 
+#include <World/WorldHandler.h>
+#include <World/Physics/WorldPhysics.h>
+
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
 #define NK_INCLUDE_STANDARD_VARARGS
@@ -67,7 +70,10 @@ std::string DebugConsole::debugPhysics(std::vector<std::string> args)
 	if (args.size() == 0)
 		return "Not enough arguments";
 
-	engine->api->setDebugVariable("physics", atof(args[0].c_str()));
+	float val = atof(args[0].c_str());
+	engine->api->setDebugVariable("physics", val);
+
+	engine->worldHandler->worldPhysics->setSceneDebugVisualization(engine->worldHandler->getActiveLevelData()->physSceneID, bool(val));
 
 	return "";
 }

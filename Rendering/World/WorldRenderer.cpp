@@ -81,8 +81,6 @@ void WorldRenderer::update ()
 {
 	terrainRenderer->update();
 	sunCSM->update(camViewMat, glm::vec2(60 * (M_PI / 180.0f), 60 * (M_PI / 180.0f)) / (getGBufferDimensions().x / float(getGBufferDimensions().y)), {1, 10, 75, 400}, engine->api->getSunDirection());
-
-	
 }
 
 void WorldRenderer::render3DWorld ()
@@ -95,22 +93,29 @@ void WorldRenderer::render3DWorld ()
 	clearValues[2].depthStencil =
 	{	0, 0};
 
-	bool renderPhysicsDebug = false;
+	bool renderPhysicsDebug = bool(engine->api->getDebugVariable("physics"));
 	uint32_t physxDebugVertexCount = 0;
+
+	if (physxDebugStreamingBuffer != nullptr)
+	{
+		engine->renderer->destroyBuffer(physxDebugStreamingBuffer);
+
+		physxDebugStreamingBuffer = nullptr;
+	}
 
 	if (renderPhysicsDebug)
 	{
-		if (physxDebugStreamingBuffer != nullptr)
-			engine->renderer->destroyBuffer(physxDebugStreamingBuffer);
-
 		auto physDat = world->getDebugRenderData(world->getActiveLevelData());
 		
-		physxDebugStreamingBuffer = engine->renderer->createBuffer(physDat.numLines * sizeof(PhysicsDebugLine), BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_CPU_ONLY);
-		void *bufDat = engine->renderer->mapBuffer(physxDebugStreamingBuffer);
-		memcpy(bufDat, physDat.lines.data(), physDat.numLines * sizeof(PhysicsDebugLine));
-		engine->renderer->unmapBuffer(physxDebugStreamingBuffer);
-	
-		physxDebugVertexCount = physDat.numLines * 2;
+		if (physDat.numLines > 0)
+		{
+			physxDebugStreamingBuffer = engine->renderer->createBuffer(physDat.numLines * sizeof(PhysicsDebugLine), BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_CPU_ONLY);
+			void *bufDat = engine->renderer->mapBuffer(physxDebugStreamingBuffer);
+			memcpy(bufDat, physDat.lines.data(), physDat.numLines * sizeof(PhysicsDebugLine));
+			engine->renderer->unmapBuffer(physxDebugStreamingBuffer);
+
+			physxDebugVertexCount = physDat.numLines * 2;
+		}
 	}
 
 	cmdBufferIndex ++;
@@ -127,7 +132,7 @@ void WorldRenderer::render3DWorld ()
 	renderWorldStaticMeshes(gbufferFillCmdBuffers[cmdBufferIndex], camProjMat * camViewMat, false);
 	terrainRenderer->renderTerrain(gbufferFillCmdBuffers[cmdBufferIndex]);
 
-	if (renderPhysicsDebug)
+	if (renderPhysicsDebug && physxDebugVertexCount > 0)
 	{
 		glm::vec3 cameraCellOffset = glm::floor(Game::instance()->mainCamera.position / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
 		glm::mat4 camMVPMat = camProjMat * camViewMat;

@@ -311,7 +311,7 @@ void StarlightEngine::update ()
 
 	lastUpdateTime = getTime();
 
-	worldHandler->worldPhysics->update(delta);
+	worldHandler->worldPhysics->updateScenePhysics(delta, worldHandler->getActiveLevelData()->physSceneID);
 
 	nk_input_begin(ctx);
 	int cursorX = (int) mainWindow->getCursorX(), cursorY = (int) mainWindow->getCursorY();

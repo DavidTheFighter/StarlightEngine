@@ -177,7 +177,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 
 		vec3 Ralbedo   = Kalbedo * clamp(dot(normal, lightDir), 0.0f, 1.0f) * (vec3(1) - Kspecular) * (1.0f - sunOcclusion);
 		vec3 Rambient  = Kambient * 0.5f * mix(0.5f, 1.0f, ambientOcclusion) + albedo * 1.5f * mix(0.5f, 1.0f, ambientOcclusion);
-		vec3 Rspecular = BRDF_CookTorrance(normal, viewDir, lightDir, Kspecular, Kr);
+		vec3 Rspecular = BRDF_CookTorrance(normal, viewDir, lightDir, Kspecular, Kr) * (1.0f - sunOcclusion);
 		
 		vec3 dielectric = Ralbedo + Rambient + Rspecular;
 		vec3 metal = Rspecular;

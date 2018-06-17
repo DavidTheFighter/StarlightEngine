@@ -32,19 +32,16 @@
 
 #include <common.h>
 
-#include <Resources/Resources.h>
+namespace physx
+{
+	class PxFoundation;
+	class PxPhysics;
+	class PxCooking;
+	class PxScene;
+	class PxActor;
+	class PxErrorCallback;
 
-#include <World/LevelData.h>
-
-#undef NDEBUG
-#undef _DEBUG
-
-#define NDEBUG
-
-#include <PxPhysicsAPI.h>
-using namespace physx;
-
-typedef uint64_t RBID;
+}
 
 typedef struct
 {
@@ -58,8 +55,8 @@ typedef struct
 typedef struct
 {
 	bool isStatic;
-	PxActor *actor;
-	RBID rbid;
+	physx::PxActor *actor;
+	uint64_t rbid;
 
 } RigidBody;
 
@@ -67,44 +64,53 @@ typedef struct
  * I did have the "PhysicsDebugRenderData" here, among others, but moved them to "common.h" to avoid some coupling issues. 
  */
 
-class StarlightEngine;
-class WorldHandler;
-
 class WorldPhysics
 {
 	public:
 
-	WorldPhysics(StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr);
+	WorldPhysics();
 	virtual ~WorldPhysics();
 
-	void update(float delta);
+	void updateScenePhysics(float delta, uint32_t sceneID);
 
 	void init();
 	void destroy();
 
-	void loadLevelPhysics(LevelDef *def, LevelData *lvlData);
-	void destroyLevelPhysics(LevelDef *def, LevelData *lvlData);
+	/*
+	 * Creates a new scene/world/cell/level/whatever_you_wanna_call_it, and returns it's ID. Ready to have objects and stuff
+	 * added to it.
+	 */
+	uint32_t createPhysicsScene();
 
-	RBID createHeightmapRigidBody(const HeightmapSample *samples, uint32_t cx, uint32_t cz, LevelData *lvlData, bool addToWorld = true);
+	/*
+	 * Destroys a scene, releasing it from memory and removing all interal references to it. Send flowers and press F to pay respects.
+	 */
+	void destroyPhysicsScene(uint32_t sceneID);
 
-	void removeRigidBody(RBID rigidBody);
+	/*
+	 * Cooks a heightmap cell and adds it to the scene.
+	 */
+	uint64_t createHeightmapRigidBody(const HeightmapSample *samples, uint32_t cx, uint32_t cz, uint32_t sceneID, bool addToWorld = true);
 
-	PhysicsDebugRenderData getDebugRenderData(LevelData *lvlData);
+	void removeRigidBody(uint64_t rigidBody);
+
+	void setSceneDebugVisualization(uint32_t sceneID, bool shouldVisualize);
+
+	const PhysicsDebugRenderData &getDebugRenderData(uint32_t sceneID);
 
 	private:
 	
-	PhysicsDebugRenderData physicsRenderDataCpy;
+	std::map<uint32_t, physx::PxScene*> sceneIDMap;
+	std::map<uint32_t, bool> sceneDebugVisToggle; // A map of scene IDs to a bool if they should have debug visualization running
+	std::map<uint32_t, PhysicsDebugRenderData> sceneDebugVisInfo; // A map of scene IDs to actual visualization data, only valid if they are in debug mode
+
+	uint32_t sceneIDMapCounter;
 
 	bool destroyed;
 
-	StarlightEngine *engine;
-	WorldHandler *worldHandler;
-
-	PxFoundation *physxFoundation;
-	PxPvd *pvd;
-	PxPvdTransport *transport;
-	PxPhysics *physics;
-	PxCooking *cooking;
+	physx::PxFoundation *physxFoundation;
+	physx::PxPhysics *physics;
+	physx::PxCooking *cooking;
 
 	float physicsUpdateAccum;
 
@@ -114,12 +120,6 @@ class WorldPhysics
 	 */
 	std::vector<RigidBody> rigidBodies;
 	std::vector<size_t> freeRigidBodyIndices;
-};
-
-class SEPhysXErrorCallback : public PxErrorCallback
-{
-	public:
-	virtual void reportError(PxErrorCode::Enum code, const char* message, const char* file, int line);
 };
 
 #endif /* WORLD_PHYSICS_WORLDPHYSICS_H_ */

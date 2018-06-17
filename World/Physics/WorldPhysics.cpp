@@ -33,27 +33,34 @@
 
 #include <Game/API/SEAPI.h>
 
-#include <World/WorldHandler.h>
-
-static PxDefaultAllocator physxAllocatorCallback;
-static SEPhysXErrorCallback physxErrorCallback;
 #undef NDEBUG
 #undef _DEBUG
 
-WorldPhysics::WorldPhysics(StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr)
+#define NDEBUG
+
+#include <PxPhysicsAPI.h>
+using namespace physx;
+
+class SEPhysXErrorCallback : public PxErrorCallback
 {
-	engine = enginePtr;
-	worldHandler = worldHandlerPtr;
+	public:
+	virtual void reportError(PxErrorCode::Enum code, const char* message, const char* file, int line);
+};
+
+static PxDefaultAllocator physxAllocatorCallback;
+static SEPhysXErrorCallback physxErrorCallback;
+
+WorldPhysics::WorldPhysics()
+{
 	destroyed = false;
 
 	physxFoundation = nullptr;
-	pvd = nullptr;
-	transport = nullptr;
 	physics = nullptr;
 	cooking = nullptr;
 
 	physicsUpdateAccum = 0;
-	physicsRenderDataCpy = {};
+
+	sceneIDMapCounter = 0;
 }
 
 WorldPhysics::~WorldPhysics()
@@ -62,10 +69,20 @@ WorldPhysics::~WorldPhysics()
 		destroy();
 }
 
-void WorldPhysics::update(float delta)
+void WorldPhysics::updateScenePhysics(float delta, uint32_t sceneID)
 {
 	const float updateFreq = 1 / 60.0f;
-	LevelData *activeLvlData = worldHandler->getActiveLevelData();
+
+	auto sceneMapIt = sceneIDMap.find(sceneID);
+
+	if (sceneMapIt == sceneIDMap.end())
+	{
+		printf("%s Tried to update a scene that does not exist, gave scene id: %u\n", ERR_PREFIX, sceneID);
+
+		return;
+	}
+
+	PxScene *scene = sceneMapIt->second;
 
 	physicsUpdateAccum += delta;
 
@@ -74,9 +91,10 @@ void WorldPhysics::update(float delta)
 		physicsUpdateAccum -= delta;
 
 		// Do our own buffering of debug render data, as they can't be fetched while simulating
-		if (bool(engine->api->getDebugVariable("physics")))
+		if (sceneDebugVisToggle[sceneID])
 		{
-			const PxRenderBuffer &rb = activeLvlData->physScene->getRenderBuffer();
+			const PxRenderBuffer &rb = scene->getRenderBuffer();
+			PhysicsDebugRenderData &physicsRenderDataCpy = sceneDebugVisInfo[sceneID];
 
 			uint32_t oldNumLines = physicsRenderDataCpy.numLines;
 			physicsRenderDataCpy.numLines = rb.getNbLines();
@@ -90,8 +108,8 @@ void WorldPhysics::update(float delta)
 		}
 
 		//double sT = glfwGetTime();
-		activeLvlData->physScene->simulate(updateFreq);
-		activeLvlData->physScene->fetchResults(true);
+		scene->simulate(updateFreq);
+		scene->fetchResults(true);
 		//printf("Physics took: %f ms\n", (glfwGetTime() - sT) * 1000.0);
 	}
 }
@@ -110,11 +128,7 @@ void WorldPhysics::init()
 
 	PxTolerancesScale tolScale = PxTolerancesScale();
 
-	pvd = PxCreatePvd(*physxFoundation);
-	transport = physx::PxDefaultPvdFileTransportCreate(std::string(engine->getWorkingDir() + "pvdTransport.pxd2").c_str());
-	pvd->connect(*transport, PxPvdInstrumentationFlag::eALL);
-
-	physics = PxCreatePhysics(PX_PHYSICS_VERSION, *physxFoundation, tolScale, true, pvd);
+	physics = PxCreatePhysics(PX_PHYSICS_VERSION, *physxFoundation, tolScale, true);
 
 	if (!physics)
 	{
@@ -133,36 +147,47 @@ void WorldPhysics::init()
 	
 }
 
-RBID WorldPhysics::createHeightmapRigidBody(const HeightmapSample *samples, uint32_t cx, uint32_t cz, LevelData *lvlData, bool addToWorld)
+uint64_t WorldPhysics::createHeightmapRigidBody(const HeightmapSample *samples, uint32_t cx, uint32_t cz, uint32_t sceneID, bool addToWorld)
 {
+	auto sceneMapIt = sceneIDMap.find(sceneID);
+
+	if (sceneMapIt == sceneIDMap.end())
+	{
+		printf("%s Tried to cook a heightmap and add it to a scene that does not exist, gave scene id: %u\n", ERR_PREFIX, sceneID);
+
+		return std::numeric_limits<uint64_t>::max();
+	}
+
+	PxScene *scene = sceneMapIt->second;
+
 	PxHeightFieldDesc hfDesc = {};
 	hfDesc.format = PxHeightFieldFormat::eS16_TM;
-	hfDesc.nbColumns = 257;
-	hfDesc.nbRows = 257;
+	hfDesc.nbColumns = 129;
+	hfDesc.nbRows = 129;
 	hfDesc.samples.data = reinterpret_cast<const PxHeightFieldSample*> (samples);
 	hfDesc.samples.stride = sizeof(PxHeightFieldSample);
 
 	PxMaterial *mat = physics->createMaterial(0.5, 0.5, 0.5);
 
 	PxHeightField *heightField = cooking->createHeightField(hfDesc, physics->getPhysicsInsertionCallback());
-	PxHeightFieldGeometry heightFieldGeom = PxHeightFieldGeometry(heightField, PxMeshGeometryFlags(), 4096.0f / 32768.0f, 1, 1);
+	PxHeightFieldGeometry heightFieldGeom = PxHeightFieldGeometry(heightField, PxMeshGeometryFlags(), 4096.0f / 32768.0f, 2, 2);
 	PxRigidStatic *act = physics->createRigidStatic(PxTransform(PxVec3(cx * LEVEL_CELL_SIZE, -4096.0f, cz * LEVEL_CELL_SIZE)));
 	PxShape *shape = physics->createShape(heightFieldGeom, *mat, true);
 	act->attachShape(*shape);
 
-	lvlData->physScene->addActor(*act);
+	scene->addActor(*act);
 
 	RigidBody *rigidBodyData = new RigidBody();
 	rigidBodyData->isStatic = true;
 	rigidBodyData->actor = act;
-	rigidBodyData->rbid = reinterpret_cast<RBID>(act);
+	rigidBodyData->rbid = reinterpret_cast<uint64_t>(act);
 
 	act->userData = rigidBodyData;
 	
 	return rigidBodyData->rbid;
 }
 
-void WorldPhysics::removeRigidBody(RBID rigidBody)
+void WorldPhysics::removeRigidBody(uint64_t rigidBody)
 {
 	PxActor *act = reinterpret_cast<PxActor*>(rigidBody);
 	RigidBody *rigidBodyData = reinterpret_cast<RigidBody*>(act->userData);
@@ -172,40 +197,81 @@ void WorldPhysics::removeRigidBody(RBID rigidBody)
 	delete rigidBodyData;
 }
 
-void WorldPhysics::loadLevelPhysics(LevelDef *def, LevelData *lvlData)
+void WorldPhysics::setSceneDebugVisualization(uint32_t sceneID, bool shouldVisualize)
 {
-	PxSceneDesc desc = PxSceneDesc(PxTolerancesScale());
+	auto sceneMapIt = sceneIDMap.find(sceneID);
 
-	lvlData->physScene = physics->createScene(desc);
-
-	if (false)
+	if (sceneMapIt == sceneIDMap.end())
 	{
-		lvlData->physScene->setVisualizationParameter(PxVisualizationParameter::eSCALE, 1.0f);
-		lvlData->physScene->setVisualizationParameter(PxVisualizationParameter::eWORLD_AXES, 1.0f);
-		lvlData->physScene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_SHAPES, 1.0f);
-		lvlData->physScene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_STATIC, 1.0f);
-		lvlData->physScene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_DYNAMIC, 1.0f);
+		printf("%s Tried to enable debug visualization on a scene that does not exist, gave scene id: %u\n", ERR_PREFIX, sceneID);
 
-		lvlData->physScene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_AABBS, 1.0f);
+		return;
 	}
 
-	// Test object
-	PxMaterial *mat = physics->createMaterial(0.5, 0.5, 0.5);
-	PxShape *shape = physics->createShape(PxSphereGeometry(10), *mat, true);
-	PxRigidStatic *act = physics->createRigidStatic(PxTransform());
-	act->attachShape(*shape);
+	PxScene *scene = sceneMapIt->second;
+	float paramsValue = -1;
 
-	lvlData->physScene->addActor(*act);
+	if (!sceneDebugVisToggle[sceneID] && shouldVisualize)
+	{
+		paramsValue = 1;
+	}
+	else if (sceneDebugVisToggle[sceneID] && !shouldVisualize)
+	{
+		paramsValue = 0;
+	}
+
+	if (paramsValue > -1)
+	{
+		scene->setVisualizationParameter(PxVisualizationParameter::eSCALE, paramsValue);
+		scene->setVisualizationParameter(PxVisualizationParameter::eWORLD_AXES, paramsValue);
+		scene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_SHAPES, paramsValue);
+		scene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_STATIC, paramsValue);
+		scene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_DYNAMIC, paramsValue);
+
+		scene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_AABBS, paramsValue);
+	}
+
+	sceneDebugVisToggle[sceneID] = shouldVisualize;
 }
 
-
-void WorldPhysics::destroyLevelPhysics(LevelDef *def, LevelData *lvlData)
+uint32_t WorldPhysics::createPhysicsScene()
 {
-	lvlData->physScene->release();
+	PxSceneDesc desc = PxSceneDesc(PxTolerancesScale());
+	PxScene *scene = physics->createScene(desc);
+	uint32_t sceneID = sceneIDMapCounter;
+
+	sceneIDMap[sceneID] = scene;
+	sceneDebugVisToggle[sceneID] = false;
+	sceneIDMapCounter++;
+	
+	return sceneID;
+}
+
+void WorldPhysics::destroyPhysicsScene(uint32_t sceneID)
+{
+	auto sceneMapIt = sceneIDMap.find(sceneID);
+
+	if (sceneMapIt == sceneIDMap.end())
+	{
+		printf("%s Tried to destroy a scene that does not exist, gave scene id: %u\n", ERR_PREFIX, sceneID);
+
+		return;
+	}
+
+	sceneMapIt->second->release();
+
+	sceneIDMap.erase(sceneMapIt);
 }
 
 void WorldPhysics::destroy()
 {
+	for (auto it = sceneIDMap.begin(); it != sceneIDMap.end(); it++)
+	{
+		printf("%s Destroying an undeleted scene on shutdown, clean up yo mess! Scene ID: %u\n", WARN_PREFIX, it->first);
+
+		destroyPhysicsScene(it->first);
+	}
+
 	physics->release();
 	cooking->release();
 	physxFoundation->release();
@@ -213,9 +279,9 @@ void WorldPhysics::destroy()
 	destroyed = true;
 }
 
-PhysicsDebugRenderData WorldPhysics::getDebugRenderData(LevelData *lvlData)
+const PhysicsDebugRenderData &WorldPhysics::getDebugRenderData(uint32_t sceneID)
 {
-	return physicsRenderDataCpy;
+	return sceneDebugVisInfo[sceneID];
 }
 
 inline std::string WorldPhysics_getPxErrorCodeStr(PxErrorCode::Enum code)

@@ -50,7 +50,7 @@ WorldHandler::~WorldHandler()
 
 void WorldHandler::init()
 {
-	worldPhysics = new WorldPhysics(engine, this);
+	worldPhysics = new WorldPhysics();
 	worldPhysics->init();
 }
 
@@ -89,19 +89,19 @@ void WorldHandler::loadLevel(LevelDef *level)
 		file.close();
 	}
 
-	worldPhysics->loadLevelPhysics(level, lvlDat);
+	lvlDat->physSceneID = worldPhysics->createPhysicsScene();
 
 	loadedLevels[level] = lvlDat;
 
-	std::unique_ptr<uint16_t> heightmapData = getCellHeightmapMipData(lvlDat, 0, 0, 1);
+	std::unique_ptr<uint16_t> heightmapData = getCellHeightmapMipData(lvlDat, 0, 0, 2);
 	std::vector<HeightmapSample> samples;
 
-	for (uint32_t x = 0; x < 257; x ++)
+	for (uint32_t x = 0; x < 129; x ++)
 	{
-		for (uint32_t y = 0; y < 257; y ++)
+		for (uint32_t y = 0; y < 129; y ++)
 		{
 			HeightmapSample s = {};
-			s.height = *reinterpret_cast<int16_t*>(&heightmapData.get()[y * 257 + x]);
+			s.height = *reinterpret_cast<int16_t*>(&heightmapData.get()[y * 129 + x]);
 			s.material0Index = 0;
 			s.material0Index = 0;
 			s.tess0Bit = (x + y) % 2;
@@ -110,7 +110,7 @@ void WorldHandler::loadLevel(LevelDef *level)
 		}
 	}
 
-	worldPhysics->createHeightmapRigidBody(samples.data(), 0, 0, lvlDat);
+	worldPhysics->createHeightmapRigidBody(samples.data(), 0, 0, lvlDat->physSceneID);
 }
 
 void WorldHandler::unloadLevel(LevelDef *level)
@@ -119,7 +119,7 @@ void WorldHandler::unloadLevel(LevelDef *level)
 
 	LevelData *lvlDat = loadedLevels[level];
 	
-	worldPhysics->destroyLevelPhysics(level, lvlDat);
+	worldPhysics->destroyPhysicsScene(lvlDat->physSceneID);
 
 	loadedLevels.erase(loadedLevels.find(level));
 	
@@ -210,5 +210,5 @@ LevelData *WorldHandler::getLevelData(LevelDef *level)
 
 PhysicsDebugRenderData WorldHandler::getDebugRenderData(LevelData *lvlData)
 {
-	return worldPhysics->getDebugRenderData(lvlData);
+	return worldPhysics->getDebugRenderData(lvlData->physSceneID);
 }

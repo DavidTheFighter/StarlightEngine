@@ -33,11 +33,6 @@
 #include <common.h>
 #include <World/SortedOctree.h>
 
-namespace physx
-{
-	class PxScene;
-}
-
 /*
  * The data for a static object. Much of the misc data for stuff like
  * rendering is stored using fly-weight organization.
@@ -103,7 +98,7 @@ class LevelData
 		uint32_t heightmapFileCellCount;
 		std::vector<std::pair<sivec2, size_t> > heightmapFileLookupTable;
 
-		physx::PxScene *physScene;
+		uint32_t physSceneID;
 
 		LevelData ();
 		virtual ~LevelData ();
