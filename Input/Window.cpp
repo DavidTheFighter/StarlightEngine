@@ -88,6 +88,7 @@ void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::strin
 		glfwSetCursorPosCallback(glfwWindow, glfwWindowCursorMoveCallback);
 		glfwSetMouseButtonCallback(glfwWindow, glfwWindowMouseButtonCallback);
 		glfwSetKeyCallback(glfwWindow, glfwWindowKeyCallback);
+		glfwSetCharModsCallback(glfwWindow, glfwWindowTextCallback);
 		glfwSetScrollCallback(glfwWindow, glfwWindowMouseScrollCallback);
 	}
 
@@ -191,6 +192,7 @@ void Window::glfwWindowKeyCallback (GLFWwindow* window, int key, int scancode, i
 	switch (action)
 	{
 		case GLFW_PRESS:
+		case GLFW_REPEAT:
 		{
 			windowInstance->keysPressed[key] = 1;
 
@@ -212,6 +214,18 @@ void Window::glfwWindowKeyCallback (GLFWwindow* window, int key, int scancode, i
 	eventData.mods = mods;
 
 	EventHandler::instance()->triggerEvent(EVENT_KEY_ACTION, eventData);
+}
+
+void Window::glfwWindowTextCallback(GLFWwindow *window, unsigned int codepoint, int mods)
+{
+	Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+
+	EventTextActionData eventData = {};
+	eventData.window = windowInstance;
+	eventData.codepoint = codepoint;
+	eventData.mods = mods;
+	
+	EventHandler::instance()->triggerEvent(EVENT_TEXT_ACTION, eventData);
 }
 
 void Window::glfwWindowMouseScrollCallback (GLFWwindow* window, double xoffset, double yoffset)

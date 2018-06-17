@@ -45,6 +45,7 @@ class GUIRenderer;
 class SEAPI;
 class WorldPhysics;
 class WorldHandler;
+class DebugConsole;
 
 struct nk_context;
 
@@ -58,6 +59,9 @@ class StarlightEngine
 		GUIRenderer *guiRenderer;
 		WorldHandler *worldHandler;
 		SEAPI *api;
+
+		DebugConsole *dbgConsole;
+		bool dbgConsoleOpen;
 
 		struct nk_context *ctx;
 
@@ -91,11 +95,21 @@ class StarlightEngine
 		std::string getWorkingDir();
 
 		static void windowResizeEventCallback (const EventWindowResizeData &eventData, void *usrPtr);
+		static void windowKeyEventCallback(const EventKeyActionData &eventData, void *usrPtr);
+		static void windowTextEventCallback(const EventTextActionData &eventData, void *usrPtr);
 
 	private:
 
 		std::vector<std::string> launchArgs;
 		std::vector<GameState*> gameStates;
+
+		// A stack of inputs from the window manager in utf32, this type of key input is used for typing in textfields and such, not for gameplay movement, etc
+		std::vector<uint32_t> nuklearCodepointInputStack;
+		std::mutex nuklearCodepointInputStack_mutex; // Controlls access to nuklearCodepointInputStack
+
+		// Accum offset from callbacks to send to the nuklear API
+		svec2 nuklearScrollPendingOffset;
+		std::mutex nuklearScrollPendingOffset_mutex;
 
 		std::string workingDir;
 

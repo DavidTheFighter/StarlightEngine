@@ -73,6 +73,7 @@ class Window
 		static void glfwWindowCursorMoveCallback (GLFWwindow* window, double newCursorX, double newCursorY);
 		static void glfwWindowMouseButtonCallback (GLFWwindow* window, int button, int action, int mods);
 		static void glfwWindowKeyCallback (GLFWwindow* window, int key, int scancode, int action, int mods);
+		static void glfwWindowTextCallback(GLFWwindow *window, unsigned int codepoint, int mods);
 		static void glfwWindowMouseScrollCallback (GLFWwindow* window, double xoffset, double yoffset);
 };
 

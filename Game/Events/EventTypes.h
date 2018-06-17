@@ -40,6 +40,7 @@ typedef enum EventType
 	EVENT_CURSOR_MOVE,
 	EVENT_MOUSE_BUTTON,
 	EVENT_KEY_ACTION,
+	EVENT_TEXT_ACTION,
 	EVENT_MOUSE_SCROLL,
 	EVENT_MAX_ENUM
 } EventType;
@@ -79,6 +80,13 @@ typedef struct EventKeyActionData
 		int mods;
 } EventKeyActionData;
 
+typedef struct EventTextActionData
+{
+	Window *window;
+	uint32_t codepoint;
+	int mods;
+} EvenTextActionData;
+
 typedef struct EventMouseScrollData
 {
 		Window *window;
@@ -91,5 +99,6 @@ typedef void (*EventCursorMoveCallback) (const EventCursorMoveData&, void*);
 typedef void (*EventMouseButtonCallback) (const EventMouseButtonData&, void*);
 typedef void (*EventKeyActionCallback) (const EventKeyActionData&, void*);
 typedef void (*EventMouseScrollCallback) (const EventMouseScrollData&, void*);
+typedef void (*EventTextActionCallback) (const EventTextActionData&, void*);
 
 #endif /* GAME_EVENTS_EVENTTYPES_H_ */

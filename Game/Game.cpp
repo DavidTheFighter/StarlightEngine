@@ -66,22 +66,25 @@ void Game::update (float delta)
 	float movementSpeed = 30.0f;
 	float modMoveSpeed = movementSpeed;
 
-	if (gameWindow->isKeyPressed(GLFW_KEY_F))
-		modMoveSpeed = movementSpeed * 16;
-	else if (gameWindow->isKeyPressed(GLFW_KEY_R))
-		modMoveSpeed = movementSpeed / 8.0f;
-	if (gameWindow->isKeyPressed(GLFW_KEY_W))
-		mainCamera.position += playerLookFlatFoward * delta * modMoveSpeed;
-	if (gameWindow->isKeyPressed(GLFW_KEY_S))
-		mainCamera.position -= playerLookFlatFoward * delta * modMoveSpeed;
-	if (gameWindow->isKeyPressed(GLFW_KEY_A))
-		mainCamera.position -= playerLookRight * delta * modMoveSpeed;
-	if (gameWindow->isKeyPressed(GLFW_KEY_D))
-		mainCamera.position += playerLookRight * delta * modMoveSpeed;
-	if (gameWindow->isKeyPressed(GLFW_KEY_SPACE))
-		mainCamera.position += glm::vec3(0, 1, 0) * delta * modMoveSpeed;
-	if (gameWindow->isKeyPressed(GLFW_KEY_LEFT_SHIFT))
-		mainCamera.position -= glm::vec3(0, 1, 0) * delta * modMoveSpeed;
+	if (gameWindow->isMouseGrabbed())
+	{
+		if (gameWindow->isKeyPressed(GLFW_KEY_F))
+			modMoveSpeed = movementSpeed * 16;
+		else if (gameWindow->isKeyPressed(GLFW_KEY_R))
+			modMoveSpeed = movementSpeed / 8.0f;
+		if (gameWindow->isKeyPressed(GLFW_KEY_W))
+			mainCamera.position += playerLookFlatFoward * delta * modMoveSpeed;
+		if (gameWindow->isKeyPressed(GLFW_KEY_S))
+			mainCamera.position -= playerLookFlatFoward * delta * modMoveSpeed;
+		if (gameWindow->isKeyPressed(GLFW_KEY_A))
+			mainCamera.position -= playerLookRight * delta * modMoveSpeed;
+		if (gameWindow->isKeyPressed(GLFW_KEY_D))
+			mainCamera.position += playerLookRight * delta * modMoveSpeed;
+		if (gameWindow->isKeyPressed(GLFW_KEY_SPACE))
+			mainCamera.position += glm::vec3(0, 1, 0) * delta * modMoveSpeed;
+		if (gameWindow->isKeyPressed(GLFW_KEY_LEFT_SHIFT))
+			mainCamera.position -= glm::vec3(0, 1, 0) * delta * modMoveSpeed;
+	}
 
 	worldTime += SECONDS_IN_DAY * delta / 120.0;
 

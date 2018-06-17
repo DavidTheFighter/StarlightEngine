@@ -30,6 +30,7 @@
 #include "Engine/StarlightEngine.h"
 
 #include <Engine/GameState.h>
+#include <Engine/DebugConsole.h>
 
 #include <Input/Window.h>
 
@@ -66,6 +67,7 @@ StarlightEngine::StarlightEngine (const std::vector<std::string> &launchArgs, ui
 	worldHandler = nullptr;
 	renderer = nullptr;
 	api = nullptr;
+	dbgConsole = nullptr;
 
 	this->launchArgs = launchArgs;
 
@@ -83,6 +85,8 @@ StarlightEngine::StarlightEngine (const std::vector<std::string> &launchArgs, ui
 
 	guiTexturePassthroughPipeline = nullptr;
 	guiBackgroundTextureView = nullptr;
+
+	dbgConsoleOpen = false;
 
 	cmdBufferIndex = 0;
 }
@@ -106,6 +110,8 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	mainWindow->initWindow(0, 0, APP_NAME);
 
 	EventHandler::instance()->registerObserver(EVENT_WINDOW_RESIZE, windowResizeEventCallback, this);
+	EventHandler::instance()->registerObserver(EVENT_KEY_ACTION, windowKeyEventCallback, this);
+	EventHandler::instance()->registerObserver(EVENT_TEXT_ACTION, windowTextEventCallback, this);
 
 	RendererAllocInfo renderAlloc = {};
 	renderAlloc.backend = rendererBackendType;
@@ -135,6 +141,9 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	api->init();
 	api->setDebugVariable("physics", 0);
 
+	dbgConsole = new DebugConsole(this);
+	//dbgConsole->execCmd("debugPhysics 1");
+
 	finalOutputTexture = renderer->createTexture({(float) mainWindow->getWidth(), (float) mainWindow->getHeight(), 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 	finalOutputTextureDepth = renderer->createTexture({(float) mainWindow->getWidth(), (float) mainWindow->getHeight(), 1}, RESOURCE_FORMAT_D32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 
@@ -162,6 +171,10 @@ void StarlightEngine::destroy ()
 		gameStates.back()->destroy();
 		gameStates.pop_back();
 	}
+
+	EventHandler::instance()->removeObserver(EVENT_WINDOW_RESIZE, windowResizeEventCallback, this);
+	EventHandler::instance()->removeObserver(EVENT_KEY_ACTION, windowKeyEventCallback, this);
+	EventHandler::instance()->removeObserver(EVENT_TEXT_ACTION, windowTextEventCallback, this);
 
 	renderer->destroyCommandPool(engineCommandPool);
 	renderer->destroySampler(guiBackgroundSampler);
@@ -192,6 +205,8 @@ void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &ev
 {
 	StarlightEngine *enginePtr = static_cast<StarlightEngine*>(usrPtr);
 
+	enginePtr->renderer->waitForDeviceIdle();
+
 	if (enginePtr->finalOutputTexture != nullptr)
 	{
 		enginePtr->renderer->destroyTexture(enginePtr->finalOutputTexture);
@@ -217,6 +232,25 @@ void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &ev
 
 	enginePtr->renderer->recreateSwapchain(enginePtr->mainWindow);
 	enginePtr->renderer->setSwapchainTexture(enginePtr->mainWindow, enginePtr->finalOutputTextureView, enginePtr->presentSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+void StarlightEngine::windowKeyEventCallback(const EventKeyActionData &eventData, void *usrPtr)
+{
+	StarlightEngine *enginePtr = static_cast<StarlightEngine*>(usrPtr);
+
+	if (eventData.key == GLFW_KEY_GRAVE_ACCENT)
+	{
+		if (eventData.action == GLFW_PRESS)
+			enginePtr->dbgConsoleOpen = !enginePtr->dbgConsoleOpen;
+	}
+}
+
+void StarlightEngine::windowTextEventCallback(const EventTextActionData &eventData, void *usrPtr)
+{
+	StarlightEngine *enginePtr = static_cast<StarlightEngine*>(usrPtr);
+
+	std::unique_lock<std::mutex> lock(enginePtr->nuklearCodepointInputStack_mutex);
+	enginePtr->nuklearCodepointInputStack.push_back(eventData.codepoint);
 }
 
 void StarlightEngine::handleEvents ()
@@ -288,7 +322,29 @@ void StarlightEngine::update ()
 	nk_input_button(ctx, NK_BUTTON_RIGHT, cursorX, cursorY, mainWindow->isMouseButtonPressed(2));
 	nk_input_button(ctx, NK_BUTTON_DOUBLE, cursorX, cursorY, mainWindow->isMouseButtonPressed(3));
 
+	nk_input_key(ctx, NK_KEY_SHIFT, mainWindow->isKeyPressed(GLFW_KEY_LEFT_SHIFT) || mainWindow->isKeyPressed(GLFW_KEY_RIGHT_SHIFT));
+	nk_input_key(ctx, NK_KEY_CTRL, mainWindow->isKeyPressed(GLFW_KEY_LEFT_CONTROL) || mainWindow->isKeyPressed(GLFW_KEY_RIGHT_CONTROL));
+	nk_input_key(ctx, NK_KEY_DEL, mainWindow->isKeyPressed(GLFW_KEY_DELETE));
+	nk_input_key(ctx, NK_KEY_ENTER, mainWindow->isKeyPressed(GLFW_KEY_ENTER));
+	nk_input_key(ctx, NK_KEY_TAB, mainWindow->isKeyPressed(GLFW_KEY_TAB));
+	nk_input_key(ctx, NK_KEY_BACKSPACE, mainWindow->isKeyPressed(GLFW_KEY_BACKSPACE));
+	nk_input_key(ctx, NK_KEY_UP, mainWindow->isKeyPressed(GLFW_KEY_UP));
+	nk_input_key(ctx, NK_KEY_DOWN, mainWindow->isKeyPressed(GLFW_KEY_DOWN));
+	nk_input_key(ctx, NK_KEY_LEFT, mainWindow->isKeyPressed(GLFW_KEY_LEFT));
+	nk_input_key(ctx, NK_KEY_RIGHT, mainWindow->isKeyPressed(GLFW_KEY_RIGHT));
+
+	{
+		std::unique_lock<std::mutex> lock(nuklearCodepointInputStack_mutex);
+	
+		for (size_t i = 0; i < nuklearCodepointInputStack.size(); i++)
+			nk_input_unicode(ctx, nuklearCodepointInputStack[i]);
+		
+		nuklearCodepointInputStack.clear();
+	}
+
 	nk_input_end(ctx);
+
+	dbgConsole->updateGUI(ctx, dbgConsoleOpen);
 
 	if (!gameStates.empty())
 		gameStates.back()->update(delta);
