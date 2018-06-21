@@ -97,11 +97,12 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	
 	vec3 decodeNormal (in vec2 enc)
 	{
-		vec2 fenc = enc * 4.0f - 2.0f;
-		float f = dot(fenc, fenc);
-		float g = sqrt(1.0f - f / 4.0f);
+		vec2 f = enc * 2.0f - 1.0f;
+		vec3 n = vec3(f.x, f.y, 1.0f - abs(f.x) - abs(f.y));
+		float t = clamp(-n.z, 0.0f, 1.0f);
+		n.xy += vec2(n.x >= 0 ? -t : t, n.y >= 0 ? -t : t);
 		
-		return vec3(fenc * g, 1.0f - f * 0.5f);
+		return normalize(n);
 	}
 	
 	float getSunOcclusion (in vec3 viewPos);
@@ -171,12 +172,13 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		
 		float Kr = KrKm.x;
 		float Km = KrKm.y;
+		float aofactor = smoothstep(0.5f, 1.0f, ambientOcclusion * 0.5f + 0.5f) * 0.5f + 0.5f;
 		vec3  Kalbedo   = albedo * irradiance * 1e-3 * INV_PI;
 		vec3  Kambient  = albedo * sky_irradiance * 1e-3 * INV_PI;
 		vec3  Kspecular = mix(vec3(1.0f - Kr) * 0.18f + 0.04f, albedo, smoothstep(0.2f, 0.45f, Km));
 
 		vec3 Ralbedo   = Kalbedo * clamp(dot(normal, lightDir), 0.0f, 1.0f) * (vec3(1) - Kspecular) * (1.0f - sunOcclusion);
-		vec3 Rambient  = Kambient * 0.5f * mix(0.5f, 1.0f, ambientOcclusion) + albedo * 1.5f * mix(0.5f, 1.0f, ambientOcclusion);
+		vec3 Rambient  = Kambient * 0.5f * aofactor + albedo * 1.5f * aofactor;
 		vec3 Rspecular = BRDF_CookTorrance(normal, viewDir, lightDir, Kspecular, Kr) * (1.0f - sunOcclusion);
 		
 		vec3 dielectric = Ralbedo + Rambient + Rspecular;
@@ -211,7 +213,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		vec3 H = normalize(lightDir + view);
 	
 		float NdotL = dot(normal, lightDir);
-		float NdotV = dot(normal, view);
+		float NdotV = max(dot(normal, view), 0);
 		float NdotH = dot(normal, H);
 		
 		vec3  F = f_shlick(Kspecular, NdotV);

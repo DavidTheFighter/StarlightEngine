@@ -223,7 +223,7 @@ void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &ev
 		enginePtr->renderer->destroyFramebuffer(enginePtr->finalOutputFramebuffer);
 
 	enginePtr->finalOutputTexture = enginePtr->renderer->createTexture({(float) enginePtr->mainWindow->getWidth(), (float) enginePtr->mainWindow->getHeight(), 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-	enginePtr->finalOutputTextureDepth = enginePtr->renderer->createTexture({(float) enginePtr->mainWindow->getWidth(), (float) enginePtr->mainWindow->getHeight(), 1}, RESOURCE_FORMAT_D32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	enginePtr->finalOutputTextureDepth = enginePtr->renderer->createTexture({(float) enginePtr->mainWindow->getWidth(), (float) enginePtr->mainWindow->getHeight(), 1}, RESOURCE_FORMAT_D16_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 
 	enginePtr->finalOutputTextureView = enginePtr->renderer->createTextureView(enginePtr->finalOutputTexture);
 	enginePtr->finalOutputTextureDepthView = enginePtr->renderer->createTextureView(enginePtr->finalOutputTextureDepth);

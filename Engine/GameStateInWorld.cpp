@@ -113,6 +113,25 @@ void GameStateInWorld::init ()
 		slate.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
 
 		engine->resources->addMaterialDef(slate);
+
+		MaterialDef pavingstones = {};
+		strcpy(pavingstones.uniqueName, "pavingstones");
+		strcpy(pavingstones.pipelineUniqueName, "engine.defaultMaterial");
+		strcpy(pavingstones.textureFiles[0], "GameData/textures/pavingstones/pavingstones-albedo.dds2");
+		strcpy(pavingstones.textureFiles[1], "GameData/textures/pavingstones/pavingstones-normals.dds2");
+		strcpy(pavingstones.textureFiles[2], "GameData/textures/pavingstones/pavingstones-roughness.dds2");
+		strcpy(pavingstones.textureFiles[3], "GameData/textures/black.dds");
+		strcpy(pavingstones.textureFiles[4], "GameData/textures/pavingstones/pavingstones-ao.dds2");
+		strcpy(pavingstones.textureFiles[5], "GameData/textures/pavingstones/pavingstones-height.dds2");
+		strcpy(pavingstones.textureFiles[6], "");
+		strcpy(pavingstones.textureFiles[7], "");
+
+		pavingstones.enableAnisotropy = true;
+		pavingstones.linearFiltering = true;
+		pavingstones.linearMipmapFiltering = true;
+		pavingstones.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
+
+		engine->resources->addMaterialDef(pavingstones);
 	}
 
 	// Setup the default material pipelines
@@ -169,6 +188,7 @@ void GameStateInWorld::init ()
 	{
 		engine->resources->loadMaterialImmediate("dirt");
 		engine->resources->loadMaterialImmediate("slate");
+		engine->resources->loadMaterialImmediate("pavingstones");
 	}
 
 	{
@@ -190,7 +210,7 @@ void GameStateInWorld::init ()
 	LevelData &dat = *engine->worldHandler->getActiveLevelData();
 
 	LevelStaticObjectType testObjType = {};
-	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("slate");
+	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("pavingstones");
 	testObjType.meshDefUniqueNameHash = std::hash<std::string> {} ("bridge");
 	testObjType.boundingSphereRadius_maxLodDist_padding = {8, 1, 0, 0};
 
@@ -292,6 +312,8 @@ void GameStateInWorld::destroy ()
 
 	engine->resources->returnMaterial("dirt");
 	engine->resources->returnMaterial("slate");
+	engine->resources->returnMaterial("pavingstones");
+
 	engine->resources->returnStaticMesh("bridge");
 	engine->resources->returnStaticMesh("boulder");
 	engine->resources->returnStaticMesh("LOD Test");

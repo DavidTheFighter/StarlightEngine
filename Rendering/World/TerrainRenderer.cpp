@@ -482,7 +482,7 @@ void TerrainRenderer::init ()
 	clipmapUpdateCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_RESET_COMMAND_BUFFER_BIT);
 	clipmapUpdateCommandBuffer = clipmapUpdateCommandPool->allocateCommandBuffer(COMMAND_BUFFER_LEVEL_PRIMARY);
 
-	terrainClipmapSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST);
+	terrainClipmapSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);// , SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST);
 	terrainTextureSampler = engine->renderer->createSampler();
 
 	transferClipmap_Elevation = engine->renderer->createTexture({513, 513, 1}, RESOURCE_FORMAT_R16_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_TRANSFER_SRC_BIT, MEMORY_USAGE_GPU_ONLY, true, 1, 1);
