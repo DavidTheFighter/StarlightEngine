@@ -280,7 +280,7 @@ void StarlightEngine::update ()
 		{
 #ifdef __linux__
 			usleep(uint32_t(std::max<double>(frameTimeTarget - (getTime() - lastUpdateTime) - 0.001, 0) * 1000000.0));
-#elif defined(__WIN32)
+#elif defined(_WIN32)
 			Sleep(DWORD(std::max<double>(frameTimeTarget - (getTime() - lastUpdateTime) - 0.001, 0) * 1000.0));
 #endif
 			while (getTime() - lastUpdateTime < frameTimeTarget)

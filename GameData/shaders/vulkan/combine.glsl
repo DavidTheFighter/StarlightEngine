@@ -75,7 +75,8 @@
 				break;
 		}
 		*/
-		finalColor = mix(hejl_dawson(finalColor, exposure, gamma), aces(finalColor, exposure, gamma), 0.5f);
+		//finalColor = mix(hejl_dawson(finalColor, exposure, gamma), aces(finalColor, exposure, gamma), 0);
+		finalColor = aces(finalColor, exposure, gamma);
 		
 		fragColor = vec4(finalColor, 1);
 	}

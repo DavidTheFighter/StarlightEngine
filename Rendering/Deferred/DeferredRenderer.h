@@ -94,6 +94,7 @@ class DeferredRenderer
 		Sampler deferredInputsSampler;
 		Sampler atmosphereTextureSampler;
 		Sampler shadowsSampler;
+		Sampler ditherSampler;
 
 		void createDeferredLightingRenderPass ();
 		void createDeferredLightingPipeline ();

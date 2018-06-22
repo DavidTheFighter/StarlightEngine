@@ -122,7 +122,7 @@ void CSM::update (const glm::mat4 &centerCamViewMat, glm::vec2 fovs, const std::
 		camProjMats[c] = glm::ortho<float>(
 				frustumSphereCenter.x - boundingSphereRadius, frustumSphereCenter.x + boundingSphereRadius,
 				-frustumSphereCenter.y - boundingSphereRadius, -frustumSphereCenter.y + boundingSphereRadius,
-				(-frustumSphereCenter.z + boundingSphereRadius * 8.0f),(-frustumSphereCenter.z - boundingSphereRadius * 8.0f));
+				(-frustumSphereCenter.z + boundingSphereRadius * 16.0f),(-frustumSphereCenter.z - boundingSphereRadius * 16.0f));
 
 		camProjMats[c][1][1] *= -1;
 	}

@@ -71,8 +71,8 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	layout(set = 0, binding = 7) uniform sampler2D IRRADIANCE_TEXTURE_NAME;
 	layout(set = 0, binding = 9) uniform texture2DArray testShadowMap;
 	layout(set = 0, binding = 10) uniform sampler2DArray shadowmapSampler;
-
-	
+	layout(set = 0, binding = 11) uniform sampler ditherSampler;
+	layout(set = 0, binding = 12) uniform texture2D ditherTex;
 
 	#SE_BUILTIN_INCLUDE_ATMOSPHERE_LIB
 
@@ -106,6 +106,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	}
 	
 	float getSunOcclusion (in vec3 viewPos);
+	vec3 dither(in vec3 c);
 	
 	void main()
 	{	
@@ -126,7 +127,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	
 		vec3 testLightDir = weubo.sunDirection;
 	
-		vec3 at_cameraPosition = vec3(0, 0, max(pushConsts.cameraPosition.y, 1)) / 1000.0f - earthCenter;
+		vec3 at_cameraPosition = vec3(0, 0, max(pushConsts.cameraPosition.y, 100.0f)) / 1000.0f - earthCenter;
 		vec3 at_ray = normalize(inRay.xzy);		
 		vec3 at_worldPoint = at_cameraPosition + at_ray * z_eye * 1e-3;
 			
@@ -135,13 +136,12 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	
 		if (gbuffer_Depth > 0)
 		{
-			vec3 mod_at_worldPoint = vec3(at_worldPoint.xy, max(at_worldPoint.z, 0.001f));
-			radiance = GetSkyLuminanceToPoint(at_cameraPosition, mod_at_worldPoint, 0, testLightDir.xzy, transmittance) * 1e-3;
+			radiance = GetSkyLuminanceToPoint(at_cameraPosition, at_worldPoint, 0, testLightDir.xzy, transmittance) * 4e-3;
 		}
 		else
-			radiance = GetSkyLuminance(at_cameraPosition, at_ray, 0, testLightDir.xzy, transmittance) * 1e-3;
+			radiance = dither(GetSkyLuminance(at_cameraPosition, at_ray, 0, testLightDir.xzy, transmittance) * 1e-3);
 	
-		if (dot(normalize(at_ray), testLightDir.xzy) > sunSize && gbuffer_Depth < 0.0001f)
+		if (dot(normalize(at_ray), testLightDir.xzy) > sunSize && gbuffer_Depth == 0.0f)
 			radiance += transmittance * GetSolarLuminance() * 1e-3 * 1e-3;
 			
 		vec3 Rd = vec3(0);
@@ -281,6 +281,23 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		}
 		
 		return 0;
+	}
+	
+	vec3 dither(in vec3 c)
+	{
+		float bayer0 = textureOffset(sampler2D(ditherTex, ditherSampler), gl_FragCoord.xy / 8.0f, ivec2(0, 0)).r;
+		//float bayer1 = textureOffset(sampler2D(ditherTex, ditherSampler), gl_FragCoord.xy / 8.0f, ivec2(-1, -1)).r;
+		//float bayer2 = textureOffset(sampler2D(ditherTex, ditherSampler), gl_FragCoord.xy / 8.0f, ivec2(1, 1)).r;
+		//float bayer3 = textureOffset(sampler2D(ditherTex, ditherSampler), gl_FragCoord.xy / 8.0f, ivec2(1, -1)).r;
+		//float bayer4 = textureOffset(sampler2D(ditherTex, ditherSampler), gl_FragCoord.xy / 8.0f, ivec2(-1, 1)).r;
+		
+		vec3 rgb = c * 4.0f;
+		vec3 head = floor(rgb);
+		vec3 tail = fract(rgb);
+		//vec3 dithered = (step(bayer0, tail) + step(bayer1, tail) + step(bayer2, tail) + step(bayer3, tail) + step(bayer4, tail)) / 5.0f;
+		vec3 dithered = step(bayer0, tail);
+		
+		return (head + dithered) / 4.0f;
 	}
 	
 #endif

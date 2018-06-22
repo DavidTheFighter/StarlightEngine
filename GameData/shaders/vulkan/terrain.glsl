@@ -295,11 +295,13 @@
 		vec3 background_normals = vec3(0);
 		float background_roughness = 0;
 		float background_metalness = 0;
+		float background_ao = 0;
 		
 		vec3 overlay_albedo = vec3(0);
 		vec3 overlay_normals = vec3(0);
 		float overlay_roughness = 0;
 		float overlay_metalness = 0;
+		float overlay_ao = 0;
 		
 		if (lerpFactor < 1)
 		{
@@ -307,6 +309,7 @@
 			background_normals = triplanarSample(backgroundIndex, inVertex, inNormal, 1, 1);
 			background_roughness = triplanarSample(backgroundIndex, inVertex, inNormal, 2, 1).r;
 			background_metalness = triplanarSample(backgroundIndex, inVertex, inNormal, 3, 1).r;
+			background_ao = triplanarSample(backgroundIndex, inVertex, inNormal, 4, 1).r;
 		}
 		
 		if (lerpFactor > 0)
@@ -315,19 +318,19 @@
 			overlay_normals = triplanarSample(overlayIndex, inVertex, inNormal, 1, 1);
 			overlay_roughness = triplanarSample(overlayIndex, inVertex, inNormal, 2, 1).r;
 			overlay_metalness = triplanarSample(overlayIndex, inVertex, inNormal, 3, 1).r;
+			overlay_ao = triplanarSample(overlayIndex, inVertex, inNormal, 4, 1).r;
 		}
 		
 		vec3 malbedo = mix(background_albedo, overlay_albedo, lerpFactor);
 		vec3 mnormals = mix(background_normals, overlay_normals, lerpFactor);
 		float mroughness = mix(background_roughness, overlay_roughness, lerpFactor);
 		float mmetalness = mix(background_metalness, overlay_metalness, lerpFactor);
+		float mao = mix(background_ao, overlay_ao, lerpFactor);
 		
 		vec3 fragNormal = calcNormal(inNormal, mnormals);
-	
-		float h = clamp(dot(fragNormal, normalize(vec3(0.5f, 0.5f, 0))), 0.3f, 1.0f);
-		
+			
 		albedo_roughness = vec4(malbedo, mroughness);
-		normal_metalness = vec4(encodeNormal(fragNormal), 1, mmetalness);
+		normal_metalness = vec4(encodeNormal(fragNormal), mao, mmetalness);
 	}
 
 #endif

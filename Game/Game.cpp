@@ -86,12 +86,12 @@ void Game::update (float delta)
 			mainCamera.position -= glm::vec3(0, 1, 0) * delta * modMoveSpeed;
 	}
 
-	worldTime += SECONDS_IN_DAY * delta / 120.0;
+	worldTime += SECONDS_IN_DAY * delta / 600.0;
 
 	if (worldTime >= SECONDS_IN_DAY)
 	{
 		worldTime = worldTime - SECONDS_IN_DAY;
-		calendarDate ++;
+		//calendarDate ++;
 	}
 }
 

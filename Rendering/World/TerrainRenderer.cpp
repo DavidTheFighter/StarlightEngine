@@ -458,7 +458,7 @@ void TerrainRenderer::renderTerrain (CommandBuffer &cmdBuffer)
 
 	cmdBuffer->beginDebugRegion("Terrain", glm::vec4(0, 0.5f, 0, 1));
 	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, terrainPipeline);
-	cmdBuffer->pushConstants(SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0, pcSize, pushConstData);
+	cmdBuffer->pushConstants(SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT | SHADER_STAGE_FRAGMENT_BIT, 0, pcSize, pushConstData);
 
 	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {heightmapDescriptorSet});
 
@@ -501,11 +501,14 @@ void TerrainRenderer::init ()
 		MaterialDef granite = {};
 		strcpy(granite.uniqueName, "granite1");
 		strcpy(granite.pipelineUniqueName, "engine.defaultMaterial");
-		strcpy(granite.textureFiles[0], "GameData/textures/terrain/granite1/granite-albedo.png");
-		strcpy(granite.textureFiles[1], "GameData/textures/terrain/granite1/granite-normals.png");
-		strcpy(granite.textureFiles[2], "GameData/textures/terrain/granite1/granite-roughness.png");
-		strcpy(granite.textureFiles[3], "GameData/textures/terrain/granite1/granite-metalness.png");
-		strcpy(granite.textureFiles[4], "");
+		strcpy(granite.textureFiles[0], "GameData/textures/terrain/granite1/granite-albedo.dds2");
+		strcpy(granite.textureFiles[1], "GameData/textures/terrain/granite1/granite-normals.dds2");
+		strcpy(granite.textureFiles[2], "GameData/textures/terrain/granite1/granite-roughness.dds2");
+		strcpy(granite.textureFiles[3], "GameData/textures/black.dds");
+		strcpy(granite.textureFiles[4], "GameData/textures/terrain/granite1/granite-ao.dds2");
+		strcpy(granite.textureFiles[5], "GameData/textures/terrain/granite1/granite-height.dds2");
+		strcpy(granite.textureFiles[6], "");
+		strcpy(granite.textureFiles[7], "");
 
 		granite.enableAnisotropy = true;
 		granite.linearFiltering = true;
@@ -517,11 +520,14 @@ void TerrainRenderer::init ()
 		MaterialDef grass = {};
 		strcpy(grass.uniqueName, "grass1");
 		strcpy(grass.pipelineUniqueName, "engine.defaultMaterial");
-		strcpy(grass.textureFiles[0], "GameData/textures/terrain/grass1/grass-albedo.png");
-		strcpy(grass.textureFiles[1], "GameData/textures/terrain/grass1/grass-normals.png");
-		strcpy(grass.textureFiles[2], "GameData/textures/terrain/grass1/grass-roughness.png");
-		strcpy(grass.textureFiles[3], "GameData/textures/terrain/grass1/grass-metalness.png");
-		strcpy(grass.textureFiles[4], "");
+		strcpy(grass.textureFiles[0], "GameData/textures/terrain/grass1/grass-albedo.dds2");
+		strcpy(grass.textureFiles[1], "GameData/textures/terrain/grass1/grass-normals.dds2");
+		strcpy(grass.textureFiles[2], "GameData/textures/terrain/grass1/grass-roughness.dds2");
+		strcpy(grass.textureFiles[3], "GameData/textures/black.dds");
+		strcpy(grass.textureFiles[4], "GameData/textures/terrain/grass1/grass-ao.dds2");
+		strcpy(grass.textureFiles[5], "GameData/textures/terrain/grass1/grass-height.dds2");
+		strcpy(grass.textureFiles[6], "");
+		strcpy(grass.textureFiles[7], "");
 
 		grass.enableAnisotropy = true;
 		grass.linearFiltering = true;
@@ -835,7 +841,7 @@ void TerrainRenderer::createGraphicsPipeline ()
 	info.dynamicStateInfo = dynamicState;
 	info.tessellationInfo = tessInfo;
 
-	info.inputPushConstantRanges = {{0, pcSize, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT}};
+	info.inputPushConstantRanges = {{0, pcSize, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_TESSELLATION_CONTROL_BIT | SHADER_STAGE_FRAGMENT_BIT}};
 	info.inputSetLayouts = {{
 			{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},
 			{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_TESSELLATION_EVALUATION_BIT | SHADER_STAGE_FRAGMENT_BIT},

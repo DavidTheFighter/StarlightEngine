@@ -100,6 +100,7 @@ class ResourceManager
 		static std::vector<char> getFormattedMeshData (const ResourceMeshData &data, MeshDataFormat format, size_t &indexChunkSize, size_t &vertexStride, bool interlaceData = true);
 
 		RendererTextureView *getBlackColorTexture();
+		RendererTextureView *getDitherPatternTexture();
 
 	private:
 
@@ -112,8 +113,10 @@ class ResourceManager
 		RendererRenderPass *pipelineShadowRenderPass;
 
 		RendererTexture *colorBlackTex;
+		RendererTexture *ditherTex;
 		
 		RendererTextureView *colorBlackTexView;
+		RendererTextureView *ditherTexView;
 
 		std::map<size_t, MaterialDef*> loadedMaterialDefsMap;
 		//std::vector<MaterialDef*> loadedMaterialDefs;

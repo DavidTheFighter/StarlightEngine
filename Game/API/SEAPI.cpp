@@ -118,7 +118,7 @@ void SEAPI::update (float delta)
 				glm::vec3(sin(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle), sin(0.5 * M_PI - coords.dZenithAngle), cos(coords.dAzimuth) * cos(0.5 * M_PI - coords.dZenithAngle)));
 		//weData.sunDirection = glm::normalize(glm::vec3(-cos(weData.worldTime / float(SECONDS_IN_DAY) * M_PI * 2.0f), sin(weData.worldTime / float(SECONDS_IN_DAY) * M_PI * 2.0f), 0));
 
-		worldEnvironmentUBOData.sunDirection = glm::normalize(glm::vec3(1, 1, 0.1f));
+		//worldEnvironmentUBOData.sunDirection = glm::normalize(glm::vec3(1, 1, 0.1f));
 
 		glm::mat4 biasMatrix(
 		0.5, 0.0, 0.0, 0.0,

@@ -53,27 +53,64 @@ ResourceManager::ResourceManager (Renderer *rendererInstance, const std::string 
 	 * Create the color textures
 	 */
 
-	colorBlackTex = renderer->createTexture({4, 4, 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY);
-	colorBlackTexView = renderer->createTextureView(colorBlackTex);
-	StagingBuffer colorTexStagingBuffer = renderer->createStagingBuffer(4 * 4 * 4);
-	
-	uint8_t colorBlackBuffer[4 * 4 * 4];
-	uint8_t colBlack[4] = {0, 0, 0, 255};
+	// Black texture
+	{
+		colorBlackTex = renderer->createTexture({4, 4, 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY);
+		colorBlackTexView = renderer->createTextureView(colorBlackTex);
+		StagingBuffer colorTexStagingBuffer = renderer->createStagingBuffer(4 * 4 * 4);
 
-	for (int i = 0; i < 16; i++)
-		memcpy(&colorBlackBuffer[i * 4], colBlack, 4);
+		uint8_t colorBlackBuffer[4 * 4 * 4];
+		uint8_t colBlack[4] = {0, 0, 0, 255};
 
-	renderer->mapStagingBuffer(colorTexStagingBuffer, sizeof(colorBlackBuffer), colorBlackBuffer);
+		for (int i = 0; i < 16; i++)
+			memcpy(&colorBlackBuffer[i * 4], colBlack, 4);
 
-	CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
+		renderer->mapStagingBuffer(colorTexStagingBuffer, sizeof(colorBlackBuffer), colorBlackBuffer);
 
-	cmdBuffer->setTextureLayout(colorBlackTex, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
-	cmdBuffer->stageBuffer(colorTexStagingBuffer, colorBlackTex);
-	cmdBuffer->setTextureLayout(colorBlackTex, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
 
-	renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
+		cmdBuffer->setTextureLayout(colorBlackTex, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		cmdBuffer->stageBuffer(colorTexStagingBuffer, colorBlackTex);
+		cmdBuffer->setTextureLayout(colorBlackTex, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
-	renderer->destroyStagingBuffer(colorTexStagingBuffer);
+		renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
+
+		renderer->destroyStagingBuffer(colorTexStagingBuffer);
+	}
+
+	// Dither texture
+	{
+		ditherTex = renderer->createTexture({8, 8, 1}, RESOURCE_FORMAT_R8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY);
+		ditherTexView = renderer->createTextureView(ditherTex);
+		StagingBuffer ditherTexStagingBuffer = renderer->createStagingBuffer(8 * 8 * 1);
+
+		const float bayerPattern[] = {
+			0, 32, 8, 40, 2, 34, 10, 42,  /* 8x8 Bayer ordered dithering  */
+			48, 16, 56, 24, 50, 18, 58, 26,  /* pattern.  Each input pixel   */
+			12, 44, 4, 36, 14, 46, 6, 38,  /* is scaled to the 0..63 range */
+			60, 28, 52, 20, 62, 30, 54, 22,  /* before looking in this table */
+			3, 35, 11, 43, 1, 33, 9, 41,  /* to determine the action.     */
+			51, 19, 59, 27, 49, 17, 57, 25,
+			15, 47, 7, 39, 13, 45, 5, 37,
+			63, 31, 55, 23, 61, 29, 53, 21};
+
+		uint8_t ditherTexBuffer[8 * 8 * 1];
+
+		for (int i = 0; i < 64; i++)
+			ditherTexBuffer[i] = uint8_t(bayerPattern[i] * (255.0f / 64.0f));
+
+		renderer->mapStagingBuffer(ditherTexStagingBuffer, sizeof(ditherTexBuffer), ditherTexBuffer);
+
+		CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
+
+		cmdBuffer->setTextureLayout(ditherTex, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		cmdBuffer->stageBuffer(ditherTexStagingBuffer, ditherTex);
+		cmdBuffer->setTextureLayout(ditherTex, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+		renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
+
+		renderer->destroyStagingBuffer(ditherTexStagingBuffer);
+	}
 }
 
 ResourceManager::~ResourceManager ()
@@ -83,6 +120,9 @@ ResourceManager::~ResourceManager ()
 
 	renderer->destroyTexture(colorBlackTex);
 	renderer->destroyTextureView(colorBlackTexView);
+
+	renderer->destroyTexture(ditherTex);
+	renderer->destroyTextureView(ditherTexView);
 
 	// TODO Free all remaining resources when an instance of ResourceManager is deleted
 	
@@ -1500,6 +1540,11 @@ std::vector<char> ResourceManager::getFormattedMeshData (const ResourceMeshData 
 RendererTextureView *ResourceManager::getBlackColorTexture()
 {
 	return colorBlackTexView;
+}
+
+RendererTextureView *ResourceManager::getDitherPatternTexture()
+{
+	return ditherTexView;
 }
 
 TextureFileFormat inferFileFormat (const std::string &file)
