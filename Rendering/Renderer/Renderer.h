@@ -26,8 +26,6 @@ class Renderer
 {
 	public:
 
-		std::string workingDir;
-
 		Renderer ();
 		virtual ~Renderer ();
 

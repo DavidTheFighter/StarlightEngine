@@ -69,6 +69,8 @@
 
 #include <lodepng.h>
 
+#include <Resources/FileLoader.h>
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -328,58 +330,6 @@ inline std::vector<std::string> split (const std::string &s, char delim)
 	}
 
 	return elems;
-}
-
-inline std::vector<char> readFile (const std::string& filename)
-{
-#ifdef _WIN32
-	std::ifstream file(utf8_to_utf16(filename).c_str(), std::ios::ate | std::ios::binary);
-#else
-	std::ifstream file(filename, std::ios::ate | std::ios::binary);
-#endif
-
-	if (!file.is_open())
-	{
-		printf("%s Failed to open file: %s\n", ERR_PREFIX, filename.c_str());
-
-		throw std::runtime_error("failed to open file!");
-	}
-	
-	size_t fileSize = (size_t) file.tellg();
-	std::vector<char> buffer(fileSize);
-
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-
-	file.close();
-
-	return buffer;
-}
-
-inline std::string readFileStr(const std::string &filename)
-{
-#ifdef _WIN32
-	std::ifstream file(utf8_to_utf16(filename).c_str(), std::ios::ate | std::ios::binary);
-#else
-	std::ifstream file(filename, std::ios::ate | std::ios::binary);
-#endif
-
-	if (!file.is_open())
-	{
-		printf("%s Failed to open file: %s\n", ERR_PREFIX, filename.c_str());
-
-		throw std::runtime_error("failed to open file!");
-	}
-
-	size_t fileSize = (size_t) file.tellg();
-	std::vector<char> buffer(fileSize);
-
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-
-	file.close();
-
-	return std::string(buffer.data(), buffer.data() + buffer.size());
 }
 
 inline void writeFile (const std::string &filename, const std::vector<char> &data)

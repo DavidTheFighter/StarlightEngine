@@ -54,6 +54,18 @@ int main (int argc, char *argv[])
 
 	printEnvironment(launchArgs);
 
+#ifdef __linux__
+	std::string workingDir = "/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/";
+#elif defined(_WIN32)
+	std::string workingDir = "A:\\Programming\\StarlightEngineDev-win\\";
+#endif
+
+	// Initialize the singletons
+	EventHandler::setInstance(new EventHandler());
+	FileLoader::setInstance(new FileLoader());
+
+	FileLoader::instance()->setWorkingDir(workingDir);
+
 	RendererBackend rendererBackend = Renderer::chooseRendererBackend(launchArgs);
 
 	switch (rendererBackend)
@@ -68,9 +80,6 @@ int main (int argc, char *argv[])
 		default:
 			break;
 	}
-
-	// Initialize the (hopefully) few singletons
-	EventHandler::setInstance(new EventHandler());
 
 	// Create our engine
 	StarlightEngine *gameEngine = new StarlightEngine(launchArgs, 60);
@@ -101,8 +110,9 @@ int main (int argc, char *argv[])
 	delete titleScreen;
 	delete gameEngine;
 
-	// Delete the (hopefully) few singletons
+	// Delete the singletons
 	delete EventHandler::instance();
+	delete FileLoader::instance();
 
 	switch (rendererBackend)
 	{

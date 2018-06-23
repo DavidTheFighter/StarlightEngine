@@ -42,8 +42,6 @@ class TerrainShadowRenderer
 
 	TextureView terrainDepthsView;
 
-	std::string temp_workingDir;
-
 	TerrainShadowRenderer(Renderer *rendererPtr);
 	virtual ~TerrainShadowRenderer();
 

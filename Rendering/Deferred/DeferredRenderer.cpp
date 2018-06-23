@@ -399,9 +399,9 @@ void DeferredRenderer::createDeferredLightingRenderPass ()
 void DeferredRenderer::createDeferredLightingPipeline ()
 {
 	const std::string insertMarker = "#SE_BUILTIN_INCLUDE_ATMOSPHERE_LIB";
-	const std::string shaderSourceFile = engine->getWorkingDir() + "GameData/shaders/vulkan/lighting.glsl";
+	const std::string shaderSourceFile = "GameData/shaders/vulkan/lighting.glsl";
 
-	std::string lightingSource = readFileStr(shaderSourceFile);
+	std::string lightingSource = FileLoader::instance()->readFile(shaderSourceFile);
 	size_t insertPos = lightingSource.find(insertMarker);
 
 	if (insertPos != std::string::npos)

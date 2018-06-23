@@ -92,7 +92,6 @@ class StarlightEngine
 		void setGUIBackground(TextureView background);
 
 		double getTime();
-		std::string getWorkingDir();
 
 		static void windowResizeEventCallback (const EventWindowResizeData &eventData, void *usrPtr);
 		static void windowKeyEventCallback(const EventKeyActionData &eventData, void *usrPtr);
@@ -110,8 +109,6 @@ class StarlightEngine
 		// Accum offset from callbacks to send to the nuklear API
 		svec2 nuklearScrollPendingOffset;
 		std::mutex nuklearScrollPendingOffset_mutex;
-
-		std::string workingDir;
 
 		Texture finalOutputTexture;
 		Texture finalOutputTextureDepth;

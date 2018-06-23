@@ -215,8 +215,8 @@ void PostProcess::createPostProcessRenderPass ()
 
 void PostProcess::createCombinePipeline ()
 {
-	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/combine.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/combine.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/combine.glsl", SHADER_STAGE_VERTEX_BIT);
+	ShaderModule fragShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/combine.glsl", SHADER_STAGE_FRAGMENT_BIT);
 
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";

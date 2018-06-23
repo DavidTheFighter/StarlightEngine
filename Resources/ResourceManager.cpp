@@ -34,10 +34,9 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-ResourceManager::ResourceManager (Renderer *rendererInstance, const std::string &gameWorkingDirectory)
+ResourceManager::ResourceManager (Renderer *rendererInstance)
 {
 	renderer = rendererInstance;
-	workingDir = gameWorkingDirectory;
 	mainThreadTransferCommandPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
 
 	std::vector<DescriptorSetLayoutBinding> layoutBindings;
@@ -154,7 +153,7 @@ ResourceMaterial ResourceManager::loadMaterialImmediate (const std::string &defU
 
 		for (int i = 0; i < MATERIAL_DEF_MAX_TEXTURE_NUM; i ++)
 			if (std::string(matDef->textureFiles[i]).length() != 0)
-				texFiles.push_back(workingDir + std::string(matDef->textureFiles[i]));
+				texFiles.push_back(std::string(matDef->textureFiles[i]));
 
 		for (size_t i = 0; i < texFiles.size(); i++)
 			mat->textures[i] = loadTextureImmediate(texFiles[i]);
@@ -283,7 +282,7 @@ ResourceStaticMesh ResourceManager::loadStaticMeshImmediate (const std::string &
 			std::string lodMeshName = std::string(matDef->meshLODNames[i]);
 			float lodMaxDist = matDef->meshLODMaxDists[i];
 
-			mesh->meshLODs.push_back(std::make_pair(lodMaxDist, loadMeshImmediate(workingDir + lodMeshFile, lodMeshName)));
+			mesh->meshLODs.push_back(std::make_pair(lodMaxDist, loadMeshImmediate(lodMeshFile, lodMeshName)));
 		}
 
 		// The "meshLODs" member is required to be sorted by lod distance
@@ -357,19 +356,19 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 		ResourcePipelineObject *pipe = new ResourcePipelineObject();
 		pipe->dataLoaded = true;
 
-		ShaderModule vertShader = renderer->createShaderModule(workingDir + std::string(pipeDef->vertexShaderFile), SHADER_STAGE_VERTEX_BIT);
-		ShaderModule fragShader = renderer->createShaderModule(workingDir + std::string(pipeDef->fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT);
+		ShaderModule vertShader = renderer->createShaderModule(std::string(pipeDef->vertexShaderFile), SHADER_STAGE_VERTEX_BIT);
+		ShaderModule fragShader = renderer->createShaderModule(std::string(pipeDef->fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT);
 
 		ShaderModule tessCtrlShader = nullptr, tessEvalShader = nullptr, geomShader = nullptr;
 
 		if (strlen(pipeDef->tessControlShaderFile) != 0)
-			tessCtrlShader = renderer->createShaderModule(workingDir + std::string(pipeDef->tessControlShaderFile), SHADER_STAGE_TESSELLATION_CONTROL_BIT);
+			tessCtrlShader = renderer->createShaderModule(std::string(pipeDef->tessControlShaderFile), SHADER_STAGE_TESSELLATION_CONTROL_BIT);
 
 		if (strlen(pipeDef->tessEvalShaderFile) != 0)
-			tessEvalShader = renderer->createShaderModule(workingDir + std::string(pipeDef->tessEvalShaderFile), SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
+			tessEvalShader = renderer->createShaderModule(std::string(pipeDef->tessEvalShaderFile), SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
 
 		if (strlen(pipeDef->geometryShaderFile) != 0)
-			geomShader = renderer->createShaderModule(workingDir + std::string(pipeDef->geometryShaderFile), SHADER_STAGE_GEOMETRY_BIT);
+			geomShader = renderer->createShaderModule(std::string(pipeDef->geometryShaderFile), SHADER_STAGE_GEOMETRY_BIT);
 
 		// If only one of the tessellation stages is present
 		if ((tessCtrlShader != nullptr && tessEvalShader == nullptr) || (tessCtrlShader == nullptr && tessEvalShader != nullptr))
@@ -534,7 +533,7 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 
 		if (pipeDef->canRenderDepth)
 		{
-			ShaderModule shadowFragShader = renderer->createShaderModule(workingDir + std::string(pipeDef->shadows_fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT);
+			ShaderModule shadowFragShader = renderer->createShaderModule(std::string(pipeDef->shadows_fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT);
 			fragShaderStage.module = shadowFragShader;
 
 			// Should probably do this better
@@ -1000,7 +999,12 @@ void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 
 		uint32_t fwidth, fheight;
 
-		unsigned err = lodepng::decode(textureData[f], fwidth, fheight, tex->files[f], LCT_RGBA, 8);
+		std::vector<char> pngData = FileLoader::instance()->readFileBuffer(tex->files[f]);
+
+		if (pngData.size() == 0)
+			continue;
+
+		unsigned err = lodepng::decode(textureData[f], fwidth, fheight, reinterpret_cast<const unsigned char*>(pngData.data()), pngData.size(), LCT_RGBA, 8);
 
 		if (err)
 		{
@@ -1209,7 +1213,7 @@ void ResourceManager::loadDDSTextureData(ResourceTexture tex)
 
 	for (size_t i = 0; i < tex->files.size(); i++)
 	{
-		buffers.push_back(readFile(tex->files[i]));
+		buffers.push_back(FileLoader::instance()->readFileBuffer(tex->files[i]));
 		std::vector<char> &buffer = buffers[i];
 
 		if (*(uint32_t*) (&buffer[0]) != DDS_MAGIC_NUM)
@@ -1332,7 +1336,8 @@ ResourceMeshData ResourceManager::loadRawMeshData (const std::string &file, cons
 
 	std::unique_lock<std::mutex> lock(assimpImporter_mutex);
 
-	const aiScene* scene = assimpImporter.ReadFile(file, aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_ImproveCacheLocality);
+	std::vector<char> meshFileData = FileLoader::instance()->readFileBuffer(file);
+	const aiScene* scene = assimpImporter.ReadFileFromMemory(meshFileData.data(), meshFileData.size(), aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_ImproveCacheLocality);
 
 	if (!scene)
 	{

@@ -72,21 +72,6 @@ std::string AtmosphereRenderer::getAtmosphericShaderLib ()
 	return atmosphereShaderInclude;
 }
 
-/*
- 	buf->setTextureLayout(transmittanceTexture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
-	buf->setTextureLayout(scatteringTexture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
-	buf->setTextureLayout(irradianceTexture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
-
-	buf->stageBuffer(transmittanceSB, transmittanceTexture);
-	buf->stageBuffer(scatteringSB, scatteringTexture);
-	buf->stageBuffer(irradianceSB, irradianceTexture);
-
-	buf->setTextureLayout(transmittanceTexture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
-	buf->setTextureLayout(scatteringTexture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
-	buf->setTextureLayout(irradianceTexture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0, 1, 0, 1}, PIPELINE_STAGE_ALL_COMMANDS_BIT, PIPELINE_STAGE_ALL_COMMANDS_BIT);
-
- */
-
 void AtmosphereRenderer::loadPrecomputedTextures ()
 {
 	transmittanceTexture = engine->renderer->createTexture({(float) TRANSMITTANCE_TEXTURE_WIDTH, (float) TRANSMITTANCE_TEXTURE_HEIGHT, 1}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
@@ -97,9 +82,9 @@ void AtmosphereRenderer::loadPrecomputedTextures ()
 	scatteringTV = engine->renderer->createTextureView(scatteringTexture, TEXTURE_VIEW_TYPE_3D);
 	irradianceTV = engine->renderer->createTextureView(irradianceTexture);
 
-	std::vector<char> transmittanceBTD = readFile(engine->getWorkingDir() + "GameData/textures/atmosphere/transmittance.btd");
-	std::vector<char> scatteringBTD = readFile(engine->getWorkingDir() + "GameData/textures/atmosphere/scattering.btd");
-	std::vector<char> irradianceBTD = readFile(engine->getWorkingDir() + "GameData/textures/atmosphere/irradiance.btd");
+	std::vector<char> transmittanceBTD = FileLoader::instance()->readFileBuffer("GameData/textures/atmosphere/transmittance.btd");
+	std::vector<char> scatteringBTD = FileLoader::instance()->readFileBuffer("GameData/textures/atmosphere/scattering.btd");
+	std::vector<char> irradianceBTD = FileLoader::instance()->readFileBuffer("GameData/textures/atmosphere/irradiance.btd");
 
 	StagingBuffer transmittanceSB = engine->renderer->createAndMapStagingBuffer(transmittanceBTD.size(), transmittanceBTD.data());
 	StagingBuffer scatteringSB = engine->renderer->createAndMapStagingBuffer(scatteringBTD.size(), scatteringBTD.data());
@@ -331,7 +316,7 @@ void AtmosphereRenderer::loadScatteringSourceInclude ()
 		std::to_string(sun_k_r) + "," +
 		std::to_string(sun_k_g) + "," +
 		std::to_string(sun_k_b) + ");\n" +
-		readFileStr(engine->getWorkingDir() + "GameData/shaders/atm-functions.glsl");
+			FileLoader::instance()->readFile("GameData/shaders/atm-functions.glsl");
 	};
 
 	atmosphereShaderInclude = glsl_header_factory_({kLambdaR, kLambdaG, kLambdaB}) +

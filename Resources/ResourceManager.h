@@ -50,7 +50,7 @@ struct RendererTextureView;
 class ResourceManager
 {
 	public:
-		ResourceManager (Renderer *rendererInstance, const std::string &gameWorkingDirectory);
+		ResourceManager (Renderer *rendererInstance);
 		virtual ~ResourceManager ();
 
 		ResourceMesh loadMeshImmediate (const std::string &file, const std::string &mesh);
@@ -103,8 +103,6 @@ class ResourceManager
 		RendererTextureView *getDitherPatternTexture();
 
 	private:
-
-		std::string workingDir;
 
 		Renderer *renderer;
 		RendererCommandPool *mainThreadTransferCommandPool;

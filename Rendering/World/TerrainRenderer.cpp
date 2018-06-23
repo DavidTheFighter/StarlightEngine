@@ -782,10 +782,10 @@ void TerrainRenderer::buildTerrainCellGrids()
 
 void TerrainRenderer::createGraphicsPipeline ()
 {
-	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule tessCtrlShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_TESSELLATION_CONTROL_BIT);
-	ShaderModule tessEvalShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
-	ShaderModule fragShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_VERTEX_BIT);
+	ShaderModule tessCtrlShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_TESSELLATION_CONTROL_BIT);
+	ShaderModule tessEvalShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
+	ShaderModule fragShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/terrain.glsl", SHADER_STAGE_FRAGMENT_BIT);
 
 	VertexInputBinding meshVertexBindingDesc = {};
 	meshVertexBindingDesc.binding = 0;

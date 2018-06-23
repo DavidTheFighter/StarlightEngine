@@ -48,7 +48,7 @@ std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (shaderc::Compil
 
 std::vector<uint32_t> VulkanShaderLoader::compileGLSL (const std::string &file, VkShaderStageFlagBits stages)
 {
-	std::vector<char> glslSource = readFile(file);
+	std::vector<char> glslSource = FileLoader::instance()->readFileBuffer(file);
 
 	return compileGLSLFromSource(glslSource, file, stages);
 }
@@ -97,7 +97,7 @@ std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (const std::vect
 
 	system(cmd);
 
-	std::vector<char> binary = readFile(tempShaderOutputFile);
+	std::vector<char> binary = FileLoader::instance()->readFileAbsoluteDirectoryBuffer(tempShaderOutputFile);
 	std::vector<uint32_t> spvBinary = std::vector<uint32_t> (binary.size() / 4);
 
 	memcpy(spvBinary.data(), binary.data(), binary.size());

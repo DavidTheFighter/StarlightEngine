@@ -319,7 +319,7 @@ const std::string testFile = "GameData/shaders/d3d11/temp-swapchain.hlsl";
 
 void D3D11Renderer::initSwapchain (Window* wnd)
 {
-	std::vector<char> hlslCode = readFile(testFile);
+	std::vector<char> hlslCode = FileLoader::instance()->readFileBuffer(testFile);
 
 	CHECK_HRESULT(D3DCompile(hlslCode.data(), hlslCode.size(), testFile.c_str(), NULL, NULL, "SwapchainVS", "vs_4_0", 0, 0, &testVSBuffer, NULL));
 	CHECK_HRESULT(D3DCompile(hlslCode.data(), hlslCode.size(), testFile.c_str(), NULL, NULL, "SwapchainPS", "ps_4_0", 0, 0, &testPSBuffer, NULL));

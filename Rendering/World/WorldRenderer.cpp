@@ -369,7 +369,6 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 	terrainRenderer->init();
 
 	terrainShadowRenderer = new TerrainShadowRenderer(engine->renderer);
-	terrainShadowRenderer->temp_workingDir = engine->getWorkingDir();
 	terrainShadowRenderer->init();
 	terrainShadowRenderer->setClipmap(terrainRenderer->terrainClipmapView_Elevation, terrainRenderer->terrainClipmapSampler);
 
@@ -503,8 +502,8 @@ void WorldRenderer::createRenderPasses ()
 
 void WorldRenderer::createPipelines()
 {
-	ShaderModule vertShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/physx-debug-lines.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = engine->renderer->createShaderModule(engine->getWorkingDir() + "GameData/shaders/vulkan/physx-debug-lines.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/physx-debug-lines.glsl", SHADER_STAGE_VERTEX_BIT);
+	ShaderModule fragShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/physx-debug-lines.glsl", SHADER_STAGE_FRAGMENT_BIT);
 
 	VertexInputBinding meshVertexBindingDesc = {};
 	meshVertexBindingDesc.binding = 0;

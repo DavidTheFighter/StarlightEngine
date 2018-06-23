@@ -100,12 +100,6 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 {
 	engineIsRunning = true;
 
-#ifdef __linux__
-	workingDir = "/media/david/Main Disk/Programming/StarlightEngineDev/StarlightEngine/";
-#elif defined(_WIN32)
-	workingDir = "A:\\Programming\\StarlightEngineDev-win\\";
-#endif
-
 	mainWindow = new Window(rendererBackendType);
 	mainWindow->initWindow(0, 0, APP_NAME);
 
@@ -119,10 +113,9 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	renderAlloc.mainWindow = mainWindow;
 
 	renderer = Renderer::allocateRenderer(renderAlloc);
-	renderer->workingDir = workingDir;
 	renderer->initRenderer();
 
-	resources = new ResourceManager(renderer, workingDir);
+	resources = new ResourceManager(renderer);
 
 	createGuiRenderPass();
 	createGUITexturePassthroughPipeline();
@@ -448,8 +441,8 @@ void StarlightEngine::createGuiRenderPass()
 
 void StarlightEngine::createGUITexturePassthroughPipeline()
 {
-	ShaderModule vertShader = renderer->createShaderModule(getWorkingDir() + "GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = renderer->createShaderModule(getWorkingDir() + "GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_VERTEX_BIT);
+	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_FRAGMENT_BIT);
 
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";
@@ -534,11 +527,6 @@ void StarlightEngine::createGUITexturePassthroughPipeline()
 double StarlightEngine::getTime ()
 {
 	return glfwGetTime();
-}
-
-std::string StarlightEngine::getWorkingDir ()
-{
-	return workingDir;
 }
 
 void StarlightEngine::changeState (GameState *state)
