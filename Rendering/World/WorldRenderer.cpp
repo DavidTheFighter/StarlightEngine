@@ -33,6 +33,7 @@
 
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/World/TerrainRenderer.h>
+#include <Rendering/World/TerrainShadowRenderer.h>
 
 #include <Game/Game.h>
 #include <Game/API/SEAPI.h>
@@ -172,6 +173,9 @@ void WorldRenderer::render3DWorld ()
 	}
 
 	shadowmapCmdBuffers[cmdBufferIndex]->endDebugRegion();
+
+	//terrainShadowRenderer->renderTerrainShadowmap(shadowmapCmdBuffers[cmdBufferIndex], engine->api->getSunDirection());
+
 	shadowmapCmdBuffers[cmdBufferIndex]->endCommands();
 
 	std::vector<Semaphore> waitSems = {};
@@ -362,8 +366,13 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 		sunCSMFramebuffers.push_back(engine->renderer->createFramebuffer(shadowsRenderPass, {sunCSM->getCSMTextureSliceView(i)}, sunCSM->getShadowSize(), sunCSM->getShadowSize()));
 
 	terrainRenderer = new TerrainRenderer(engine, world, this);
-
 	terrainRenderer->init();
+
+	terrainShadowRenderer = new TerrainShadowRenderer(engine->renderer);
+	terrainShadowRenderer->temp_workingDir = engine->getWorkingDir();
+	terrainShadowRenderer->init();
+	terrainShadowRenderer->setClipmap(terrainRenderer->terrainClipmapView_Elevation, terrainRenderer->terrainClipmapSampler);
+
 }
 
 void WorldRenderer::createGBuffer ()
@@ -402,6 +411,9 @@ void WorldRenderer::destroy ()
 
 	terrainRenderer->destroy();
 	delete terrainRenderer;
+
+	terrainShadowRenderer->destroy();
+	delete terrainShadowRenderer;
 
 	destroyGBuffer();
 

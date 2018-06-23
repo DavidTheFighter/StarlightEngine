@@ -18,6 +18,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	float worldTime;
 	//
 	mat4 sunMVPs[SUN_CSM_COUNT];
+	mat4 terrainSunMVPs[5];
 } weubo;
 
 #ifdef SHADER_STAGE_VERTEX
@@ -73,6 +74,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 	layout(set = 0, binding = 10) uniform sampler2DArray shadowmapSampler;
 	layout(set = 0, binding = 11) uniform sampler ditherSampler;
 	layout(set = 0, binding = 12) uniform texture2D ditherTex;
+	layout(set = 0, binding = 13) uniform texture2DArray terrainShadowmaps;
 
 	#SE_BUILTIN_INCLUDE_ATMOSPHERE_LIB
 
@@ -105,7 +107,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		return normalize(n);
 	}
 	
-	float getSunOcclusion (in vec3 viewPos);
+	float getSunOcclusion (in vec3 viewPos, in vec3 worldPos);
 	vec3 dither(in vec3 c);
 	
 	void main()
@@ -145,8 +147,8 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 			radiance += transmittance * GetSolarLuminance() * 1e-3 * 1e-3;
 			
 		vec3 Rd = vec3(0);
-		float sunOcclusion = getSunOcclusion(vec3(inViewRay, -1) * z_eye);
-				
+		float sunOcclusion = getSunOcclusion(vec3(inViewRay, -1) * z_eye, pushConsts.cameraPosition.xyz + at_ray.xzy * z_eye);
+		
 		if (gbuffer_Depth > 0)
 			Rd = calcSkyLighting(gbuffer_AlbedoRoughness.rgb, gbuffer_NormalsMetalness.rgb, normalize(inRay), vec2(gbuffer_AlbedoRoughness.a, gbuffer_NormalsMetalness.a), testLightDir, z_eye, sunOcclusion, gbuffer_AO);
 		
@@ -243,10 +245,30 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 		return mix(x1, x0, sampleCoord.y);
 	}
 	
+	float sampleTerrainShadowmapOcclusion (in vec3 uv, in float shadowmapSize, in vec3 shadowCoord, in float bias)
+	{
+		// Gather the surrounding texels for depth values
+		vec4 texels = textureGather(sampler2DArray(terrainShadowmaps, inputSampler), uv, 0);
+		
+		// Do depth-comparisons
+		texels = step(texels, vec4(shadowCoord.z - bias));
+		
+		// Bilinearly filter the comparisons
+		vec2 sampleCoord = fract(shadowCoord.xy * shadowmapSize + vec2(0.5f));
+		
+		float x0 = mix(texels.x, texels.y, sampleCoord.x);
+		float x1 = mix(texels.w, texels.z, sampleCoord.x);
+		
+		return mix(x1, x0, sampleCoord.y);
+	}
+	
 	const ivec2 earlyBailGatherOffsets[4] = {ivec2(0, PCF_WIDTH + 2), ivec2(0, -PCF_WIDTH - 1), ivec2(PCF_WIDTH + 2, 0), ivec2(-PCF_WIDTH - 1, 0)};
 	
-	float getSunOcclusion (in vec3 viewPos)
-	{
+	float getSunOcclusion (in vec3 viewPos, in vec3 worldPos)
+	{	
+		float occl = 0;
+	
+		// Test normal shadowmaps first
 		for (int c = 0; c < SUN_CSM_COUNT; c ++)
 		{
 			vec4 shadowCoord = weubo.sunMVPs[c] * vec4(viewPos, 1);
@@ -264,7 +286,7 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 				float ssum = dot(earlyBailSamples, vec4(1)) * 0.25f;
 			
 				if (ssum < 0.0001f)
-					return 0;
+					break;
 				else if (ssum > 0.9999f)
 					return 1;
 			
@@ -276,11 +298,58 @@ layout(binding = 8) uniform WorldEnvironmentUBO
 					}
 				}
 
-				return avgOcclusion / ((2.0f * scaledPCFWidth + 1.0f) * (2.0f * scaledPCFWidth + 1.0f));
+				occl = avgOcclusion / ((2.0f * scaledPCFWidth + 1.0f) * (2.0f * scaledPCFWidth + 1.0f));
+				break;
 			}
 		}
 		
-		return 0;
+		const float layerBias[] = {0.005f, 0.01f, 0.02f, 0.04f, 0.08f};
+		
+		// Test the terrain shadowmaps
+		for (int l = 5; l < 5; l ++)
+		{
+			vec4 shadowCoord = weubo.terrainSunMVPs[l] * vec4(viewPos, 1);
+			
+			if (all(lessThan(shadowCoord.xyz, vec3(1))) && all(greaterThan(shadowCoord.xy, vec2(0))))
+			{
+				float avgOcclusion = 0;
+				const float scaledPCFWidth = PCF_WIDTH;//round(PCF_WIDTH / float(l + 1));
+				float shadowmapSize = float(textureSize(sampler2DArray(terrainShadowmaps, inputSampler), 0).x);	
+				float shadowmapSizeInv = 1.0f / shadowmapSize;
+			
+				// Early bailing technique
+				vec4 earlyBailSamples = textureGatherOffsets(sampler2DArray(terrainShadowmaps, inputSampler), vec3(shadowCoord.xy, l), earlyBailGatherOffsets);
+				
+				// Test if all the samples are pure 1, in which case skip to next layerBias
+				if (earlyBailSamples.x + earlyBailSamples.y + earlyBailSamples.z + earlyBailSamples.w > 3.9999f)
+					continue;
+				
+				earlyBailSamples = step(earlyBailSamples, vec4(shadowCoord.z - layerBias[l]));
+				float ssum = dot(earlyBailSamples, vec4(1)) * 0.25f;
+				
+				if (ssum > 0.9999f)
+					return 1;
+			
+				for (float x = -scaledPCFWidth; x <= scaledPCFWidth; x ++)
+				{
+					for (float y = -scaledPCFWidth; y <= scaledPCFWidth; y ++)
+					{
+						avgOcclusion += sampleTerrainShadowmapOcclusion(vec3(shadowCoord.xy + vec2(x, y) * shadowmapSizeInv, l), shadowmapSize, shadowCoord.xyz, layerBias[l]);
+					}
+				}
+
+				avgOcclusion /= ((2.0f * scaledPCFWidth + 1.0f) * (2.0f * scaledPCFWidth + 1.0f));
+				
+				if (avgOcclusion > 0.9999f)
+					return 1;
+					
+				occl = avgOcclusion;//max(occl, avgOcclusion);
+				
+				return avgOcclusion;
+			}
+		}
+		
+		return occl;
 	}
 	
 	vec3 dither(in vec3 c)

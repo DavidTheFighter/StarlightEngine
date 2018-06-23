@@ -351,7 +351,7 @@ void GameStateInWorld::update (float delta)
 	glm::vec3 playerLookRight = glm::vec3(sin(testGame->mainCamera.lookAngles.x - M_PI * 0.5f), 0, cos(testGame->mainCamera.lookAngles.x - M_PI * 0.5f));
 	glm::vec3 playerLookUp = glm::cross(playerLookRight, playerLookDir);
 
-	glm::vec3 cameraCellOffset = glm::floor(testGame->mainCamera.position / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
+	glm::vec3 cameraCellOffset = glm::floor((testGame->mainCamera.position) / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
 
 	worldRenderer->camViewMat = glm::lookAt(testGame->mainCamera.position - cameraCellOffset, testGame->mainCamera.position - cameraCellOffset + playerLookDir, playerLookUp);
 	worldRenderer->cameraPosition = testGame->mainCamera.position;

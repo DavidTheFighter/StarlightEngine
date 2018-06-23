@@ -42,6 +42,7 @@
 class WorldHandler;
 class StarlightEngine;
 class TerrainRenderer;
+class TerrainShadowRenderer;
 
 struct LevelStaticObject;
 struct LevelStaticObjectType;
@@ -102,6 +103,7 @@ class WorldRenderer
 		WorldHandler *world;
 
 		TerrainRenderer *terrainRenderer;
+		TerrainShadowRenderer *terrainShadowRenderer;
 
 		glm::mat4 camProjMat;
 		glm::mat4 camViewMat;

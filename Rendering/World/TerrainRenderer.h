@@ -60,6 +60,9 @@ class TerrainRenderer
 		uint32_t terrainCellMeshVertexCount;
 		Buffer terrainCellMesh;
 
+		uint32_t shadowTerrainMeshVertexCount;
+		Buffer shadowTerrainMesh;
+
 		Texture transferClipmap_Elevation;
 		Texture terrainClipmap_Elevation;
 
@@ -80,6 +83,7 @@ class TerrainRenderer
 		void update ();
 
 		void renderTerrain (CommandBuffer &cmdBuffer);
+		void renderTerrainShadows(CommandBuffer &cmdBuffer);
 
 		void init ();
 		void destroy ();

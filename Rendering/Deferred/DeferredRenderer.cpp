@@ -37,6 +37,7 @@
 #include <Rendering/World/WorldRenderer.h>
 #include <Rendering/World/CSM.h>
 #include <Rendering/Deferred/AtmosphereRenderer.h>
+#include <Rendering/World/TerrainShadowRenderer.h>
 
 #include <Game/API/SEAPI.h>
 
@@ -156,7 +157,8 @@ void DeferredRenderer::init ()
 		{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{10, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{11, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{12, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+		{12, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{13, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}}, 1);
 
 	deferredInputDescriptorSet = deferredInputsDescriptorPool->allocateDescriptorSet();
@@ -190,6 +192,10 @@ void DeferredRenderer::init ()
 	testShadowmapImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	testShadowmapImageInfo.view = worldRenderer->sunCSM->getCSMTextureView();
 
+	DescriptorImageInfo shadowClipmapImageInfo = {};
+	shadowClipmapImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	shadowClipmapImageInfo.view = worldRenderer->terrainShadowRenderer->terrainDepthsView;
+
 	DescriptorBufferInfo weuboInfo = {};
 	weuboInfo.buffer = engine->api->getWorldEnvironmentUBO();
 	weuboInfo.range = VK_WHOLE_SIZE;
@@ -204,7 +210,7 @@ void DeferredRenderer::init ()
 	ditherImageInfo.sampler = ditherSampler;
 	ditherImageInfo.view = engine->resources->getDitherPatternTexture();
 
-	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {}, weubowrite = {}, tsmwrite = {}, shadowSamplerWrite = {}, ditherSamplerWrite = {}, ditherTextureWrite = {};
+	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {}, weubowrite = {}, tsmwrite = {}, shadowSamplerWrite = {}, ditherSamplerWrite = {}, ditherTextureWrite = {}, shadowClipmapWrite = {};
 	swrite.descriptorCount = 1;
 	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
 	swrite.dstBinding = 0;
@@ -273,7 +279,13 @@ void DeferredRenderer::init ()
 	ditherTextureWrite.imageInfo =
 	{ditherImageInfo};
 
-	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite, weubowrite, tsmwrite, shadowSamplerWrite, ditherSamplerWrite, ditherTextureWrite});
+	shadowClipmapWrite.descriptorCount = 1;
+	shadowClipmapWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	shadowClipmapWrite.dstBinding = 13;
+	shadowClipmapWrite.dstSet = deferredInputDescriptorSet;
+	shadowClipmapWrite.imageInfo = {shadowClipmapImageInfo};
+
+	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite, weubowrite, tsmwrite, shadowSamplerWrite, ditherSamplerWrite, ditherTextureWrite, shadowClipmapWrite});
 }
 
 void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, TextureView gbuffer_DepthView, suvec2 gbufferDim)
@@ -489,7 +501,8 @@ void DeferredRenderer::createDeferredLightingPipeline ()
 			{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
 			{10, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 			{11, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-			{12, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
+			{12, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+			{13, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
 	}};
 
 	deferredPipeline = engine->renderer->createGraphicsPipeline(info, deferredRenderPass, 0);

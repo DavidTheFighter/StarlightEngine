@@ -131,6 +131,20 @@ void SEAPI::update (float delta)
 		worldEnvironmentUBOData.sunMVPs[1] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(1) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(worldRenderer->camViewMat);
 		worldEnvironmentUBOData.sunMVPs[2] = biasMatrix * worldRenderer->sunCSM->getCamProjMat(2) * worldRenderer->sunCSM->getCamViewMat() * glm::inverse(worldRenderer->camViewMat);
 
+		//		outHeightmapTexcoord = vec3((vertex.xz + cellCoordOffset * 256.0f - (pushConsts.cameraCellCoord + vec2(cameraCellCoordOffset)) * 256.0f) / (512.0f * pow(2, clipmapArrayLayer)), clipmapArrayLayer);
+
+		float cameraCellCoordOffsetArray[5] = {0, -1, -3, -7, -15};
+		glm::mat4 terrainSunProj = glm::ortho<float>(-250, 1250, -512, 512, 1250, -250);
+		terrainSunProj[1][1] *= -1;
+		glm::mat4 view = glm::lookAt(-worldEnvironmentUBOData.sunDirection, glm::vec3(0), glm::vec3(0, 1, 0));
+
+		glm::vec3 cameraCellOffset0 = glm::floor((Game::instance()->mainCamera.position - glm::vec3(LEVEL_CELL_SIZE * 0.5f)) / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE) * glm::vec3(1, 0, 1);
+		glm::vec3 cameraCellOffset1 = glm::floor(Game::instance()->mainCamera.position / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
+		glm::vec3 cameraCellOffset = cameraCellOffset1 - cameraCellOffset0;
+
+		for (int i = 0; i < 5; i++)
+			worldEnvironmentUBOData.terrainSunMVPs[i] = biasMatrix * terrainSunProj * view * glm::scale(glm::mat4(1), glm::vec3(1024.0f / (512.0f * glm::pow(2.0f, float(i))), 1, 1024.0f / (512.0f * glm::pow(2.0f, float(i))))) * glm::translate(glm::mat4(1), cameraCellOffset - glm::vec3(cameraCellCoordOffsetArray[i], 0, cameraCellCoordOffsetArray[i]) * float(LEVEL_CELL_SIZE)) * glm::inverse(worldRenderer->camViewMat);
+
 		void *uboDataPtr = engine->renderer->mapBuffer(worldEnvironmentUBO);
 		memcpy(uboDataPtr, &worldEnvironmentUBOData, sizeof(WorldEnvironmentUBO));
 		engine->renderer->unmapBuffer(worldEnvironmentUBO);

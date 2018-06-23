@@ -54,6 +54,9 @@ TerrainRenderer::TerrainRenderer (StarlightEngine *enginePtr, WorldHandler *worl
 	terrainCellMeshVertexCount = 0;
 	terrainCellMesh = nullptr;
 
+	shadowTerrainMeshVertexCount = 0;
+	shadowTerrainMesh = nullptr;
+
 	heightmapDescriptorPool = nullptr;
 	heightmapDescriptorSet = nullptr;
 
@@ -473,6 +476,11 @@ void TerrainRenderer::renderTerrain (CommandBuffer &cmdBuffer)
 	cmdBuffer->endDebugRegion();
 }
 
+void TerrainRenderer::renderTerrainShadows(CommandBuffer &cmdBuffer)
+{
+
+}
+
 void TerrainRenderer::init ()
 {
 	auto heightmapData = world->getCellHeightmapMipData(0, 0, 0);
@@ -700,6 +708,7 @@ void TerrainRenderer::destroy ()
 	engine->renderer->destroyTextureView(terrainClipmapView_Elevation);
 
 	engine->renderer->destroyBuffer(terrainCellMesh);
+	engine->renderer->destroyBuffer(shadowTerrainMesh);
 
 	engine->renderer->destroyPipeline(terrainPipeline);
 	engine->renderer->destroyDescriptorPool(heightmapDescriptorPool);
@@ -717,7 +726,7 @@ void TerrainRenderer::buildTerrainCellGrids()
 {
 	{
 		std::vector<svec2> vertices;
-		float increment = (257 / 4.0f) * (256 / 257.0f);
+		float increment = 256 / 4.0f;// (257 / 4.0f) * (256 / 257.0f);
 
 		for (float x = 0; x < 256; x += increment)
 		{
@@ -737,6 +746,34 @@ void TerrainRenderer::buildTerrainCellGrids()
 
 		CommandBuffer cmdBuffer = engine->renderer->beginSingleTimeCommand(clipmapUpdateCommandPool);
 		cmdBuffer->stageBuffer(stagBuf, terrainCellMesh);
+		engine->renderer->endSingleTimeCommand(cmdBuffer, clipmapUpdateCommandPool, QUEUE_TYPE_GRAPHICS);
+
+		engine->renderer->destroyStagingBuffer(stagBuf);
+	}
+
+	// Shadow mesh
+	{
+		std::vector<svec2> vertices;
+		float increment = 1024 / 256.0f;
+
+		for (float x = 0; x < 1024; x += increment)
+		{
+			for (float z = 0; z < 1024; z += increment)
+			{
+				vertices.push_back({x, z});
+				vertices.push_back({x, z + increment});
+				vertices.push_back({x + increment, z + increment});
+				vertices.push_back({x + increment, z});
+
+				shadowTerrainMeshVertexCount += 4;
+			}
+		}
+
+		StagingBuffer stagBuf = engine->renderer->createAndMapStagingBuffer(vertices.size() * sizeof(vertices[0]), vertices.data());
+		shadowTerrainMesh = engine->renderer->createBuffer(vertices.size() * sizeof(vertices[0]), BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
+
+		CommandBuffer cmdBuffer = engine->renderer->beginSingleTimeCommand(clipmapUpdateCommandPool);
+		cmdBuffer->stageBuffer(stagBuf, shadowTerrainMesh);
 		engine->renderer->endSingleTimeCommand(cmdBuffer, clipmapUpdateCommandPool, QUEUE_TYPE_GRAPHICS);
 
 		engine->renderer->destroyStagingBuffer(stagBuf);

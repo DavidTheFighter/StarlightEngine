@@ -170,7 +170,7 @@ Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineIn
 	pipelineCreateInfo.pMultisampleState = &multisampleState;
 	pipelineCreateInfo.pDepthStencilState = &depthStencilState;
 	pipelineCreateInfo.pColorBlendState = &colorBlendState;
-	pipelineCreateInfo.pDynamicState = &dynamicState;
+	pipelineCreateInfo.pDynamicState = dynamicStates.size() == 0 ? nullptr : &dynamicState;
 	pipelineCreateInfo.renderPass = static_cast<VulkanRenderPass*>(renderPass)->renderPassHandle;
 	pipelineCreateInfo.subpass = subpass;
 	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;

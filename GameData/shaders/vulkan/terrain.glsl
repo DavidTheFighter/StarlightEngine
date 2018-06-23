@@ -166,7 +166,7 @@
 
 		vertex.xz += cellCoordOffset * 256.0f;
 		vertex.xyz -= pushConsts.cameraCellOffset.xyz;
-		vertex.y += (-32768 + (heightmapValue - 0) * (32767 - (-32768)) / (1 - 0)) * (4096.0f / 32768.0f);
+		vertex.y += (heightmapValue * 8192.0f - 4096.0f);
 		
 		outVertex = vertex;
 		
@@ -275,7 +275,7 @@
 	
 		vec3 heightmapTexcoord = vec3(inHeightmapTexcoord.x, inHeightmapTexcoord.y, inHeightmapTexcoord.z);
 		
-		float noffset = 1 / (512.0f * pow(2, heightmapTexcoord.z));
+		float noffset = 1 / (1025.0f * pow(2, heightmapTexcoord.z));
 		float h01 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(-noffset, 0, 0)).x * 8192.0f - 4096.0f;
 		float h21 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(noffset, 0, 0)).x * 8192.0f - 4096.0f;
 		float h10 = texture(sampler2DArray(heightmap, heightmapSampler), heightmapTexcoord + vec3(0, -noffset, 0)).x * 8192.0f - 4096.0f;

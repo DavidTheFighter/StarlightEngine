@@ -48,6 +48,7 @@ typedef struct
 		//
 		glm::mat4 sunMVPs[3];
 		//
+		glm::mat4 terrainSunMVPs[5];
 } WorldEnvironmentUBO;
 
 /*
