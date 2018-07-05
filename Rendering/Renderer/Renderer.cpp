@@ -7,7 +7,7 @@
 
 #include "Rendering/Renderer/Renderer.h"
 #include <Rendering/Vulkan/VulkanRenderer.h>
-#include <Rendering/D3D11/D3D11Renderer.h>
+#include <Rendering/D3D12/D3D12Renderer.h>
 
 Renderer::Renderer ()
 {
@@ -24,24 +24,20 @@ Renderer::~Renderer ()
  */
 RendererBackend Renderer::chooseRendererBackend (const std::vector<std::string>& launchArgs)
 {
+	// Check if the commmand line args forced an api first
 	if (std::find(launchArgs.begin(), launchArgs.end(), "-force_vulkan") != launchArgs.end())
 	{
 		return RENDERER_BACKEND_VULKAN;
 	}
-	else if (std::find(launchArgs.end(), launchArgs.end(), "-force_d3d11") != launchArgs.end())
+	else if (std::find(launchArgs.begin(), launchArgs.end(), "-force_d3d12") != launchArgs.end())
 	{
 #ifdef _WIN32
-		return RENDERER_BACKEND_D3D11;
+		return RENDERER_BACKEND_D3D12;
 #endif
 	}
 
-#ifdef __linux__
+	// Always use vulkan by default
 	return RENDERER_BACKEND_VULKAN;
-#elif defined(_WIN32)
-	return RENDERER_BACKEND_D3D11;
-#endif
-
-	return RENDERER_BACKEND_MAX_ENUM;
 }
 
 Renderer* Renderer::allocateRenderer (const RendererAllocInfo& allocInfo)
@@ -57,17 +53,19 @@ Renderer* Renderer::allocateRenderer (const RendererAllocInfo& allocInfo)
 			return renderer;
 		}
 #ifdef _WIN32
-		case RENDERER_BACKEND_D3D11:
+		case RENDERER_BACKEND_D3D12:
 		{
-			printf("%s Allocating renderer w/ D3D11 backend\n", INFO_PREFIX);
+			printf("%s Allocating renderer w/ D3D12 backend\n", INFO_PREFIX);
 
-			//D3D11Renderer *renderer = new D3D11Renderer(allocInfo);
+			D3D12Renderer *renderer = new D3D12Renderer(allocInfo);
 
-			return nullptr;
+			return renderer;
 		}
 #endif
 		default:
 		{
+			printf("%s Couldn't allocate a renderer w/ backend %u, either an invalid backend type or an unsupported platform\n", ERR_PREFIX, allocInfo.backend);
+
 			return nullptr;
 		}
 	}

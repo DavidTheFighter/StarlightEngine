@@ -39,7 +39,7 @@ Window::~Window ()
  */
 void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::string windowName)
 {
-	if (windowRendererBackend == RENDERER_BACKEND_VULKAN || windowRendererBackend == RENDERER_BACKEND_D3D11)
+	if (windowRendererBackend == RENDERER_BACKEND_VULKAN || windowRendererBackend == RENDERER_BACKEND_D3D12)
 	{
 		GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 		const GLFWvidmode* videomode = glfwGetVideoMode(monitor);
@@ -245,7 +245,7 @@ void Window::setTitle (std::string title)
 	switch (windowRendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_D3D11:
+		case RENDERER_BACKEND_D3D12:
 		{
 			glfwSetWindowTitle(glfwWindow, title.c_str());
 
@@ -263,7 +263,7 @@ void Window::pollEvents ()
 	switch (windowRendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_D3D11:
+		case RENDERER_BACKEND_D3D12:
 		{
 			glfwPollEvents();
 
@@ -282,7 +282,7 @@ void Window::setMouseGrabbed (bool grabbed)
 	switch (windowRendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_D3D11:
+		case RENDERER_BACKEND_D3D12:
 		{
 			glfwSetCursorPos(glfwWindow, getWidth() / 2, getHeight() / 2);
 
@@ -357,7 +357,7 @@ bool Window::userRequestedClose ()
 	switch (windowRendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_D3D11:
+		case RENDERER_BACKEND_D3D12:
 			return glfwWindowShouldClose(glfwWindow);
 		default:
 			return true;
@@ -373,7 +373,7 @@ void* Window::getWindowObjectPtr ()
 	switch (windowRendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_D3D11:
+		case RENDERER_BACKEND_D3D12:
 			return glfwWindow;
 		default:
 			return nullptr;

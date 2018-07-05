@@ -20,8 +20,10 @@
  * Recognized launch args:
  *
  * -force_vulkan
+ * -force_d3d12
  *
  * -enable_vulkan_layers
+ * -enable_d3d12_debug
  */
 
 #include <common.h>
@@ -49,8 +51,16 @@ int main (int argc, char *argv[])
 		launchArgs.push_back(argv[i]);
 	}
 
-	launchArgs.push_back("-enable_vulkan_layers");
-	launchArgs.push_back("-force_vulkan");
+	if (false)
+	{
+		launchArgs.push_back("-force_vulkan");
+		launchArgs.push_back("-enable_vulkan_layers");
+	}
+	else
+	{
+		launchArgs.push_back("-force_d3d12");
+		launchArgs.push_back("-enable_d3d12_debug");
+	}
 
 	printEnvironment(launchArgs);
 
@@ -71,7 +81,7 @@ int main (int argc, char *argv[])
 	switch (rendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_D3D11:
+		case RENDERER_BACKEND_D3D12:
 		{
 			glfwInit();
 
@@ -117,7 +127,7 @@ int main (int argc, char *argv[])
 	switch (rendererBackend)
 	{
 		case RENDERER_BACKEND_VULKAN:
-		case RENDERER_BACKEND_D3D11:
+		case RENDERER_BACKEND_D3D12:
 		{
 			glfwTerminate();
 
