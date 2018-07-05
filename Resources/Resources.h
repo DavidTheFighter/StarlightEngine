@@ -136,6 +136,7 @@ typedef struct ResourceMeshObject
 
 		MeshDataFormat meshFormat;
 		bool interlaced;
+		bool uses32bitIndices;
 
 		RendererBuffer *meshBuffer; // Contains ALL the data for the mesh
 } *ResourceMesh;

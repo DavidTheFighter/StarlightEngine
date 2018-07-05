@@ -265,8 +265,10 @@
 
 	vec2 encodeNormal (in vec3 normal)
 	{
-		float p = sqrt(normal.z * 8.0f + 8.0f);
-		return vec2(normal.xy / p + 0.5f);
+		vec3 n = normal / (abs(normal.x) + abs(normal.y) + abs(normal.z));
+		n.xy = n.z >= 0.0 ? n.xy : ((vec2(1) - abs(n.yx)) * vec2(n.x >= 0 ? 1 : -1, n.y >= 0 ? 1 : -1));
+		
+		return n.xy * 0.5f + 0.5f;
 	}
 	
 	void main()

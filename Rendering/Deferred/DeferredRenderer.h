@@ -37,6 +37,7 @@
 
 class StarlightEngine;
 class AtmosphereRenderer;
+class SkyCubemapRenderer;
 class Game;
 class WorldRenderer;
 
@@ -70,6 +71,7 @@ class DeferredRenderer
 		StarlightEngine *engine;
 		WorldRenderer *worldRenderer;
 		AtmosphereRenderer *atmosphere;
+		SkyCubemapRenderer *skyCubemap;
 
 		RenderPass deferredRenderPass;
 		Pipeline deferredPipeline;
@@ -95,6 +97,8 @@ class DeferredRenderer
 		Sampler atmosphereTextureSampler;
 		Sampler shadowsSampler;
 		Sampler ditherSampler;
+
+		ResourceTexture brdfLUT;
 
 		void createDeferredLightingRenderPass ();
 		void createDeferredLightingPipeline ();

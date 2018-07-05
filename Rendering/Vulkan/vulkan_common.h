@@ -60,6 +60,7 @@ inline void DestroyDebugReportCallbackEXT (VkInstance instance, VkDebugReportCal
 inline void debugMarkerBeginRegion (VkCommandBuffer cmdBuffer, const std::string &name, const glm::vec4 &color)
 {
 	VkDebugMarkerMarkerInfoEXT info = {};
+	info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
 	info.pMarkerName = name.c_str();
 	memcpy(info.color, &color.x, sizeof(color));
 

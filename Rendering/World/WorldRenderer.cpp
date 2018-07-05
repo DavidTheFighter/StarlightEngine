@@ -124,11 +124,10 @@ void WorldRenderer::render3DWorld ()
 
 	gbufferFillCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
+	gbufferFillCmdBuffers[cmdBufferIndex]->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
 	gbufferFillCmdBuffers[cmdBufferIndex]->beginRenderPass(gbufferRenderPass, gbufferFramebuffer, {0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}, clearValues, SUBPASS_CONTENTS_INLINE);
 	gbufferFillCmdBuffers[cmdBufferIndex]->setScissors(0, {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}});
 	gbufferFillCmdBuffers[cmdBufferIndex]->setViewports(0, {{0, 0, (float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 0.0f, 1.0f}});
-
-	gbufferFillCmdBuffers[cmdBufferIndex]->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
 
 	renderWorldStaticMeshes(gbufferFillCmdBuffers[cmdBufferIndex], camProjMat * camViewMat, false);
 	terrainRenderer->renderTerrain(gbufferFillCmdBuffers[cmdBufferIndex]);
@@ -151,8 +150,8 @@ void WorldRenderer::render3DWorld ()
 		gbufferFillCmdBuffers[cmdBufferIndex]->endDebugRegion();
 	}
 
-	gbufferFillCmdBuffers[cmdBufferIndex]->endDebugRegion();
 	gbufferFillCmdBuffers[cmdBufferIndex]->endRenderPass();
+	gbufferFillCmdBuffers[cmdBufferIndex]->endDebugRegion();
 	gbufferFillCmdBuffers[cmdBufferIndex]->endCommands();
 
 	shadowmapCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -252,7 +251,7 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4
 						worldStreamingBufferOffset = 0;
 					}
 
-					cmdBuffer->bindIndexBuffer(staticMeshLOD->meshBuffer);
+					cmdBuffer->bindIndexBuffer(staticMeshLOD->meshBuffer, 0, staticMeshLOD->uses32bitIndices);
 					cmdBuffer->bindVertexBuffers(0, {staticMeshLOD->meshBuffer, worldStreamingBuffer}, {staticMeshLOD->indexChunkSize, worldStreamingBufferOffset * sizeof(dataList[0])});
 
 					memcpy(static_cast<LevelStaticObject*>(worldStreamingBufferData) + worldStreamingBufferOffset, dataList.data(), meshInstanceDataSize);
@@ -377,7 +376,7 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 void WorldRenderer::createGBuffer ()
 {
 	gbuffer[0] = engine->renderer->createTexture({(float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-	gbuffer[1] = engine->renderer->createTexture({(float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 1.0f}, RESOURCE_FORMAT_A2R10G10B10_UNORM_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	gbuffer[1] = engine->renderer->createTexture({(float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 1.0f}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 	gbuffer[2] = engine->renderer->createTexture({(float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 1.0f}, RESOURCE_FORMAT_D32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 
 	gbufferView[0] = engine->renderer->createTextureView(gbuffer[0]);
@@ -450,7 +449,7 @@ void WorldRenderer::createRenderPasses ()
 		gbufferAlbedoRoughnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
 		gbufferAlbedoRoughnessAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
 
-		gbufferNormalMetalnessAttachment.format = RESOURCE_FORMAT_A2R10G10B10_UNORM_PACK32;
+		gbufferNormalMetalnessAttachment.format = RESOURCE_FORMAT_R16G16B16A16_SFLOAT;
 		gbufferNormalMetalnessAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
 		gbufferNormalMetalnessAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		gbufferNormalMetalnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;

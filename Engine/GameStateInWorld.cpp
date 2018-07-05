@@ -132,6 +132,25 @@ void GameStateInWorld::init ()
 		pavingstones.addressMode = SAMPLER_ADDRESS_MODE_REPEAT;
 
 		engine->resources->addMaterialDef(pavingstones);
+
+		MaterialDef pbrTest = {};
+		strcpy(pbrTest.uniqueName, "pbrTestMat");
+		strcpy(pbrTest.pipelineUniqueName, "engine.defaultMaterial");
+		strcpy(pbrTest.textureFiles[0], "GameData/textures/white.dds");
+		strcpy(pbrTest.textureFiles[1], "GameData/textures/test/pbr-test/pbr-normals.dds2");
+		strcpy(pbrTest.textureFiles[2], "GameData/textures/test/pbr-test/pbr-roughness.dds2");
+		strcpy(pbrTest.textureFiles[3], "GameData/textures/test/pbr-test/pbr-metalness.dds2");
+		strcpy(pbrTest.textureFiles[4], "GameData/textures/white.dds");
+		strcpy(pbrTest.textureFiles[5], "GameData/textures/white.dds");
+		strcpy(pbrTest.textureFiles[6], "");
+		strcpy(pbrTest.textureFiles[7], "");
+
+		pbrTest.enableAnisotropy = true;
+		pbrTest.linearFiltering = true;
+		pbrTest.linearMipmapFiltering = true;
+		pbrTest.addressMode = SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+		engine->resources->addMaterialDef(pbrTest);
 	}
 
 	// Setup the default material pipelines
@@ -171,6 +190,14 @@ void GameStateInWorld::init ()
 
 		engine->resources->addMeshDef(boulder);
 
+		StaticMeshDef pbrTest = {};
+		strcpy(pbrTest.uniqueName, "pbrTest");
+		pbrTest.meshLODFiles.push_back("GameData/meshes/pbr-test.dae");
+		pbrTest.meshLODNames.push_back("pbrSphereTest");
+		pbrTest.meshLODMaxDists.push_back(8192);
+
+		engine->resources->addMeshDef(pbrTest);
+
 		StaticMeshDef lodTest = {};
 		strcpy(lodTest.uniqueName, "LOD Test");
 
@@ -189,12 +216,14 @@ void GameStateInWorld::init ()
 		engine->resources->loadMaterialImmediate("dirt");
 		engine->resources->loadMaterialImmediate("slate");
 		engine->resources->loadMaterialImmediate("pavingstones");
+		engine->resources->loadMaterialImmediate("pbrTestMat");
 	}
 
 	{
 		engine->resources->loadStaticMeshImmediate("bridge");
 		engine->resources->loadStaticMeshImmediate("boulder");
 		engine->resources->loadStaticMeshImmediate("LOD Test");
+		engine->resources->loadStaticMeshImmediate("pbrTest");
 	}
 
 	LevelDef testLevel = {};
@@ -238,6 +267,23 @@ void GameStateInWorld::init ()
 	for (size_t i = 0; i < 64; i ++)
 	{
 		testObjInstance.position_scale = {(float) (rand() % 1024) + 1024.0f, (float) (rand() % 8), (float) (rand() % 1024), 8.0f};
+		testObjInstance.rotation = {0, 0, 0, 1};
+
+		testObjs.push_back(testObjInstance);
+	}
+
+	sT = engine->getTime();
+	dat.insertStaticObjects(testObjType, testObjs);
+	printf("Ins took: %f\n", (engine->getTime() - sT) * 1000.0);
+
+	testObjs.clear();
+
+	testObjType.materialDefUniqueNameHash = std::hash<std::string> {} ("pbrTestMat");
+	testObjType.meshDefUniqueNameHash = std::hash<std::string> {} ("pbrTest");
+
+	for (size_t i = 0; i < 1; i++)
+	{
+		testObjInstance.position_scale = {10, 0, 10, 8.0f};
 		testObjInstance.rotation = {0, 0, 0, 1};
 
 		testObjs.push_back(testObjInstance);
@@ -313,10 +359,12 @@ void GameStateInWorld::destroy ()
 	engine->resources->returnMaterial("dirt");
 	engine->resources->returnMaterial("slate");
 	engine->resources->returnMaterial("pavingstones");
+	engine->resources->returnMaterial("pbrTest");
 
 	engine->resources->returnStaticMesh("bridge");
 	engine->resources->returnStaticMesh("boulder");
 	engine->resources->returnStaticMesh("LOD Test");
+	engine->resources->returnStaticMesh("pbrTest");
 
 	engine->resources->returnPipeline("engine.defaultMaterial");
 

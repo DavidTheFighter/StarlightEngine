@@ -72,6 +72,28 @@ VulkanRenderer::~VulkanRenderer ()
 
 void VulkanRenderer::initRenderer ()
 {
+	PFN_vkEnumerateInstanceVersion enumerateInstanceVersionFunc = (PFN_vkEnumerateInstanceVersion) vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion");
+
+	uint32_t instanceVersion = VK_API_VERSION_1_0;
+
+	if (enumerateInstanceVersionFunc != nullptr)
+	{
+		enumerateInstanceVersionFunc(&instanceVersion);
+	}
+
+	const uint32_t vulkanVersionMajor = VK_VERSION_MAJOR(instanceVersion);
+	const uint32_t vulkanVersionMinor = VK_VERSION_MINOR(instanceVersion);
+	const uint32_t vulkanVersionPatch = VK_VERSION_PATCH(instanceVersion);
+
+	if (vulkanVersionMajor < 1 || vulkanVersionMinor < 1)
+	{
+		printf("%s Cannot create a Vulkan renderer, driver reports version as %u.%u.%u, must be at least 1.1.0\n", ERR_PREFIX, vulkanVersionMajor, vulkanVersionMinor, vulkanVersionPatch);
+
+		throw std::exception("cannot load vulkan, insufficient driver vulkan version");
+	}
+
+	printf("%s Vulkan version reported as %u.%u.%u\n", INFO_PREFIX, vulkanVersionMajor, vulkanVersionMinor, vulkanVersionPatch);
+
 	std::vector<const char*> instanceExtensions = getInstanceExtensions();
 
 	VkApplicationInfo appInfo = {};
@@ -714,6 +736,13 @@ Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, Text
 	tex->depth = uint32_t(extent.z);
 	tex->textureFormat = format;
 
+	VkImageCreateFlags createFlags = 0;
+
+
+
+	if (arrayLayerCount == 6)
+		createFlags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
 	VkImageCreateInfo imageCreateInfo = {};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.extent = toVkExtent(extent);
@@ -726,7 +755,7 @@ Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, Text
 	imageCreateInfo.usage = toVkImageUsageFlags(usage);
 	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageCreateInfo.flags = 0;
+	imageCreateInfo.flags = createFlags;
 
 	VmaAllocationCreateInfo allocInfo = {};
 	allocInfo.usage = toVmaMemoryUsage(memUsage);
@@ -1178,6 +1207,7 @@ void VulkanRenderer::createLogicalDevice ()
 	enabledDeviceFeatures.fillModeNonSolid = true;
 	enabledDeviceFeatures.wideLines = true;
 	enabledDeviceFeatures.textureCompressionBC = true;
+	enabledDeviceFeatures.shaderImageGatherExtended = true;
 
 	VkDeviceCreateInfo deviceCreateInfo = {};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1265,7 +1295,7 @@ void VulkanRenderer::choosePhysicalDevice ()
 		score += props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ? 500 : 0;
 		score += props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ? 200 : 0;
 		score += props.limits.maxSamplerAnisotropy;
-
+		
 		validDevices.insert(std::make_pair(score, std::make_pair(physDevice, queues)));
 	}
 

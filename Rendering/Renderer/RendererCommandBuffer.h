@@ -93,11 +93,11 @@ class RendererCommandBuffer
 		virtual void endDebugRegion () = 0;
 		virtual void insertDebugMarker (const std::string &markerName, glm::vec4 color = glm::vec4(1)) = 0;
 #else
-		inline void beginDebugRegion (CommandBuffer cmdBuffer, const std::string &regionName, glm::vec4 color = glm::vec4(1))
+		inline void beginDebugRegion (const std::string &regionName, glm::vec4 color = glm::vec4(1))
 		{};
-		inline void endDebugRegion (CommandBuffer cmdBuffer)
+		inline void endDebugRegion ()
 		{};
-		inline void insertDebugMarker (CommandBuffer cmdBuffer, const std::string &markerName, glm::vec4 color = glm::vec4(1))
+		inline void insertDebugMarker (const std::string &markerName, glm::vec4 color = glm::vec4(1))
 		{};
 #endif
 };

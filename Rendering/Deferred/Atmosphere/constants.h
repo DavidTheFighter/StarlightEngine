@@ -65,7 +65,7 @@ constexpr double kLambdaR = 680.0;
 constexpr double kLambdaG = 550.0;
 constexpr double kLambdaB = 440.0;
 
-constexpr bool use_half_precision = true;
+constexpr bool use_half_precision = false;
 constexpr bool use_constant_solar_spectrum = false;
 constexpr bool use_ozone = true;
 constexpr bool use_combined_textures = true;

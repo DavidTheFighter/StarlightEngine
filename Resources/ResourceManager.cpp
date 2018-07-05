@@ -734,6 +734,7 @@ ResourceMesh ResourceManager::loadMeshImmediate (const std::string &file, const 
 		std::vector<char> formattedData = getFormattedMeshData(rawMeshData, rendererOptimizedMeshFormat, meshRes->indexChunkSize, meshRes->vertexStride, true);
 
 		meshRes->faceCount = rawMeshData.faceCount;
+		meshRes->uses32bitIndices = rawMeshData.uses32BitIndices;
 
 		StagingBuffer stagingBuffer = renderer->createAndMapStagingBuffer(formattedData.size(), formattedData.data());
 		meshRes->meshBuffer = renderer->createBuffer(formattedData.size(), BUFFER_USAGE_INDEX_BUFFER_BIT | BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
@@ -1139,6 +1140,8 @@ inline ResourceFormat convertDXGIFormatToResourceFormat(uint32_t dxgi)
 			return RESOURCE_FORMAT_BC7_UNORM_BLOCK;
 		case 99: // BC7_UNORM_SRGB
 			return RESOURCE_FORMAT_BC7_SRGB_BLOCK;
+		case 112: // R16G16_SFLOAT
+			return RESOURCE_FORMAT_R16G16_SFLOAT;
 		default:
 			return RESOURCE_FORMAT_UNDEFINED;
 	}
@@ -1170,6 +1173,8 @@ inline ResourceFormat getDDSFormat(const std::vector<char> &buffer)
 			return RESOURCE_FORMAT_BC5_UNORM_BLOCK;
 		case MAKEFOURCC('B', 'C', '5', 'S'):
 			return RESOURCE_FORMAT_BC5_SNORM_BLOCK;
+		default:
+			return convertDXGIFormatToResourceFormat(header.ddspf.dwFourCC);
 	}
 }
 
@@ -1193,6 +1198,8 @@ inline uint8_t getFormatBlockSize(ResourceFormat format)
 		case RESOURCE_FORMAT_BC7_UNORM_BLOCK:
 		case RESOURCE_FORMAT_BC7_SRGB_BLOCK:
 			return 16;
+		case RESOURCE_FORMAT_R16G16_SFLOAT:
+			return 64;
 		default:
 			return 0;
 	}
@@ -1238,6 +1245,11 @@ void ResourceManager::loadDDSTextureData(ResourceTexture tex)
 		uint32_t fheight = header.dwHeight;
 		uint32_t fmipmapcount = header.dwMipMapCount;
 		ResourceFormat fformat = getDDSFormat(buffer);
+
+		if (tex->files[i] == "GameData/textures/brdf2dlut.dds")
+		{
+			printf("Is in format: %u | %u, %u, %u\n", fformat, header.ddspf.dwFourCC, (fwidth + 3) / 4, (fheight + 3) / 4);
+		}
 
 		if (i > 0 && (fwidth != width || fheight != height))
 		{
@@ -1288,8 +1300,6 @@ void ResourceManager::loadDDSTextureData(ResourceTexture tex)
 	}
 
 	tex->texture = renderer->createTexture({(float) width, (float) height, 1.0f}, tex->textureFormat, TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels, buffers.size());
-
-	printf("has %u mips\n", tex->mipmapLevels);
 
 	std::vector<StagingBuffer> mipStagingBuffers(tex->mipmapLevels);
 
@@ -1383,7 +1393,7 @@ ResourceMeshData ResourceManager::loadRawMeshData (const std::string &file, cons
 				meshData.faceCount = aiSceneMesh->mNumFaces;
 
 				// If there are more than (2^16)-1 vertices, then we'll have to use 32-bit indices
-				if (aiSceneMesh->mNumVertices > 35535)
+				if (aiSceneMesh->mNumVertices > 65535)
 				{
 					meshData.uses32BitIndices = true;
 					meshData.indices_32bit.reserve(aiSceneMesh->mNumFaces * 3);

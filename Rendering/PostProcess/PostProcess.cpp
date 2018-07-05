@@ -78,10 +78,10 @@ void PostProcess::renderPostProcessing (Semaphore deferredLightingOutputSemaphor
 
 	finalCombineCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
+	finalCombineCmdBuffers[cmdBufferIndex]->beginDebugRegion("Post Processing", glm::vec4(1.0f, 0.5f, 1.0f, 1.0f));
 	finalCombineCmdBuffers[cmdBufferIndex]->beginRenderPass(postprocessRenderPass, postprocessFramebuffer, {0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}, clearValues, SUBPASS_CONTENTS_INLINE);
 	finalCombineCmdBuffers[cmdBufferIndex]->setScissors(0, {{0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}});
 	finalCombineCmdBuffers[cmdBufferIndex]->setViewports(0, {{0, 0, gbufferSize.x, gbufferSize.y, 0.0f, 1.0f}});
-	finalCombineCmdBuffers[cmdBufferIndex]->beginDebugRegion("Post Processing", glm::vec4(1.0f, 0.5f, 1.0f, 1.0f));
 
 	finalCombineCmdBuffers[cmdBufferIndex]->beginDebugRegion("Final/Combine", glm::vec4(0.8f, 0, 0, 1.0f));
 	finalCombineCmdBuffers[cmdBufferIndex]->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, combinePipeline);
@@ -91,8 +91,8 @@ void PostProcess::renderPostProcessing (Semaphore deferredLightingOutputSemaphor
 	finalCombineCmdBuffers[cmdBufferIndex]->draw(6);
 	finalCombineCmdBuffers[cmdBufferIndex]->endDebugRegion();
 
-	finalCombineCmdBuffers[cmdBufferIndex]->endDebugRegion();
 	finalCombineCmdBuffers[cmdBufferIndex]->endRenderPass();
+	finalCombineCmdBuffers[cmdBufferIndex]->endDebugRegion();
 	finalCombineCmdBuffers[cmdBufferIndex]->endCommands();
 	std::vector<Semaphore> waitSems = {deferredLightingOutputSemaphore};
 	std::vector<PipelineStageFlags> waitSemStages = {PIPELINE_STAGE_FRAGMENT_SHADER_BIT};

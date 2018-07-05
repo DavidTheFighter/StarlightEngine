@@ -262,10 +262,23 @@ void AtmosphereRenderer::loadScatteringSourceInclude ()
 		std::to_string(b) + ")";
 	};
 
+	auto mie_to_string = [&wavelengths](const std::vector<double>& v,
+		const glm::vec3& lambdas, double scale)
+	{
+		double r = Interpolate(wavelengths, v, lambdas[0]) * scale;
+		double g = Interpolate(wavelengths, v, lambdas[1]) * scale;
+		double b = Interpolate(wavelengths, v, lambdas[2]) * scale;
+
+		printf("mie_scattering(%f, %f, %f)\n", r, g, b);
+
+		return "vec3(" + std::to_string(r) + "," + std::to_string(g) + "," +
+			std::to_string(b) + ")";
+	};
+
 	auto glsl_header_factory_ = [=](const glm::vec3& lambdas)
 	{
 		return
-		"#define IN(x) const in x\n"
+		"#define IN(x) in x\n"
 		"#define OUT(x) out x\n"
 		"#define TEMPLATE(x)\n"
 		"#define TEMPLATE_ARGUMENT(x)\n"
@@ -300,7 +313,7 @@ void AtmosphereRenderer::loadScatteringSourceInclude ()
 				rayleigh_scattering, lambdas, kLengthUnitInMeters) + ",\n" +
 		density_profile(
 				{	mie_layer}) + ",\n" +
-		to_string(mie_scattering, lambdas, kLengthUnitInMeters) + ",\n" +
+		mie_to_string(mie_scattering, lambdas, kLengthUnitInMeters) + ",\n" +
 		to_string(mie_extinction, lambdas, kLengthUnitInMeters) + ",\n" +
 		std::to_string(kMiePhaseFunctionG) + ",\n" +
 		density_profile(ozone_density) + ",\n" +
