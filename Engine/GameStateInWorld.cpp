@@ -359,7 +359,7 @@ void GameStateInWorld::destroy ()
 	engine->resources->returnMaterial("dirt");
 	engine->resources->returnMaterial("slate");
 	engine->resources->returnMaterial("pavingstones");
-	engine->resources->returnMaterial("pbrTest");
+	engine->resources->returnMaterial("pbrTestMat");
 
 	engine->resources->returnStaticMesh("bridge");
 	engine->resources->returnStaticMesh("boulder");

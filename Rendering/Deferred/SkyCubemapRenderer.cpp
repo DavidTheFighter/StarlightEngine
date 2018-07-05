@@ -196,7 +196,7 @@ void SkyCubemapRenderer::init(uint32_t cubemapFaceResolution, const std::string 
 
 	// Create the sky cubemap for the lighting shader
 
-	skyCubemapTexture = renderer->createTexture({(float) cubemapFaceResolution, (float) cubemapFaceResolution, 1}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true, 1, 6);
+	skyCubemapTexture = renderer->createTexture({(float) cubemapFaceResolution, (float) cubemapFaceResolution, 1}, RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true, 1, 6);
 	skyCubemapTV = renderer->createTextureView(skyCubemapTexture, TEXTURE_VIEW_TYPE_CUBE, {0, 1, 0, 6});
 
 	for (uint32_t f = 0; f < 6; f++)
@@ -206,7 +206,7 @@ void SkyCubemapRenderer::init(uint32_t cubemapFaceResolution, const std::string 
 
 	// Create the pre-filtered environment map
 
-	skySrcEnviroMapTexture = renderer->createTexture({(float) faceResolution, (float) faceResolution, 1}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_TRANSFER_SRC_BIT, MEMORY_USAGE_GPU_ONLY, true, skyCubemapTextureMips, 6);
+	skySrcEnviroMapTexture = renderer->createTexture({(float) faceResolution, (float) faceResolution, 1}, RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_TRANSFER_SRC_BIT, MEMORY_USAGE_GPU_ONLY, true, skyCubemapTextureMips, 6);
 	skySrcEnviroMapTV = renderer->createTextureView(skySrcEnviroMapTexture, TEXTURE_VIEW_TYPE_CUBE, {0, skyCubemapTextureMips, 0, 6});
 
 	for (uint32_t f = 0; f < 6; f++)
@@ -218,7 +218,7 @@ void SkyCubemapRenderer::init(uint32_t cubemapFaceResolution, const std::string 
 
 	uint32_t mipmapCount = getMipCount();
 
-	skyFilteredEnviroMapTexture = renderer->createTexture({(float) cubemapFaceResolution, (float) cubemapFaceResolution, 1}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, true, mipmapCount, 6);
+	skyFilteredEnviroMapTexture = renderer->createTexture({(float) cubemapFaceResolution, (float) cubemapFaceResolution, 1}, RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, true, mipmapCount, 6);
 	skyFilteredEnviroMapTV = renderer->createTextureView(skyFilteredEnviroMapTexture, TEXTURE_VIEW_TYPE_CUBE, {0, mipmapCount, 0, 6});
 
 	for (uint32_t m = 0; m < mipmapCount; m++)
@@ -319,9 +319,11 @@ void SkyCubemapRenderer::destroy()
 
 	renderer->destroyTexture(skyCubemapTexture);
 	renderer->destroyTexture(skySrcEnviroMapTexture);
+	renderer->destroyTexture(skyFilteredEnviroMapTexture);
 
 	renderer->destroyTextureView(skyCubemapTV);
 	renderer->destroyTextureView(skySrcEnviroMapTV);
+	renderer->destroyTextureView(skyFilteredEnviroMapTV);
 
 	for (size_t i = 0; i < 6; i++)
 	{
@@ -329,15 +331,26 @@ void SkyCubemapRenderer::destroy()
 		renderer->destroyTextureView(skySrcEnviroMapFaceTV[i]);
 	}
 
+	for (size_t i = 0; i < skyFilteredEnviroMapTVs.size(); i++)
+		renderer->destroyTextureView(skyFilteredEnviroMapTVs[i]);
+
 	renderer->destroyFramebuffer(skyCubemapFB);
 	renderer->destroyFramebuffer(skySrcEnviroMapFB);
 
+	for (size_t i = 0; i < skyFilteredEnviroMapMipFBs.size(); i++)
+		renderer->destroyFramebuffer(skyFilteredEnviroMapMipFBs[i]);
+
 	renderer->destroyDescriptorPool(skyDescriptorPool);
+	renderer->destroyDescriptorPool(skyEnviroDescriptorPool);
 
 	for (int i = 0; i < 6; i++)
 		renderer->destroyPipeline(skyPipelines[i]);
+
+	for (size_t i = 0; i < enviroFilterPipelines.size(); i++)
+		renderer->destroyPipeline(enviroFilterPipelines[i]);
 	
 	renderer->destroyRenderPass(skyRenderPass);
+	renderer->destroyRenderPass(skyEnvironmentRenderPass);
 }
 
 TextureView SkyCubemapRenderer::getSkyCubemapTextureView()
@@ -364,7 +377,7 @@ void SkyCubemapRenderer::createRenderPasses()
 		for (uint32_t i = 0; i < 6; i++)
 		{
 			AttachmentDescription outputAttachment = {};
-			outputAttachment.format = RESOURCE_FORMAT_R16G16B16A16_SFLOAT;
+			outputAttachment.format = RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32;
 			outputAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
 			outputAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			outputAttachment.loadOp = ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -397,7 +410,7 @@ void SkyCubemapRenderer::createRenderPasses()
 		for (uint32_t f = 0; f < 6; f++)
 		{
 			AttachmentDescription outputAttachment = {};
-			outputAttachment.format = RESOURCE_FORMAT_R16G16B16A16_SFLOAT;
+			outputAttachment.format = RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32;
 			outputAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
 			outputAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			outputAttachment.loadOp = ATTACHMENT_LOAD_OP_DONT_CARE;
