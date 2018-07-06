@@ -37,6 +37,7 @@
 
 #include <World/WorldHandler.h>
 #include <World/Physics/WorldPhysics.h>
+#include <GLFW/glfw3.h>
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO

@@ -28,6 +28,7 @@
  */
 
 #include "Game/Game.h"
+#include <GLFW/glfw3.h>
 
 Game *Game::gameInstance;
 

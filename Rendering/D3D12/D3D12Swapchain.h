@@ -21,32 +21,67 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *
-* D3D12DescriptorPool.h
+* D3D12SwapchainHandler.h
 *
 * Created on: Jul 5, 2018
 *     Author: david
 */
 
-#ifndef RENDERING_D3D12_D3D12DESCRIPTORPOOL_H_
-#define RENDERING_D3D12_D3D12DESCRIPTORPOOL_H_
+#ifndef RENDERING_D3D12_D3D12SWAPCHAIN_H_
+#define RENDERING_D3D12_D3D12SWAPCHAIN_H_
 
 #include <common.h>
-#include <Rendering/Renderer/RendererEnums.h>
-#include <Rendering/Renderer/RendererObjects.h>
 #include <Rendering/D3D12/D3D12Common.h>
 
-class D3D12DescriptorPool : public RendererDescriptorPool
+#include <Input/Window.h>
+
+class D3D12Renderer;
+
+typedef struct
+{
+	IDXGISwapChain4 *dxgiSwapchain4;
+	ID3D12DescriptorHeap *descHeap;
+
+	std::vector<ID3D12Resource*> backBuffers;
+	ID3D12CommandAllocator *cmdAllocator;
+	std::vector<ID3D12GraphicsCommandList*> cmdLists;
+
+	ID3D12Fence *swapchainFence;
+	UINT64 swapchainFenceValue;
+	std::vector<UINT64> bufferFenceValues;
+
+	uint32_t currentBackBufferIndex;
+
+	HANDLE fenceEvent;
+
+} D3D12SwapchainData;
+
+class D3D12SwapchainHandler
 {
 	public:
 
-	D3D12DescriptorPool();
-	virtual ~D3D12DescriptorPool();
+	D3D12SwapchainHandler(D3D12Renderer *rendererPtr);
+	virtual ~D3D12SwapchainHandler();
 
-	DescriptorSet allocateDescriptorSet();
-	std::vector<DescriptorSet> allocateDescriptorSets(uint32_t setCount);
+	void initSwapchain(Window *wnd);
+	void presentToSwapchain(Window *wnd);
 
-	void freeDescriptorSet(DescriptorSet set);
-	void freeDescriptorSets(const std::vector<DescriptorSet> sets);
+	void createSwapchain(Window *wnd);
+	void destroySwapchain(Window *wnd);
+	void recreateSwapchain(Window *wnd);
+
+	private:
+
+	D3D12Renderer *renderer;
+
+	std::map<Window*, D3D12SwapchainData*> swapchains;
+
+	bool supportsTearing;
+
+	IDXGIFactory4 *dxgiFactory4;
+	UINT rtvDescriptorSize;
+
+	void prerecordSwapchainCommandList(D3D12SwapchainData *swapchain, ID3D12GraphicsCommandList *cmdList, uint32_t bufferIndex);
 };
 
-#endif /* RENDERING_D3D12_D3D12DESCRIPTORPOOL_H_ */
+#endif /* RENDERING_D3D12_D3D12SWAPCHAIN_H_ */

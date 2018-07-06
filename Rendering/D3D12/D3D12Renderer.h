@@ -23,18 +23,31 @@
 *
 * D3D12Renderer.h
 *
-* Created on: Jul 7, 2018
+* Created on: Jul 5, 2018
 *     Author: david
 */
 
 #ifndef RENDERING_D3D12_D3D12RENDERER_H_
 #define RENDERING_D3D12_D3D12RENDERER_H_
 
-#include "Rendering\Renderer\Renderer.h"
+#include "Rendering/Renderer/Renderer.h"
+
+#include <Rendering/D3D12/D3D12Common.h>
+
+class D3D12SwapchainHandler;
 
 class D3D12Renderer : public Renderer
 {
 	public:
+
+	bool debugLayersEnabled;
+
+	ID3D12Device2 *device;
+	IDXGIAdapter4 *deviceAdapter;
+
+	ID3D12CommandQueue *graphicsQueue;
+	ID3D12CommandQueue *computeQueue;
+	ID3D12CommandQueue *transferQueue;
 
 	D3D12Renderer(const RendererAllocInfo& allocInfo);
 	virtual ~D3D12Renderer();
@@ -112,7 +125,20 @@ class D3D12Renderer : public Renderer
 
 	private:
 
+	ID3D12Debug *debugController0;
+	ID3D12Debug1 *debugController1;
+	ID3D12InfoQueue *infoQueue;
+
+	IDXGIFactory4 *dxgiFactory;
+
+	RendererAllocInfo allocInfo;
+
+	D3D12SwapchainHandler *swapchainHandler;
+
 	char *temp_mapBuffer;
+
+	void chooseDeviceAdapter();
+	void createLogicalDevice();
 };
 
 #endif /* RENDERING_D3D12_D3D12RENDERER_H_ */

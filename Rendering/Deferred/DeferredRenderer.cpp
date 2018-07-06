@@ -207,7 +207,7 @@ void DeferredRenderer::init ()
 
 	DescriptorBufferInfo weuboInfo = {};
 	weuboInfo.buffer = engine->api->getWorldEnvironmentUBO();
-	weuboInfo.range = VK_WHOLE_SIZE;
+	weuboInfo.range = sizeof(WorldEnvironmentUBO);
 
 	DescriptorImageInfo shadowSamplerImageInfo = {};
 	shadowSamplerImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

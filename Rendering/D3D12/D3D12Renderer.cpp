@@ -23,7 +23,7 @@
 *
 * D3D12Renderer.cpp
 *
-* Created on: Jul 7, 2018
+* Created on: Jul 5, 2018
 *     Author: david
 */
 
@@ -32,19 +32,151 @@
 #include <Rendering/D3D12/D3D12CommandPool.h>
 #include <Rendering/D3D12/D3D12DescriptorPool.h>
 #include <Rendering/D3D12/D3D12Objects.h>
+#include <Rendering/D3D12/D3D12Swapchain.h>
 
 D3D12Renderer::D3D12Renderer(const RendererAllocInfo& allocInfo)
 {
+	this->allocInfo = allocInfo;
+
+	debugController0 = nullptr;
+	debugController1 = nullptr;
+	infoQueue;
+	device = nullptr;
+
+	swapchainHandler = nullptr;
+
+	debugLayersEnabled = false;
+
 	temp_mapBuffer = new char[64 * 1024 * 1024];
 }
 
 D3D12Renderer::~D3D12Renderer()
 {
+	delete swapchainHandler;
+
+	graphicsQueue->Release();
+	computeQueue->Release();
+	transferQueue->Release();
+
+	deviceAdapter->Release();
+	device->Release();
+
+	dxgiFactory->Release();
+
+	debugController0->Release();
+	debugController1->Release();
+
 	delete temp_mapBuffer;
 }
 
 void D3D12Renderer::initRenderer()
 {
+	if (std::find(allocInfo.launchArgs.begin(), allocInfo.launchArgs.end(), "-enable_d3d12_debug") != allocInfo.launchArgs.end())
+	{
+		debugLayersEnabled = true;
+
+		printf("%s Enabling debug layers for the D3D12 backend\n", INFO_PREFIX);
+	}
+
+	if (debugLayersEnabled)
+	{
+		DX_CHECK_RESULT(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController0)));
+		DX_CHECK_RESULT(debugController0->QueryInterface(IID_PPV_ARGS(&debugController1)));
+
+		if (std::find(allocInfo.launchArgs.begin(), allocInfo.launchArgs.end(), "-enable_d3d12_hw_debug") != allocInfo.launchArgs.end())
+		{
+			debugController1->SetEnableGPUBasedValidation(true);
+
+			printf("%s Also enabled D3D12 GPU-based validation\n", INFO_PREFIX);
+		}
+
+		debugController1->EnableDebugLayer();
+	}
+
+	uint32_t createFactoryFlags = 0;
+
+	if (debugLayersEnabled)
+		createFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+
+	DX_CHECK_RESULT(CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&dxgiFactory)));
+
+	chooseDeviceAdapter();
+	createLogicalDevice();
+
+	// Setup the d3d12 debug layer filter & stuff
+	if (debugLayersEnabled && false)
+	{
+		DX_CHECK_RESULT(device->QueryInterface(IID_PPV_ARGS(&infoQueue)));
+
+		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, FALSE);
+
+		std::vector<D3D12_MESSAGE_SEVERITY> severities = {D3D12_MESSAGE_SEVERITY_INFO};
+		std::vector<D3D12_MESSAGE_ID> denyIDs = {};
+
+		D3D12_INFO_QUEUE_FILTER dbgFilter = {};
+		dbgFilter.DenyList.NumSeverities = (UINT) severities.size();
+		dbgFilter.DenyList.pSeverityList = severities.data();
+		dbgFilter.DenyList.NumIDs = (UINT) denyIDs.size();
+		dbgFilter.DenyList.pIDList = denyIDs.data();
+
+		DX_CHECK_RESULT(infoQueue->PushStorageFilter(&dbgFilter));
+	}
+
+	swapchainHandler = new D3D12SwapchainHandler(this);
+	initSwapchain(allocInfo.mainWindow);
+}
+
+void D3D12Renderer::chooseDeviceAdapter()
+{
+	uint32_t adapterIndex = 0;
+	IDXGIAdapter1 *adapter1 = nullptr;
+	size_t maxDedicatedVideoMemory = 0;
+
+	while (dxgiFactory->EnumAdapters1(adapterIndex, &adapter1) != DXGI_ERROR_NOT_FOUND)
+	{
+		DXGI_ADAPTER_DESC1 dxgiAdapterDesc;
+		adapter1->GetDesc1(&dxgiAdapterDesc);
+
+		bool isNotSoftware = (dxgiAdapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0;
+		
+		if (isNotSoftware && SUCCEEDED(D3D12CreateDevice(adapter1, D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), nullptr)) && dxgiAdapterDesc.DedicatedVideoMemory > maxDedicatedVideoMemory)
+		{
+			maxDedicatedVideoMemory = dxgiAdapterDesc.DedicatedVideoMemory;
+			adapter1->QueryInterface(&deviceAdapter);
+		}
+
+		adapter1->Release();
+		adapterIndex++;
+	}
+}
+
+void D3D12Renderer::createLogicalDevice()
+{
+	DX_CHECK_RESULT(D3D12CreateDevice(deviceAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)));
+
+	D3D12_COMMAND_QUEUE_DESC gfxQueueDesc = {};
+	gfxQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	gfxQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+	gfxQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	gfxQueueDesc.NodeMask = 0;
+
+	D3D12_COMMAND_QUEUE_DESC computeQueueDesc = {};
+	computeQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+	computeQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+	computeQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	computeQueueDesc.NodeMask = 0;
+
+	D3D12_COMMAND_QUEUE_DESC transferQueueDesc = {};
+	transferQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
+	transferQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+	transferQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+	transferQueueDesc.NodeMask = 0;
+
+	DX_CHECK_RESULT(device->CreateCommandQueue(&gfxQueueDesc, IID_PPV_ARGS(&graphicsQueue)));
+	DX_CHECK_RESULT(device->CreateCommandQueue(&computeQueueDesc, IID_PPV_ARGS(&computeQueue)));
+	DX_CHECK_RESULT(device->CreateCommandQueue(&transferQueueDesc, IID_PPV_ARGS(&transferQueue)));
 }
 
 CommandPool D3D12Renderer::createCommandPool(QueueType queue, CommandPoolFlags flags)
@@ -319,20 +451,24 @@ void D3D12Renderer::setObjectDebugName(void * obj, RendererObjectType objType, c
 {
 }
 
-void D3D12Renderer::initSwapchain(Window * wnd)
+void D3D12Renderer::initSwapchain(Window *wnd)
 {
+	swapchainHandler->initSwapchain(wnd);
 }
 
-void D3D12Renderer::presentToSwapchain(Window * wnd)
+void D3D12Renderer::presentToSwapchain(Window *wnd)
 {
+	swapchainHandler->presentToSwapchain(wnd);
 }
 
-void D3D12Renderer::recreateSwapchain(Window * wnd)
+void D3D12Renderer::recreateSwapchain(Window *wnd)
 {
+	swapchainHandler->recreateSwapchain(wnd);
 }
 
-void D3D12Renderer::setSwapchainTexture(Window * wnd, TextureView texView, Sampler sampler, TextureLayout layout)
+void D3D12Renderer::setSwapchainTexture(Window *wnd, TextureView texView, Sampler sampler, TextureLayout layout)
 {
+	
 }
 
 

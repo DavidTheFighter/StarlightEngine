@@ -24,6 +24,7 @@
  *
  * -enable_vulkan_layers
  * -enable_d3d12_debug
+ * -enable_d3d12_hw_debug
  */
 
 #include <common.h>
@@ -36,6 +37,8 @@
 #include <Engine/StarlightEngine.h>
 #include <Engine/GameStateTitleScreen.h>
 #include <Engine/GameStateInWorld.h>
+
+#include <GLFW/glfw3.h>
 
 void printEnvironment (std::vector<std::string> launchArgs);
 

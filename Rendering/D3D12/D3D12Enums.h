@@ -21,32 +21,15 @@
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *
-* D3D12DescriptorPool.h
+* D3D12Renderer.h
 *
-* Created on: Jul 5, 2018
+* Created on: Jul 7, 2018
 *     Author: david
 */
 
-#ifndef RENDERING_D3D12_D3D12DESCRIPTORPOOL_H_
-#define RENDERING_D3D12_D3D12DESCRIPTORPOOL_H_
+#ifndef RENDERING_D3D12_D3D12ENUMS_H_
+#define RENDERING_D3D12_D3D12ENUMS_H_
 
-#include <common.h>
-#include <Rendering/Renderer/RendererEnums.h>
-#include <Rendering/Renderer/RendererObjects.h>
-#include <Rendering/D3D12/D3D12Common.h>
 
-class D3D12DescriptorPool : public RendererDescriptorPool
-{
-	public:
 
-	D3D12DescriptorPool();
-	virtual ~D3D12DescriptorPool();
-
-	DescriptorSet allocateDescriptorSet();
-	std::vector<DescriptorSet> allocateDescriptorSets(uint32_t setCount);
-
-	void freeDescriptorSet(DescriptorSet set);
-	void freeDescriptorSets(const std::vector<DescriptorSet> sets);
-};
-
-#endif /* RENDERING_D3D12_D3D12DESCRIPTORPOOL_H_ */
+#endif /* RENDERING_D3D12_D3D12ENUMS_H_ */

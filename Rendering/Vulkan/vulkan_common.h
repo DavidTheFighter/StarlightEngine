@@ -18,6 +18,7 @@
 #define SE_VULKAN_DEBUG_MARKERS (1 && SE_RENDER_DEBUG_MARKERS)
 
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan.h>
 
 class VulkanExtensions
 {

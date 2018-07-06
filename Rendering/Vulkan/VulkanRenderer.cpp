@@ -13,6 +13,9 @@
 #include <Rendering/Vulkan/VulkanEnums.h>
 #include <Rendering/Vulkan/VulkanShaderLoader.h>
 
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
 const std::vector<const char*> validationLayers = {"VK_LAYER_LUNARG_standard_validation"};
 const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
@@ -185,11 +188,6 @@ CommandPool VulkanRenderer::createCommandPool (QueueType queue, CommandPoolFlags
 			poolCreateInfo.queueFamilyIndex = deviceQueueInfo.transferFamily;
 			break;
 		}
-		case QUEUE_TYPE_PRESENT:
-		{
-			poolCreateInfo.queueFamilyIndex = deviceQueueInfo.presentFamily;
-			break;
-		}
 		default:
 			poolCreateInfo.queueFamilyIndex = std::numeric_limits<uint32_t>::max();
 	}
@@ -253,9 +251,6 @@ void VulkanRenderer::submitToQueue (QueueType queue, const std::vector<CommandBu
 		case QUEUE_TYPE_TRANSFER:
 			vulkanQueue = transferQueue;
 			break;
-		case QUEUE_TYPE_PRESENT:
-			vulkanQueue = presentQueue;
-			break;
 		default:
 			vulkanQueue = VK_NULL_HANDLE;
 	}
@@ -277,10 +272,6 @@ void VulkanRenderer::waitForQueueIdle (QueueType queue)
 			break;
 		case QUEUE_TYPE_TRANSFER:
 			VK_CHECK_RESULT(vkQueueWaitIdle(transferQueue))
-			;
-			break;
-		case QUEUE_TYPE_PRESENT:
-			VK_CHECK_RESULT(vkQueueWaitIdle(presentQueue))
 			;
 			break;
 		default:
@@ -1291,7 +1282,7 @@ void VulkanRenderer::choosePhysicalDevice ()
 		 */
 
 		uint32_t score = 0;
-
+		
 		score += props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ? 500 : 0;
 		score += props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ? 200 : 0;
 		score += props.limits.maxSamplerAnisotropy;
