@@ -39,6 +39,8 @@ class D3D12Renderer;
 
 typedef struct
 {
+	Window *parentWindow;
+
 	IDXGISwapChain4 *dxgiSwapchain4;
 	ID3D12DescriptorHeap *descHeap;
 
@@ -81,7 +83,27 @@ class D3D12SwapchainHandler
 	IDXGIFactory4 *dxgiFactory4;
 	UINT rtvDescriptorSize;
 
+	ID3D12PipelineState *swapchainPSO;
+	ID3D12RootSignature *swapchainRootSig;
+	ID3D12Resource *swapchainVertexBuffer;
+	D3D12_VERTEX_BUFFER_VIEW swapchainVertexBufferView;
+
+	ID3D12DescriptorHeap *swapchainDescHeap;
+	ID3D12Resource *swapchainCBufferHeap;
+	ID3D12Resource *swapchainTextureHeap;
+
+	ID3D12CommandAllocator *swapchainUtilCommandAlloc;
+	ID3D12Fence *swapchainUtilFence;
+	HANDLE swapchainUtilFenceEvent;
+	uint64_t swapchainUtilFenceValue;
+
 	void prerecordSwapchainCommandList(D3D12SwapchainData *swapchain, ID3D12GraphicsCommandList *cmdList, uint32_t bufferIndex);
+
+	void createRootSignature();
+	void createPSO();
+	void createVertexBuffer();
+	void createTexture();
+	void createConstantBuffer();
 };
 
 #endif /* RENDERING_D3D12_D3D12SWAPCHAIN_H_ */

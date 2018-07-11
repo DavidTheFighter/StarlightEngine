@@ -110,7 +110,7 @@ void WorldRenderer::render3DWorld ()
 		
 		if (physDat.numLines > 0)
 		{
-			physxDebugStreamingBuffer = engine->renderer->createBuffer(physDat.numLines * sizeof(PhysicsDebugLine), BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_CPU_ONLY);
+			physxDebugStreamingBuffer = engine->renderer->createBuffer(physDat.numLines * sizeof(PhysicsDebugLine), BUFFER_USAGE_VERTEX_BUFFER, true, false, MEMORY_USAGE_CPU_ONLY);
 			void *bufDat = engine->renderer->mapBuffer(physxDebugStreamingBuffer);
 			memcpy(bufDat, physDat.lines.data(), physDat.numLines * sizeof(PhysicsDebugLine));
 			engine->renderer->unmapBuffer(physxDebugStreamingBuffer);
@@ -251,8 +251,8 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4
 						worldStreamingBufferOffset = 0;
 					}
 
-					cmdBuffer->bindIndexBuffer(staticMeshLOD->meshBuffer, 0, staticMeshLOD->uses32bitIndices);
-					cmdBuffer->bindVertexBuffers(0, {staticMeshLOD->meshBuffer, worldStreamingBuffer}, {staticMeshLOD->indexChunkSize, worldStreamingBufferOffset * sizeof(dataList[0])});
+					cmdBuffer->bindIndexBuffer(staticMeshLOD->meshIndexBuffer, 0, staticMeshLOD->uses32bitIndices);
+					cmdBuffer->bindVertexBuffers(0, {staticMeshLOD->meshVertexBuffer, worldStreamingBuffer}, {0, worldStreamingBufferOffset * sizeof(dataList[0])});
 
 					memcpy(static_cast<LevelStaticObject*>(worldStreamingBufferData) + worldStreamingBufferOffset, dataList.data(), meshInstanceDataSize);
 					worldStreamingBufferOffset += dataList.size();
@@ -350,7 +350,7 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 
 	testSampler = engine->renderer->createSampler();
 
-	worldStreamingBuffer = engine->renderer->createBuffer(STATIC_OBJECT_STREAMING_BUFFER_SIZE, BUFFER_USAGE_VERTEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, true);
+	worldStreamingBuffer = engine->renderer->createBuffer(STATIC_OBJECT_STREAMING_BUFFER_SIZE, BUFFER_USAGE_VERTEX_BUFFER, false, false, MEMORY_USAGE_CPU_TO_GPU, true);
 	worldStreamingBufferData = engine->renderer->mapBuffer(worldStreamingBuffer);
 
 	engine->renderer->setObjectDebugName(worldStreamingBuffer, OBJECT_TYPE_BUFFER, "LevelStaticObj Streaming Buffer");
@@ -375,9 +375,9 @@ void WorldRenderer::init (suvec2 gbufferDimensions)
 
 void WorldRenderer::createGBuffer ()
 {
-	gbuffer[0] = engine->renderer->createTexture({(float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-	gbuffer[1] = engine->renderer->createTexture({(float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 1.0f}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-	gbuffer[2] = engine->renderer->createTexture({(float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 1.0f}, RESOURCE_FORMAT_D32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	gbuffer[0] = engine->renderer->createTexture({gbufferRenderDimensions.x, gbufferRenderDimensions.y, 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	gbuffer[1] = engine->renderer->createTexture({gbufferRenderDimensions.x, gbufferRenderDimensions.y, 1}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	gbuffer[2] = engine->renderer->createTexture({gbufferRenderDimensions.x, gbufferRenderDimensions.y, 1}, RESOURCE_FORMAT_D32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 
 	gbufferView[0] = engine->renderer->createTextureView(gbuffer[0]);
 	gbufferView[1] = engine->renderer->createTextureView(gbuffer[1]);

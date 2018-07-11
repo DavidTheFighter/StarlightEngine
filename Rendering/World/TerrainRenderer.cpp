@@ -143,7 +143,7 @@ void TerrainRenderer::update ()
 						continue;
 					}
 
-					StagingBuffer stagBuf = engine->renderer->createAndMapStagingBuffer(513 * 513 * 2, elevationData.get());
+					StagingBuffer stagBuf = engine->renderer->createAndFillStagingBuffer(513 * 513 * 2, elevationData.get());
 
 					dirtyClipmap0Regions.push_back({{x, y}, stagBuf});
 
@@ -169,7 +169,7 @@ void TerrainRenderer::update ()
 						continue;
 					}
 
-					StagingBuffer stagBuf = engine->renderer->createAndMapStagingBuffer(257 * 257 * 2, elevationData.get());
+					StagingBuffer stagBuf = engine->renderer->createAndFillStagingBuffer(257 * 257 * 2, elevationData.get());
 
 					dirtyClipmap1Regions.push_back({{x, y}, stagBuf});
 
@@ -195,7 +195,7 @@ void TerrainRenderer::update ()
 						continue;
 					}
 
-					StagingBuffer stagBuf = engine->renderer->createAndMapStagingBuffer(129 * 129 * 2, elevationData.get());
+					StagingBuffer stagBuf = engine->renderer->createAndFillStagingBuffer(129 * 129 * 2, elevationData.get());
 
 					dirtyClipmap2Regions.push_back({{x, y}, stagBuf});
 
@@ -221,7 +221,7 @@ void TerrainRenderer::update ()
 						continue;
 					}
 
-					StagingBuffer stagBuf = engine->renderer->createAndMapStagingBuffer(65 * 65 * 2, elevationData.get());
+					StagingBuffer stagBuf = engine->renderer->createAndFillStagingBuffer(65 * 65 * 2, elevationData.get());
 
 					dirtyClipmap3Regions.push_back({{x, y}, stagBuf});
 
@@ -247,7 +247,7 @@ void TerrainRenderer::update ()
 						continue;
 					}
 
-					StagingBuffer stagBuf = engine->renderer->createAndMapStagingBuffer(33 * 33 * 2, elevationData.get());
+					StagingBuffer stagBuf = engine->renderer->createAndFillStagingBuffer(33 * 33 * 2, elevationData.get());
 
 					dirtyClipmap4Regions.push_back({{x, y}, stagBuf});
 
@@ -741,8 +741,8 @@ void TerrainRenderer::buildTerrainCellGrids()
 			}
 		}
 
-		StagingBuffer stagBuf = engine->renderer->createAndMapStagingBuffer(vertices.size() * sizeof(vertices[0]), vertices.data());
-		terrainCellMesh = engine->renderer->createBuffer(vertices.size() * sizeof(vertices[0]), BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
+		StagingBuffer stagBuf = engine->renderer->createAndFillStagingBuffer(vertices.size() * sizeof(vertices[0]), vertices.data());
+		terrainCellMesh = engine->renderer->createBuffer(vertices.size() * sizeof(vertices[0]), BUFFER_USAGE_VERTEX_BUFFER, true, false, MEMORY_USAGE_GPU_ONLY, false);
 
 		CommandBuffer cmdBuffer = engine->renderer->beginSingleTimeCommand(clipmapUpdateCommandPool);
 		cmdBuffer->stageBuffer(stagBuf, terrainCellMesh);
@@ -769,8 +769,8 @@ void TerrainRenderer::buildTerrainCellGrids()
 			}
 		}
 
-		StagingBuffer stagBuf = engine->renderer->createAndMapStagingBuffer(vertices.size() * sizeof(vertices[0]), vertices.data());
-		shadowTerrainMesh = engine->renderer->createBuffer(vertices.size() * sizeof(vertices[0]), BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
+		StagingBuffer stagBuf = engine->renderer->createAndFillStagingBuffer(vertices.size() * sizeof(vertices[0]), vertices.data());
+		shadowTerrainMesh = engine->renderer->createBuffer(vertices.size() * sizeof(vertices[0]), BUFFER_USAGE_VERTEX_BUFFER, true, false, MEMORY_USAGE_GPU_ONLY, false);
 
 		CommandBuffer cmdBuffer = engine->renderer->beginSingleTimeCommand(clipmapUpdateCommandPool);
 		cmdBuffer->stageBuffer(stagBuf, shadowTerrainMesh);

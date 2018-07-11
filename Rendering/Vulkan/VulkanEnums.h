@@ -140,12 +140,6 @@ inline VkAttachmentStoreOp toVkAttachmentStoreOp (AttachmentStoreOp op)
 	return static_cast<VkAttachmentStoreOp> (op);
 }
 
-inline VkBufferUsageFlags toVkBufferUsageFlags (BufferUsageFlags usage)
-{
-	// Generic buffer usage flags map directly to vulkan buffer usage flags
-	return static_cast<VkBufferUsageFlags> (usage);
-}
-
 inline VkImageLayout toVkImageLayout (TextureLayout layout)
 {
 	// Generic image layouts map directly to vulkan image layouts
@@ -194,10 +188,9 @@ inline VkSamplerMipmapMode toVkSamplerMipmapMode (SamplerMipmapMode mode)
 	return static_cast<VkSamplerMipmapMode>(mode);
 }
 
-inline VkExtent3D toVkExtent (svec3 vec)
+inline VkExtent3D toVkExtent (suvec3 vec)
 {
-	return
-	{	(uint32_t) vec.x, (uint32_t) vec.y, (uint32_t) vec.z};
+	return {vec.x, vec.y, vec.z};
 }
 
 inline VmaMemoryUsage toVmaMemoryUsage (MemoryUsage usage)

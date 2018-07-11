@@ -41,10 +41,15 @@ typedef struct TextureSubresourceLayers
 
 typedef struct RendererStagingBuffer
 {
+	size_t bufferSize;
 } RendererStagingBuffer;
 
 typedef struct RendererBuffer
 {
+	size_t bufferSize;
+	BufferUsageType usage;
+	bool canBeTransferSrc;
+	bool canBeTransferDst;
 } RendererBuffer;
 
 // Note at least for now I'm disregarding stencil operations

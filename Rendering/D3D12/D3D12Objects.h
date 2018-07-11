@@ -34,7 +34,7 @@
 
 struct D3D12Texture : public RendererTexture
 {
-	ID3D12Resource *res;
+	ID3D12Resource *textureResource;
 };
 
 struct D3D12TextureView : public RendererTextureView
@@ -69,12 +69,12 @@ struct D3D12ShaderModule : public RendererShaderModule
 
 struct D3D12StagingBuffer : public RendererStagingBuffer
 {
-	ID3D12Resource *res;
+	ID3D12Resource *bufferResource;
 };
 
 struct D3D12Buffer : public RendererBuffer
 {
-	ID3D12Resource *res;
+	ID3D12Resource *bufferResource;
 };
 
 struct D3D12Fence : public RendererFence

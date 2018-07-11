@@ -59,19 +59,19 @@ class Renderer
 		virtual Semaphore createSemaphore () = 0;
 		virtual std::vector<Semaphore> createSemaphores (uint32_t count) = 0;
 
-		virtual Texture createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory = false, uint32_t mipLevelCount = 1, uint32_t arrayLayerCount = 1, TextureType type = TEXTURE_TYPE_2D) = 0;
+		virtual Texture createTexture (suvec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory = false, uint32_t mipLevelCount = 1, uint32_t arrayLayerCount = 1) = 0;
 		virtual TextureView createTextureView (Texture texture, TextureViewType viewType = TEXTURE_VIEW_TYPE_2D, TextureSubresourceRange subresourceRange = {0, 1, 0, 1}, ResourceFormat viewFormat = RESOURCE_FORMAT_UNDEFINED) = 0;
 		virtual Sampler createSampler (SamplerAddressMode addressMode = SAMPLER_ADDRESS_MODE_REPEAT, SamplerFilter minFilter = SAMPLER_FILTER_LINEAR, SamplerFilter magFilter = SAMPLER_FILTER_LINEAR, float anisotropy = 1.0f, svec3 min_max_biasLod = {0, 0, 0}, SamplerMipmapMode mipmapMode = SAMPLER_MIPMAP_MODE_LINEAR) = 0;
 
-		virtual Buffer createBuffer (size_t size, BufferUsageFlags usage, MemoryUsage memUsage, bool ownMemory = false) = 0;
+		virtual Buffer createBuffer(size_t size, BufferUsageType usage, bool canBeTransferDst, bool canBeTransferSrc, MemoryUsage memUsage, bool ownMemory = false) = 0;
 		virtual void *mapBuffer (Buffer buffer) = 0;
 		virtual void unmapBuffer (Buffer buffer) = 0;
-		virtual void *mapTexture (Texture texture) = 0;
-		virtual void unmapTexture (Texture texture) = 0;
 
 		virtual StagingBuffer createStagingBuffer (size_t dataSize) = 0;
-		virtual StagingBuffer createAndMapStagingBuffer (size_t dataSize, const void *data) = 0;
-		virtual void mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, const void *data) = 0;
+		virtual StagingBuffer createAndFillStagingBuffer (size_t dataSize, const void *data) = 0;
+		virtual void fillStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, const void *data) = 0;
+		virtual void *mapStagingBuffer(StagingBuffer stagingBuffer) = 0;
+		virtual void unmapStagingBuffer(StagingBuffer stagingBuffer) = 0;
 
 		virtual CommandBuffer beginSingleTimeCommand (CommandPool pool);
 		virtual void endSingleTimeCommand (CommandBuffer cmdBuffer, CommandPool pool, QueueType queue);

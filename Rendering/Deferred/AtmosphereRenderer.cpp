@@ -74,9 +74,9 @@ std::string AtmosphereRenderer::getAtmosphericShaderLib ()
 
 void AtmosphereRenderer::loadPrecomputedTextures ()
 {
-	transmittanceTexture = engine->renderer->createTexture({(float) TRANSMITTANCE_TEXTURE_WIDTH, (float) TRANSMITTANCE_TEXTURE_HEIGHT, 1}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
-	scatteringTexture = engine->renderer->createTexture({(float) SCATTERING_TEXTURE_WIDTH, (float) SCATTERING_TEXTURE_HEIGHT, (float) SCATTERING_TEXTURE_DEPTH}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false, 1, 1, TEXTURE_TYPE_3D);
-	irradianceTexture = engine->renderer->createTexture({(float) IRRADIANCE_TEXTURE_WIDTH, (float) IRRADIANCE_TEXTURE_HEIGHT, 1}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
+	transmittanceTexture = engine->renderer->createTexture({TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, 1}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
+	scatteringTexture = engine->renderer->createTexture({SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false, 1, 1);
+	irradianceTexture = engine->renderer->createTexture({IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, 1}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
 
 	transmittanceTV = engine->renderer->createTextureView(transmittanceTexture);
 	scatteringTV = engine->renderer->createTextureView(scatteringTexture, TEXTURE_VIEW_TYPE_3D);
@@ -86,9 +86,9 @@ void AtmosphereRenderer::loadPrecomputedTextures ()
 	std::vector<char> scatteringBTD = FileLoader::instance()->readFileBuffer("GameData/textures/atmosphere/scattering.btd");
 	std::vector<char> irradianceBTD = FileLoader::instance()->readFileBuffer("GameData/textures/atmosphere/irradiance.btd");
 
-	StagingBuffer transmittanceSB = engine->renderer->createAndMapStagingBuffer(transmittanceBTD.size(), transmittanceBTD.data());
-	StagingBuffer scatteringSB = engine->renderer->createAndMapStagingBuffer(scatteringBTD.size(), scatteringBTD.data());
-	StagingBuffer irradianceSB = engine->renderer->createAndMapStagingBuffer(irradianceBTD.size(), irradianceBTD.data());
+	StagingBuffer transmittanceSB = engine->renderer->createAndFillStagingBuffer(transmittanceBTD.size(), transmittanceBTD.data());
+	StagingBuffer scatteringSB = engine->renderer->createAndFillStagingBuffer(scatteringBTD.size(), scatteringBTD.data());
+	StagingBuffer irradianceSB = engine->renderer->createAndFillStagingBuffer(irradianceBTD.size(), irradianceBTD.data());
 
 	CommandPool tmpCmdPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
 	CommandBuffer buf = engine->renderer->beginSingleTimeCommand(tmpCmdPool);

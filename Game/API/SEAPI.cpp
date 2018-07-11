@@ -82,7 +82,7 @@ glm::vec3 SEAPI::getSunDirection ()
 
 void SEAPI::init ()
 {
-	worldEnvironmentUBO = engine->renderer->createBuffer(sizeof(WorldEnvironmentUBO), BUFFER_USAGE_UNIFORM_BUFFER_BIT, MEMORY_USAGE_CPU_ONLY, false);
+	worldEnvironmentUBO = engine->renderer->createBuffer(sizeof(WorldEnvironmentUBO), BUFFER_USAGE_UNIFORM_BUFFER, false, false, MEMORY_USAGE_CPU_ONLY, false);
 }
 
 void SEAPI::setWorldRendererPtr (WorldRenderer *worldRendererPtr)

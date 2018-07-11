@@ -67,7 +67,6 @@ struct VulkanStagingBuffer : public RendererStagingBuffer
 {
 		VkBuffer bufferHandle;
 		VmaAllocation bufferMemory;
-		VkDeviceSize memorySize;
 };
 
 struct VulkanBuffer : public RendererBuffer

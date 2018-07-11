@@ -718,18 +718,29 @@ std::vector<Semaphore> VulkanRenderer::createSemaphores (uint32_t count)
 	return sems;
 }
 
-Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, uint32_t arrayLayerCount, TextureType type)
+Texture VulkanRenderer::createTexture (suvec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, uint32_t arrayLayerCount)
 {
+#if VULKAN_DEBUG_COMPATIBILITY_CHECKS
+	DEBUG_ASSERT(!(extent.z > 1 && arrayLayerCount > 1) && "3D Texture arrays are not supported, only one of extent.z or arrayLayerCount can be greater than 1");
+
+	if ((format == RESOURCE_FORMAT_A2R10G10B10_UINT_PACK32 || format == RESOURCE_FORMAT_A2R10G10B10_UNORM_PACK32) && (usage & TEXTURE_USAGE_TRANSFER_DST_BIT))
+		printf("%s There are no swizzle equivalents between D3D12 and Vulkan, using R10G10B10A2 and A2R10G10B10, respectively, and the renderer backend does not convert the texture data for you\n", WARN_PREFIX);
+
+	if (format == RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32 && (usage & TEXTURE_USAGE_TRANSFER_DST_BIT))
+		printf("%s There are no swizzle equivalents between D3D12 and Vulkan, using R11G11B10 and B10G11R11, respectively, and the renderer backend does not convert the texture data for you\n", WARN_PREFIX);
+
+	if (format == RESOURCE_FORMAT_E5B9G9R9_UFLOAT_PACK32 && (usage & TEXTURE_USAGE_TRANSFER_DST_BIT))
+		printf("%s There are no swizzle equivalents between D3D12 and Vulkan, using R9G9B9E5 and E5B9G9R9, respectively, and the renderer backend does not convert the texture data for you\n", WARN_PREFIX);
+#endif
+
 	VulkanTexture *tex = new VulkanTexture();
 	tex->imageFormat = toVkFormat(format);
-	tex->width = uint32_t(extent.x);
-	tex->height = uint32_t(extent.y);
-	tex->depth = uint32_t(extent.z);
+	tex->width = extent.x;
+	tex->height = extent.y;
+	tex->depth = extent.z;
 	tex->textureFormat = format;
 
 	VkImageCreateFlags createFlags = 0;
-
-
 
 	if (arrayLayerCount == 6)
 		createFlags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
@@ -737,7 +748,7 @@ Texture VulkanRenderer::createTexture (svec3 extent, ResourceFormat format, Text
 	VkImageCreateInfo imageCreateInfo = {};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.extent = toVkExtent(extent);
-	imageCreateInfo.imageType = toVkImageType(type);
+	imageCreateInfo.imageType = extent.z > 1 ? VK_IMAGE_TYPE_3D : (extent.y > 1 ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_1D);
 	imageCreateInfo.mipLevels = mipLevelCount;
 	imageCreateInfo.arrayLayers = arrayLayerCount;
 	imageCreateInfo.format = toVkFormat(format);
@@ -809,16 +820,41 @@ Sampler VulkanRenderer::createSampler (SamplerAddressMode addressMode, SamplerFi
 	return vkSampler;
 }
 
-Buffer VulkanRenderer::createBuffer (size_t size, BufferUsageFlags usage, MemoryUsage memUsage, bool ownMemory)
+Buffer VulkanRenderer::createBuffer(size_t size, BufferUsageType usage, bool canBeTransferDst, bool canBeTransferSrc, MemoryUsage memUsage, bool ownMemory)
 {
 	VulkanBuffer *vkBuffer = new VulkanBuffer();
 	vkBuffer->memorySize = static_cast<VkDeviceSize>(size);
+	vkBuffer->usage = usage;
+	vkBuffer->canBeTransferSrc = canBeTransferSrc;
+	vkBuffer->canBeTransferDst = canBeTransferDst;
 
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = size;
-	bufferInfo.usage = usage;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferInfo.usage = 0;
+
+	if (canBeTransferSrc)
+		bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+	if (canBeTransferDst)
+		bufferInfo.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	switch (usage)
+	{
+		case BUFFER_USAGE_UNIFORM_BUFFER:
+			bufferInfo.usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+			break;
+		case BUFFER_USAGE_VERTEX_BUFFER:
+			bufferInfo.usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+			break;
+		case BUFFER_USAGE_INDEX_BUFFER:
+			bufferInfo.usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+			break;
+		case BUFFER_USAGE_INDIRECT_BUFFER:
+			bufferInfo.usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+			break;
+	}
 
 	VmaAllocationCreateInfo allocInfo = {};
 	allocInfo.usage = toVmaMemoryUsage(memUsage);
@@ -847,28 +883,10 @@ void VulkanRenderer::unmapBuffer(Buffer buffer)
 	vmaUnmapMemory(memAllocator, vkBuffer->bufferMemory);
 }
 
-void *VulkanRenderer::mapTexture (Texture texture)
-{
-	VulkanTexture *vulkanTexture = static_cast<VulkanTexture*> (texture);
-
-	void *mappedImageMemory = nullptr;
-
-	VK_CHECK_RESULT(vmaMapMemory(memAllocator, vulkanTexture->imageMemory, &mappedImageMemory));
-
-	return mappedImageMemory;
-}
-
-void VulkanRenderer::unmapTexture (Texture texture)
-{
-	VulkanTexture *vulkanTexture = static_cast<VulkanTexture*> (texture);
-
-	vmaUnmapMemory(memAllocator, vulkanTexture->imageMemory);
-}
-
 StagingBuffer VulkanRenderer::createStagingBuffer (size_t dataSize)
 {
 	VulkanStagingBuffer *stagingBuffer = new VulkanStagingBuffer();
-	stagingBuffer->memorySize = static_cast<VkDeviceSize>(dataSize);
+	stagingBuffer->bufferSize = dataSize;
 
 	VkBufferCreateInfo bufferCreateInfo = {};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -886,22 +904,22 @@ StagingBuffer VulkanRenderer::createStagingBuffer (size_t dataSize)
 	return stagingBuffer;
 }
 
-StagingBuffer VulkanRenderer::createAndMapStagingBuffer (size_t dataSize, const void *data)
+StagingBuffer VulkanRenderer::createAndFillStagingBuffer (size_t dataSize, const void *data)
 {
 	StagingBuffer stagingBuffer = createStagingBuffer(dataSize);
 
-	mapStagingBuffer(stagingBuffer, dataSize, data);
+	fillStagingBuffer(stagingBuffer, dataSize, data);
 
 	return stagingBuffer;
 }
 
-void VulkanRenderer::mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, const void *data)
+void VulkanRenderer::fillStagingBuffer (StagingBuffer stagingBuffer, size_t dataSize, const void *data)
 {
 	VulkanStagingBuffer* vkStagingBuffer = static_cast<VulkanStagingBuffer*>(stagingBuffer);
 
-	if (vkStagingBuffer->memorySize < dataSize)
+	if (vkStagingBuffer->bufferSize < dataSize)
 	{
-		printf("%s Error while mapping a staging buffer. Given data size (%lu) is larger than staging buffer memory size (%lu)\n", ERR_PREFIX, dataSize, vkStagingBuffer->memorySize);
+		printf("%s Error while mapping a staging buffer. Given data size (%lu) is larger than staging buffer memory size (%lu)\n", ERR_PREFIX, dataSize, vkStagingBuffer->bufferSize);
 
 		throw std::runtime_error("vulkan error - staging buffer mapping");
 	}
@@ -910,6 +928,22 @@ void VulkanRenderer::mapStagingBuffer (StagingBuffer stagingBuffer, size_t dataS
 
 	VK_CHECK_RESULT(vmaMapMemory(memAllocator, vkStagingBuffer->bufferMemory, &mappedBufferMemory));
 	memcpy(mappedBufferMemory, data, dataSize);
+	vmaUnmapMemory(memAllocator, vkStagingBuffer->bufferMemory);
+}
+
+void *VulkanRenderer::mapStagingBuffer(StagingBuffer stagingBuffer)
+{
+	VulkanStagingBuffer* vkStagingBuffer = static_cast<VulkanStagingBuffer*>(stagingBuffer);
+	void *mappedBufferMemory = nullptr;
+
+	VK_CHECK_RESULT(vmaMapMemory(memAllocator, vkStagingBuffer->bufferMemory, &mappedBufferMemory));
+
+	return mappedBufferMemory;
+}
+
+void VulkanRenderer::unmapStagingBuffer(StagingBuffer stagingBuffer)
+{
+	VulkanStagingBuffer* vkStagingBuffer = static_cast<VulkanStagingBuffer*>(stagingBuffer);
 	vmaUnmapMemory(memAllocator, vkStagingBuffer->bufferMemory);
 }
 

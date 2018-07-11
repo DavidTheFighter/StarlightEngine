@@ -185,8 +185,8 @@ void TerrainShadowRenderer::createTerrainMesh()
 		}
 	}
 
-	StagingBuffer stagBuf = renderer->createAndMapStagingBuffer(vertices.size() * sizeof(vertices[0]), vertices.data());
-	shadowTerrainMesh = renderer->createBuffer(vertices.size() * sizeof(vertices[0]), BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
+	StagingBuffer stagBuf = renderer->createAndFillStagingBuffer(vertices.size() * sizeof(vertices[0]), vertices.data());
+	shadowTerrainMesh = renderer->createBuffer(vertices.size() * sizeof(vertices[0]), BUFFER_USAGE_VERTEX_BUFFER, true, false, MEMORY_USAGE_GPU_ONLY, false);
 
 	CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(terrainShadowCmdPool);
 	cmdBuffer->stageBuffer(stagBuf, shadowTerrainMesh);

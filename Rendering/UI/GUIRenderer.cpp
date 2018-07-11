@@ -292,8 +292,6 @@ void GUIRenderer::recordGUIRenderCommandList(CommandBuffer cmdBuffer, struct nk_
 	nk_buffer_free(&cmds);
 	nk_buffer_free(&verts);
 	nk_buffer_free(&indices);
-
-	nk_clear(&ctx);
 }
 
 void GUIRenderer::init(struct nk_context &ctx)
@@ -321,10 +319,10 @@ void GUIRenderer::init(struct nk_context &ctx)
 	const void *imageData = nk_font_atlas_bake(&atlas, &atlasWidth, &atlasHeight, NK_FONT_ATLAS_RGBA32);
 
 	{
-		fontAtlas = renderer->createTexture({(float) atlasWidth, (float) atlasHeight, 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false);
+		fontAtlas = renderer->createTexture({(uint32_t) atlasWidth, (uint32_t) atlasHeight, 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false);
 		fontAtlasView = renderer->createTextureView(fontAtlas);
 
-		StagingBuffer stagingBuffer = renderer->createAndMapStagingBuffer(
+		StagingBuffer stagingBuffer = renderer->createAndFillStagingBuffer(
 			atlasWidth * atlasHeight * sizeof(uint8_t) * 4, imageData);
 
 		CommandBuffer fontAtlasUploadCommandBuffer =
@@ -376,8 +374,8 @@ void GUIRenderer::init(struct nk_context &ctx)
 
 	createGraphicsPipeline();
 
-	guiVertexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_VERTEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, false);
-	guiIndexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_INDEX_BUFFER_BIT, MEMORY_USAGE_CPU_TO_GPU, false);
+	guiVertexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_VERTEX_BUFFER, false, false, MEMORY_USAGE_CPU_TO_GPU, false);
+	guiIndexStreamBuffer = renderer->createBuffer(512 * 1024, BUFFER_USAGE_INDEX_BUFFER, false, false, MEMORY_USAGE_CPU_TO_GPU, false);
 }
 
 void GUIRenderer::destroy()

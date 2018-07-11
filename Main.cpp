@@ -63,6 +63,7 @@ int main (int argc, char *argv[])
 	{
 		launchArgs.push_back("-force_d3d12");
 		launchArgs.push_back("-enable_d3d12_debug");
+		//launchArgs.push_back("-enable_d3d12_hw_debug");
 	}
 
 	printEnvironment(launchArgs);

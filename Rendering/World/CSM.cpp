@@ -40,7 +40,7 @@ CSM::CSM (Renderer *rendererPtr, uint32_t shadowmapSize, uint32_t numCascades, R
 	shadowSize = shadowmapSize;
 	cascadeCount = numCascades;
 	
-	csmTexArray = renderer->createTexture({(float) shadowSize, (float) shadowSize, 1}, format, TEXTURE_USAGE_SAMPLED_BIT | (isDepthFormat(format) ? TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : TEXTURE_USAGE_COLOR_ATTACHMENT_BIT), MEMORY_USAGE_GPU_ONLY, true, 1, numCascades);
+	csmTexArray = renderer->createTexture({shadowSize, shadowSize, 1}, format, TEXTURE_USAGE_SAMPLED_BIT | (isDepthFormat(format) ? TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : TEXTURE_USAGE_COLOR_ATTACHMENT_BIT), MEMORY_USAGE_GPU_ONLY, true, 1, numCascades);
 	csmTexArrayView = renderer->createTextureView(csmTexArray, TEXTURE_VIEW_TYPE_2D_ARRAY, {0, 1, 0, cascadeCount});
 
 	for (uint32_t i = 0; i < cascadeCount; i ++)

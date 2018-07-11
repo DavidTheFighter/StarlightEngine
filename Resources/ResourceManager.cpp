@@ -64,7 +64,7 @@ ResourceManager::ResourceManager (Renderer *rendererInstance)
 		for (int i = 0; i < 16; i++)
 			memcpy(&colorBlackBuffer[i * 4], colBlack, 4);
 
-		renderer->mapStagingBuffer(colorTexStagingBuffer, sizeof(colorBlackBuffer), colorBlackBuffer);
+		renderer->fillStagingBuffer(colorTexStagingBuffer, sizeof(colorBlackBuffer), colorBlackBuffer);
 
 		CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
 
@@ -98,7 +98,7 @@ ResourceManager::ResourceManager (Renderer *rendererInstance)
 		for (int i = 0; i < 64; i++)
 			ditherTexBuffer[i] = uint8_t(bayerPattern[i] * (255.0f / 64.0f));
 
-		renderer->mapStagingBuffer(ditherTexStagingBuffer, sizeof(ditherTexBuffer), ditherTexBuffer);
+		renderer->fillStagingBuffer(ditherTexStagingBuffer, sizeof(ditherTexBuffer), ditherTexBuffer);
 
 		CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
 
@@ -736,14 +736,19 @@ ResourceMesh ResourceManager::loadMeshImmediate (const std::string &file, const 
 		meshRes->faceCount = rawMeshData.faceCount;
 		meshRes->uses32bitIndices = rawMeshData.uses32BitIndices;
 
-		StagingBuffer stagingBuffer = renderer->createAndMapStagingBuffer(formattedData.size(), formattedData.data());
-		meshRes->meshBuffer = renderer->createBuffer(formattedData.size(), BUFFER_USAGE_INDEX_BUFFER_BIT | BUFFER_USAGE_VERTEX_BUFFER_BIT | BUFFER_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
+		StagingBuffer vertexStagingBuffer = renderer->createAndFillStagingBuffer(formattedData.size() - meshRes->indexChunkSize, formattedData.data() + meshRes->indexChunkSize);
+		StagingBuffer indexStagingBuffer = renderer->createAndFillStagingBuffer(meshRes->indexChunkSize, formattedData.data());
+
+		meshRes->meshVertexBuffer = renderer->createBuffer(formattedData.size(), BUFFER_USAGE_VERTEX_BUFFER, true, false, MEMORY_USAGE_GPU_ONLY, false);
+		meshRes->meshIndexBuffer = renderer->createBuffer(formattedData.size(), BUFFER_USAGE_INDEX_BUFFER, true, false, MEMORY_USAGE_GPU_ONLY, false);
 
 		CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
-		cmdBuffer->stageBuffer(stagingBuffer, meshRes->meshBuffer);
+		cmdBuffer->stageBuffer(vertexStagingBuffer, meshRes->meshVertexBuffer);
+		cmdBuffer->stageBuffer(indexStagingBuffer, meshRes->meshIndexBuffer);
 		renderer->endSingleTimeCommand(cmdBuffer, mainThreadTransferCommandPool, QUEUE_TYPE_GRAPHICS);
 
-		renderer->destroyStagingBuffer(stagingBuffer);
+		renderer->destroyStagingBuffer(vertexStagingBuffer);
+		renderer->destroyStagingBuffer(indexStagingBuffer);
 
 		/*
 		 * I'm formatting the debug name to trim it to the "GameData/meshes/" directory. For example:
@@ -759,7 +764,8 @@ ResourceMesh ResourceManager::loadMeshImmediate (const std::string &file, const 
 		else
 			debugMarkerName = file;
 
-		renderer->setObjectDebugName(meshRes->meshBuffer, OBJECT_TYPE_BUFFER, debugMarkerName + "[" + mesh + "]");
+		renderer->setObjectDebugName(meshRes->meshVertexBuffer, OBJECT_TYPE_BUFFER, debugMarkerName + "V[" + mesh + "]");
+		renderer->setObjectDebugName(meshRes->meshIndexBuffer, OBJECT_TYPE_BUFFER, debugMarkerName + "I[" + mesh + "]");
 
 		loadedMeshes[std::make_tuple(file, mesh, rendererOptimizedMeshFormat, true)] = std::make_pair(meshRes, 1);
 
@@ -802,7 +808,8 @@ void ResourceManager::returnMesh (ResourceMesh mesh)
 		{
 			loadedMeshes.erase(it);
 
-			renderer->destroyBuffer(mesh->meshBuffer);
+			renderer->destroyBuffer(mesh->meshVertexBuffer);
+			renderer->destroyBuffer(mesh->meshIndexBuffer);
 
 			delete mesh;
 		}
@@ -1034,11 +1041,11 @@ void ResourceManager::loadPNGTextureData (ResourceTexture tex)
 	StagingBuffer stagingBuffer = renderer->createStagingBuffer(textureData[0].size());
 
 	tex->mipmapLevels = (uint32_t) glm::floor(glm::log2(glm::max<float>(width, height))) + 1;
-	tex->texture = renderer->createTexture({(float) width, (float) height, 1.0f}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_SRC_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels, textureData.size());
+	tex->texture = renderer->createTexture({width, height, 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_TRANSFER_SRC_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels, textureData.size());
 
 	for (uint32_t f = 0; f < tex->files.size(); f ++)
 	{
-		renderer->mapStagingBuffer(stagingBuffer, textureData[f].size(), textureData[f].data());
+		renderer->fillStagingBuffer(stagingBuffer, textureData[f].size(), textureData[f].data());
 
 		CommandBuffer cmdBuffer = renderer->beginSingleTimeCommand(mainThreadTransferCommandPool);
 
@@ -1299,7 +1306,7 @@ void ResourceManager::loadDDSTextureData(ResourceTexture tex)
 		firstTexOffset = 4 + sizeof(DDSHeader) + (header.ddspf.dwFourCC == MAKEFOURCC('D', 'X', '1', '0') ? sizeof(DDSHeaderDXT10) : 0);
 	}
 
-	tex->texture = renderer->createTexture({(float) width, (float) height, 1.0f}, tex->textureFormat, TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels, buffers.size());
+	tex->texture = renderer->createTexture({width, height, 1}, tex->textureFormat, TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false, tex->mipmapLevels, buffers.size());
 
 	std::vector<StagingBuffer> mipStagingBuffers(tex->mipmapLevels);
 
@@ -1312,7 +1319,7 @@ void ResourceManager::loadDDSTextureData(ResourceTexture tex)
 		for (uint32_t m = 0; m < tex->mipmapLevels; m++)
 		{
 			size_t mipSize = getMipSizeCompressed(width, height, m, getFormatBlockSize(tex->textureFormat));
-			renderer->mapStagingBuffer(mipStagingBuffers[m], mipSize, &buffers[a][texAccumOffset]);
+			renderer->fillStagingBuffer(mipStagingBuffers[m], mipSize, &buffers[a][texAccumOffset]);
 
 			texAccumOffset += mipSize;
 		}

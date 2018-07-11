@@ -79,19 +79,19 @@ class D3D12Renderer : public Renderer
 	Semaphore createSemaphore();
 	std::vector<Semaphore> createSemaphores(uint32_t count);
 
-	Texture createTexture(svec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, uint32_t arrayLayerCount, TextureType type);
+	Texture createTexture(suvec3 extent, ResourceFormat format, TextureUsageFlags usage, MemoryUsage memUsage, bool ownMemory, uint32_t mipLevelCount, uint32_t arrayLayerCount);
 	TextureView createTextureView(Texture texture, TextureViewType viewType, TextureSubresourceRange subresourceRange, ResourceFormat viewFormat);
 	Sampler createSampler(SamplerAddressMode addressMode, SamplerFilter minFilter, SamplerFilter magFilter, float anisotropy, svec3 min_max_biasLod, SamplerMipmapMode mipmapMode);
 
-	Buffer createBuffer(size_t size, BufferUsageFlags usage, MemoryUsage memUsage, bool ownMemory);
+	Buffer createBuffer(size_t size, BufferUsageType usage, bool canBeTransferDst, bool canBeTransferSrc, MemoryUsage memUsage, bool ownMemory);
 	void *mapBuffer(Buffer buffer);
 	void unmapBuffer(Buffer buffer);
-	void *mapTexture(Texture texture);
-	void unmapTexture(Texture texture);
 
 	StagingBuffer createStagingBuffer(size_t dataSize);
-	StagingBuffer createAndMapStagingBuffer(size_t dataSize, const void *data);
-	void mapStagingBuffer(StagingBuffer stagingBuffer, size_t dataSize, const void *data);
+	StagingBuffer createAndFillStagingBuffer(size_t dataSize, const void *data);
+	void fillStagingBuffer(StagingBuffer stagingBuffer, size_t dataSize, const void *data);
+	void *mapStagingBuffer(StagingBuffer stagingBuffer);
+	void unmapStagingBuffer(StagingBuffer stagingBuffer);
 
 	void destroyCommandPool(CommandPool pool);
 	void destroyRenderPass(RenderPass renderPass);

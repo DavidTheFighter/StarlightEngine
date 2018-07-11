@@ -115,7 +115,7 @@ void GameStateTitleScreen::resume ()
 
 void GameStateTitleScreen::createTitleScreenRenderTargets ()
 {
-	svec3 titleScreenExtent = {(float) glm::max(engine->mainWindow->getWidth(), 1u), (float) glm::max(engine->mainWindow->getHeight(), 1u), 1};
+	suvec3 titleScreenExtent = {glm::max(engine->mainWindow->getWidth(), 1u), glm::max(engine->mainWindow->getHeight(), 1u), 1};
 
 	// Usually render targets should get their own memory allocation, but for the title screen it's unimportant
 	titleScreenRT = engine->renderer->createTexture(titleScreenExtent, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_SAMPLED_BIT, MEMORY_USAGE_GPU_ONLY, false);

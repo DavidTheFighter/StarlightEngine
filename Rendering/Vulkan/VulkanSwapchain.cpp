@@ -706,7 +706,7 @@ void VulkanSwapchain::createDummySourceImage ()
 
 	uint8_t dummyImageData[] = {0, 128, 255, 255};
 
-	StagingBuffer stagingBuffer = renderer->createAndMapStagingBuffer(sizeof(dummyImageData), dummyImageData);
+	StagingBuffer stagingBuffer = renderer->createAndFillStagingBuffer(sizeof(dummyImageData), dummyImageData);
 
 	VkCommandBuffer cmdBuffer;
 	VkCommandBufferAllocateInfo allocInfo = {};

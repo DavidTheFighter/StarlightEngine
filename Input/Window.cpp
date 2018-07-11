@@ -35,7 +35,7 @@ Window::~Window ()
 
 /*
  * Inits and creates the window of this object. If windowWidth or windowHeight are equal
- * to zero, then the resolution will be decided by 0.75 * res of the current monitor.
+ * to zero, then the resolution will be decided by 0.75 * textureResource of the current monitor.
  */
 void Window::initWindow (uint32_t windowWidth, uint32_t windowHeight, std::string windowName)
 {

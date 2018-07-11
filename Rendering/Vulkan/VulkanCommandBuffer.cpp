@@ -350,7 +350,7 @@ void VulkanCommandBuffer::stageBuffer (StagingBuffer stagingBuffer, Buffer dstBu
 	VkBufferCopy bufferCopyRegion = {};
 	bufferCopyRegion.dstOffset = 0;
 	bufferCopyRegion.srcOffset = 0;
-	bufferCopyRegion.size = static_cast<VulkanStagingBuffer*>(stagingBuffer)->memorySize;
+	bufferCopyRegion.size = static_cast<VulkanStagingBuffer*>(stagingBuffer)->bufferSize;
 
 	vkCmdCopyBuffer(bufferHandle, static_cast<VulkanStagingBuffer*>(stagingBuffer)->bufferHandle, static_cast<VulkanBuffer*>(dstBuffer)->bufferHandle, 1, &bufferCopyRegion);
 }

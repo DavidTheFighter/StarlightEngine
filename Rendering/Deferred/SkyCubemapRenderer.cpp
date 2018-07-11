@@ -196,7 +196,7 @@ void SkyCubemapRenderer::init(uint32_t cubemapFaceResolution, const std::string 
 
 	// Create the sky cubemap for the lighting shader
 
-	skyCubemapTexture = renderer->createTexture({(float) cubemapFaceResolution, (float) cubemapFaceResolution, 1}, RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true, 1, 6);
+	skyCubemapTexture = renderer->createTexture({cubemapFaceResolution, cubemapFaceResolution, 1}, RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true, 1, 6);
 	skyCubemapTV = renderer->createTextureView(skyCubemapTexture, TEXTURE_VIEW_TYPE_CUBE, {0, 1, 0, 6});
 
 	for (uint32_t f = 0; f < 6; f++)
@@ -206,7 +206,7 @@ void SkyCubemapRenderer::init(uint32_t cubemapFaceResolution, const std::string 
 
 	// Create the pre-filtered environment map
 
-	skySrcEnviroMapTexture = renderer->createTexture({(float) faceResolution, (float) faceResolution, 1}, RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_TRANSFER_SRC_BIT, MEMORY_USAGE_GPU_ONLY, true, skyCubemapTextureMips, 6);
+	skySrcEnviroMapTexture = renderer->createTexture({faceResolution, faceResolution, 1}, RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT | TEXTURE_USAGE_TRANSFER_SRC_BIT, MEMORY_USAGE_GPU_ONLY, true, skyCubemapTextureMips, 6);
 	skySrcEnviroMapTV = renderer->createTextureView(skySrcEnviroMapTexture, TEXTURE_VIEW_TYPE_CUBE, {0, skyCubemapTextureMips, 0, 6});
 
 	for (uint32_t f = 0; f < 6; f++)
@@ -218,7 +218,7 @@ void SkyCubemapRenderer::init(uint32_t cubemapFaceResolution, const std::string 
 
 	uint32_t mipmapCount = getMipCount();
 
-	skyFilteredEnviroMapTexture = renderer->createTexture({(float) cubemapFaceResolution, (float) cubemapFaceResolution, 1}, RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, true, mipmapCount, 6);
+	skyFilteredEnviroMapTexture = renderer->createTexture({cubemapFaceResolution, cubemapFaceResolution, 1}, RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, true, mipmapCount, 6);
 	skyFilteredEnviroMapTV = renderer->createTextureView(skyFilteredEnviroMapTexture, TEXTURE_VIEW_TYPE_CUBE, {0, mipmapCount, 0, 6});
 
 	for (uint32_t m = 0; m < mipmapCount; m++)

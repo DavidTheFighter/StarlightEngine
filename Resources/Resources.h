@@ -138,7 +138,8 @@ typedef struct ResourceMeshObject
 		bool interlaced;
 		bool uses32bitIndices;
 
-		RendererBuffer *meshBuffer; // Contains ALL the data for the mesh
+		RendererBuffer *meshVertexBuffer;
+		RendererBuffer *meshIndexBuffer;
 } *ResourceMesh;
 
 /*

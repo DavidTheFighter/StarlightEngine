@@ -158,8 +158,7 @@ void PostProcess::setInputs (TextureView gbuffer_AlbedoRoughnessTV, TextureView 
 	deferredLightingOutput = deferredLightingOutputTV;
 	this->gbufferSize = {(float) gbufferSize.x, (float) gbufferSize.y};
 
-	postprocessOutputTexture = engine->renderer->createTexture({(float) gbufferSize.x, (float) gbufferSize.y, 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM,
-			TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	postprocessOutputTexture = engine->renderer->createTexture({gbufferSize.x, gbufferSize.y, 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 	postprocessOutputTextureView = engine->renderer->createTextureView(postprocessOutputTexture);
 
 	postprocessFramebuffer = engine->renderer->createFramebuffer(postprocessRenderPass, {postprocessOutputTextureView}, gbufferSize.x, gbufferSize.y);

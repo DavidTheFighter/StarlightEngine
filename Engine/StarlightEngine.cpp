@@ -139,8 +139,8 @@ void StarlightEngine::init (RendererBackend rendererBackendType)
 	dbgConsole = new DebugConsole(this);
 	//dbgConsole->execCmd("debugPhysics 1");
 
-	finalOutputTexture = renderer->createTexture({(float) mainWindow->getWidth(), (float) mainWindow->getHeight(), 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-	finalOutputTextureDepth = renderer->createTexture({(float) mainWindow->getWidth(), (float) mainWindow->getHeight(), 1}, RESOURCE_FORMAT_D32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	finalOutputTexture = renderer->createTexture({mainWindow->getWidth(), mainWindow->getHeight(), 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	finalOutputTextureDepth = renderer->createTexture({mainWindow->getWidth(), mainWindow->getHeight(), 1}, RESOURCE_FORMAT_D32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 
 	finalOutputTextureView = renderer->createTextureView(finalOutputTexture);
 	finalOutputTextureDepthView = renderer->createTextureView(finalOutputTextureDepth);
@@ -217,8 +217,8 @@ void StarlightEngine::windowResizeEventCallback (const EventWindowResizeData &ev
 	if (enginePtr->finalOutputFramebuffer != nullptr)
 		enginePtr->renderer->destroyFramebuffer(enginePtr->finalOutputFramebuffer);
 
-	enginePtr->finalOutputTexture = enginePtr->renderer->createTexture({(float) enginePtr->mainWindow->getWidth(), (float) enginePtr->mainWindow->getHeight(), 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-	enginePtr->finalOutputTextureDepth = enginePtr->renderer->createTexture({(float) enginePtr->mainWindow->getWidth(), (float) enginePtr->mainWindow->getHeight(), 1}, RESOURCE_FORMAT_D16_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	enginePtr->finalOutputTexture = enginePtr->renderer->createTexture({enginePtr->mainWindow->getWidth(), enginePtr->mainWindow->getHeight(), 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	enginePtr->finalOutputTextureDepth = enginePtr->renderer->createTexture({enginePtr->mainWindow->getWidth(), enginePtr->mainWindow->getHeight(), 1}, RESOURCE_FORMAT_D32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 
 	enginePtr->finalOutputTextureView = enginePtr->renderer->createTextureView(enginePtr->finalOutputTexture);
 	enginePtr->finalOutputTextureDepthView = enginePtr->renderer->createTextureView(enginePtr->finalOutputTextureDepth);
@@ -382,7 +382,10 @@ void StarlightEngine::render ()
 	}
 
 	guiCmdBuffers[cmdBufferIndex]->insertDebugMarker("Nuklear GUI");
-	guiRenderer->recordGUIRenderCommandList(guiCmdBuffers[cmdBufferIndex], *ctx, renderWidth, renderHeight);
+	// TODO Fix flashing blue screen thing
+	//guiRenderer->recordGUIRenderCommandList(guiCmdBuffers[cmdBufferIndex], *ctx, renderWidth, renderHeight);
+
+	nk_clear(ctx);
 
 	guiCmdBuffers[cmdBufferIndex]->endRenderPass();
 	guiCmdBuffers[cmdBufferIndex]->endDebugRegion();

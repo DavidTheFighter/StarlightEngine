@@ -338,7 +338,7 @@ void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, Text
 	if (deferredFramebuffer != nullptr)
 		engine->renderer->destroyFramebuffer(deferredFramebuffer);
 
-	deferredOutput = engine->renderer->createTexture({(float) gbufferDim.x, (float) gbufferDim.y, 1}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
+	deferredOutput = engine->renderer->createTexture({gbufferDim.x, gbufferDim.y, 1}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
 	deferredOutputView = engine->renderer->createTextureView(deferredOutput, TEXTURE_VIEW_TYPE_2D);
 	deferredFramebuffer = engine->renderer->createFramebuffer(deferredRenderPass, {deferredOutputView}, gbufferDim.x, gbufferDim.y, 1);
 
