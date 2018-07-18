@@ -456,8 +456,8 @@ void SkyCubemapRenderer::createCubemapPipeline(const std::string &atmosphericSha
 		lightingSource.replace(insertPos, insertMarker.length(), "");
 	}
 
-	ShaderModule vertShader = renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_GLSL);
+	ShaderModule fragShader = renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL);
 
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";
@@ -485,6 +485,7 @@ void SkyCubemapRenderer::createCubemapPipeline(const std::string &atmosphericSha
 	rastInfo.lineWidth = 1;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;
 	rastInfo.rasterizerDiscardEnable = false;
+	rastInfo.enableOutOfOrderRasterization = false;
 
 	PipelineDepthStencilInfo depthInfo = {};
 	depthInfo.enableDepthTest = false;
@@ -536,8 +537,8 @@ void SkyCubemapRenderer::createCubemapPipeline(const std::string &atmosphericSha
 
 void SkyCubemapRenderer::createEnvironmentMapPipeline()
 {
-	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/sky-enviro.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/sky-enviro.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/sky-enviro.glsl", SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_GLSL);
+	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/sky-enviro.glsl", SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL);
 
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";
@@ -565,6 +566,7 @@ void SkyCubemapRenderer::createEnvironmentMapPipeline()
 	rastInfo.lineWidth = 1;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;
 	rastInfo.rasterizerDiscardEnable = false;
+	rastInfo.enableOutOfOrderRasterization = false;
 
 	PipelineDepthStencilInfo depthInfo = {};
 	depthInfo.enableDepthTest = false;

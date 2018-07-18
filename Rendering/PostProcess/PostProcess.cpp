@@ -214,15 +214,15 @@ void PostProcess::createPostProcessRenderPass ()
 
 void PostProcess::createCombinePipeline ()
 {
-	ShaderModule vertShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/combine.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/combine.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = engine->renderer->createShaderModule("GameData/shaders/combine.hlsl", SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_HLSL, "CombineVS");
+	ShaderModule fragShader = engine->renderer->createShaderModule("GameData/shaders/combine.hlsl", SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_HLSL, "CombineFS");
 
 	PipelineShaderStage vertShaderStage = {};
-	vertShaderStage.entry = "main";
+	vertShaderStage.entry = "CombineVS";
 	vertShaderStage.module = vertShader;
 
 	PipelineShaderStage fragShaderStage = {};
-	fragShaderStage.entry = "main";
+	fragShaderStage.entry = "CombineFS";
 	fragShaderStage.module = fragShader;
 
 	PipelineVertexInputInfo vertexInput = {};
@@ -249,6 +249,7 @@ void PostProcess::createCombinePipeline ()
 	rastInfo.lineWidth = 1;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;
 	rastInfo.rasterizerDiscardEnable = false;
+	rastInfo.enableOutOfOrderRasterization = false;
 
 	PipelineDepthStencilInfo depthInfo = {};
 	depthInfo.enableDepthTest = false;

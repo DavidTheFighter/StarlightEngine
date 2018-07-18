@@ -356,19 +356,19 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 		ResourcePipelineObject *pipe = new ResourcePipelineObject();
 		pipe->dataLoaded = true;
 
-		ShaderModule vertShader = renderer->createShaderModule(std::string(pipeDef->vertexShaderFile), SHADER_STAGE_VERTEX_BIT);
-		ShaderModule fragShader = renderer->createShaderModule(std::string(pipeDef->fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT);
+		ShaderModule vertShader = renderer->createShaderModule(std::string(pipeDef->vertexShaderFile), SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_GLSL);
+		ShaderModule fragShader = renderer->createShaderModule(std::string(pipeDef->fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL);
 
 		ShaderModule tessCtrlShader = nullptr, tessEvalShader = nullptr, geomShader = nullptr;
 
 		if (strlen(pipeDef->tessControlShaderFile) != 0)
-			tessCtrlShader = renderer->createShaderModule(std::string(pipeDef->tessControlShaderFile), SHADER_STAGE_TESSELLATION_CONTROL_BIT);
+			tessCtrlShader = renderer->createShaderModule(std::string(pipeDef->tessControlShaderFile), SHADER_STAGE_TESSELLATION_CONTROL_BIT, SHADER_LANGUAGE_GLSL);
 
 		if (strlen(pipeDef->tessEvalShaderFile) != 0)
-			tessEvalShader = renderer->createShaderModule(std::string(pipeDef->tessEvalShaderFile), SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
+			tessEvalShader = renderer->createShaderModule(std::string(pipeDef->tessEvalShaderFile), SHADER_STAGE_TESSELLATION_EVALUATION_BIT, SHADER_LANGUAGE_GLSL);
 
 		if (strlen(pipeDef->geometryShaderFile) != 0)
-			geomShader = renderer->createShaderModule(std::string(pipeDef->geometryShaderFile), SHADER_STAGE_GEOMETRY_BIT);
+			geomShader = renderer->createShaderModule(std::string(pipeDef->geometryShaderFile), SHADER_STAGE_GEOMETRY_BIT, SHADER_LANGUAGE_GLSL);
 
 		// If only one of the tessellation stages is present
 		if ((tessCtrlShader != nullptr && tessEvalShader == nullptr) || (tessCtrlShader == nullptr && tessEvalShader != nullptr))
@@ -444,6 +444,7 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 		rastInfo.lineWidth = 1;
 		rastInfo.polygonMode = POLYGON_MODE_FILL;
 		rastInfo.rasterizerDiscardEnable = false;
+		rastInfo.enableOutOfOrderRasterization = true;
 
 		PipelineDepthStencilInfo depthInfo = {};
 		depthInfo.enableDepthTest = true;
@@ -533,7 +534,7 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 
 		if (pipeDef->canRenderDepth)
 		{
-			ShaderModule shadowFragShader = renderer->createShaderModule(std::string(pipeDef->shadows_fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT);
+			ShaderModule shadowFragShader = renderer->createShaderModule(std::string(pipeDef->shadows_fragmentShaderFile), SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL);
 			fragShaderStage.module = shadowFragShader;
 
 			// Should probably do this better

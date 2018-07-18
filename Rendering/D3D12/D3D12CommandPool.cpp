@@ -31,9 +31,11 @@
 
 #include <Rendering/D3D12/D3D12CommandBuffer.h>
 
-D3D12CommandPool::D3D12CommandPool()
+D3D12CommandPool::D3D12CommandPool(ID3D12Device2 *devicePtr, QueueType queueType)
 {
-
+	device = devicePtr;
+	
+	DX_CHECK_RESULT(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAlloc)));
 }
 
 D3D12CommandPool::~D3D12CommandPool()

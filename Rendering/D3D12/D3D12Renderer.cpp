@@ -180,7 +180,7 @@ void D3D12Renderer::createLogicalDevice()
 
 CommandPool D3D12Renderer::createCommandPool(QueueType queue, CommandPoolFlags flags)
 {
-	D3D12CommandPool *cmdPool = new D3D12CommandPool();
+	D3D12CommandPool *cmdPool = new D3D12CommandPool(device, queue);
 
 	return cmdPool;
 }
@@ -236,14 +236,14 @@ Framebuffer D3D12Renderer::createFramebuffer(RenderPass renderPass, const std::v
 	return framebuffer;
 }
 
-ShaderModule D3D12Renderer::createShaderModule(const std::string & file, ShaderStageFlagBits stage)
+ShaderModule D3D12Renderer::createShaderModule(const std::string & file, ShaderStageFlagBits stage, ShaderSourceLanguage sourceLang, const std::string &entryPoint)
 {
 	D3D12ShaderModule *shaderModule = new D3D12ShaderModule();
 
 	return shaderModule;
 }
 
-ShaderModule D3D12Renderer::createShaderModuleFromSource(const std::string & source, const std::string & referenceName, ShaderStageFlagBits stage)
+ShaderModule D3D12Renderer::createShaderModuleFromSource(const std::string & source, const std::string & referenceName, ShaderStageFlagBits stage, ShaderSourceLanguage sourceLang, const std::string &entryPoint)
 {
 	D3D12ShaderModule *shaderModule = new D3D12ShaderModule();
 

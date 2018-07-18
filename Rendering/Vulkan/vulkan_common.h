@@ -25,6 +25,7 @@ class VulkanExtensions
 	public:
 
 		static bool enabled_VK_EXT_debug_marker;
+		static bool enabled_VK_AMD_rasterization_order;
 
 		static PFN_vkDebugMarkerSetObjectTagEXT DebugMarkerSetObjectTagEXT;
 		static PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectNameEXT;
@@ -184,7 +185,7 @@ inline std::string getVkVendorString (uint32_t vendor)
 	VkResult res = (f);			\
 	if (res != VK_SUCCESS) {		\
 		printf("%s VkResult is \"%s\", in file \"%s\", at line %i\n", ERR_PREFIX, getVkResultString(res).c_str(), __FILE__, __LINE__);				\
-		throw std::runtime_error("vulkan error");	\
+		system("pause");/*throw std::runtime_error("vulkan error");*/	\
 	}								\
 }									\
 

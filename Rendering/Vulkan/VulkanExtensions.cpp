@@ -45,6 +45,7 @@ void VulkanExtensions::getProcAddresses (VkDevice device)
 #if SE_VULKAN_DEBUG_MARKERS
 
 bool VulkanExtensions::enabled_VK_EXT_debug_marker = false;
+bool VulkanExtensions::enabled_VK_AMD_rasterization_order = false;
 
 PFN_vkDebugMarkerSetObjectTagEXT VulkanExtensions::DebugMarkerSetObjectTagEXT = VK_NULL_HANDLE;
 PFN_vkDebugMarkerSetObjectNameEXT VulkanExtensions::DebugMarkerSetObjectNameEXT = VK_NULL_HANDLE;

@@ -77,8 +77,8 @@ void VulkanSwapchain::init ()
 	swapchainVertShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, renderer->workingDir + tempSwapchainShaderFile, VK_SHADER_STAGE_VERTEX_BIT));
 	swapchainFragShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(*renderer->defaultCompiler, renderer->workingDir + tempSwapchainShaderFile, VK_SHADER_STAGE_FRAGMENT_BIT));
 #elif defined(_WIN32)
-	swapchainVertShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(tempSwapchainShaderFile, VK_SHADER_STAGE_VERTEX_BIT));
-	swapchainFragShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(tempSwapchainShaderFile, VK_SHADER_STAGE_FRAGMENT_BIT));
+	swapchainVertShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(tempSwapchainShaderFile, VK_SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_GLSL, "main"));
+	swapchainFragShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::compileGLSL(tempSwapchainShaderFile, VK_SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL, "main"));
 #endif
 
 	//swapchainVertShader = VulkanShaderLoader::createVkShaderModule(renderer->device, VulkanShaderLoader::loadSpv("GameData/shaders/vulkan/temp-swapchain.vert.spv"));

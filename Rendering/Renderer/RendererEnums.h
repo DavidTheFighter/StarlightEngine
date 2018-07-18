@@ -8,6 +8,13 @@
 #ifndef RENDERING_RENDERER_RENDERERENUMS_H_
 #define RENDERING_RENDERER_RENDERERENUMS_H_
 
+typedef enum ShaderSourceLanguage
+{
+	SHADER_LANGUAGE_GLSL = 0,
+	SHADER_LANGUAGE_HLSL = 1,
+	SHADER_LANGUAGE_MAX_ENUM = 0x7FFFFFFF
+} ShaderSourceLanguage;
+
 typedef enum MemoryUsage
 {
     MEMORY_USAGE_UNKNOWN = 0,

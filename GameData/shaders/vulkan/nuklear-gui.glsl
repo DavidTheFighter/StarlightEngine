@@ -13,7 +13,7 @@
 	layout(location = 1) in vec2 inUV;
 	layout(location = 2) in vec4 inColor;
 
-	layout(location = 0) out vec3 outUV_Depth;
+	layout(location = 0) out vec2 outUV;
 	layout(location = 1) out vec4 outColor;
 
 	out gl_PerVertex
@@ -23,9 +23,9 @@
 		
 	void main()
 	{	
-		gl_Position = pushConsts.projMat * vec4(inVertex.xy, 0, 1);
+		gl_Position = pushConsts.projMat * vec4(inVertex.xy, pushConsts.guiElementDepth, 1);
 		
-		outUV_Depth = vec3(inUV, pushConsts.guiElementDepth);
+		outUV = inUV;
 		outColor = inColor;
 	}
 
@@ -33,16 +33,14 @@
 
 	layout(set = 0, binding = 0) uniform sampler2D nuklearTexture;
 
-	layout(location = 0) in vec3 inUV_Depth;
+	layout(location = 0) in vec2 inUV;
 	layout(location = 1) in vec4 inColor;
 	
 	layout(location = 0) out vec4 outputFragColor;
 
 	void main()
-	{	
-		gl_FragDepth = inUV_Depth.z;
-	
-		outputFragColor = inColor * texture(nuklearTexture, inUV_Depth.xy);
+	{		
+		outputFragColor = inColor * texture(nuklearTexture, inUV.xy);
 	}
 
 #endif

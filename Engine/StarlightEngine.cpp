@@ -383,7 +383,7 @@ void StarlightEngine::render ()
 
 	guiCmdBuffers[cmdBufferIndex]->insertDebugMarker("Nuklear GUI");
 	// TODO Fix flashing blue screen thing
-	//guiRenderer->recordGUIRenderCommandList(guiCmdBuffers[cmdBufferIndex], *ctx, renderWidth, renderHeight);
+	guiRenderer->recordGUIRenderCommandList(guiCmdBuffers[cmdBufferIndex], *ctx, renderWidth, renderHeight);
 
 	nk_clear(ctx);
 
@@ -446,8 +446,8 @@ void StarlightEngine::createGuiRenderPass()
 
 void StarlightEngine::createGUITexturePassthroughPipeline()
 {
-	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_GLSL);
+	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/texture-passthrough.glsl", SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL);
 
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";
@@ -475,6 +475,7 @@ void StarlightEngine::createGUITexturePassthroughPipeline()
 	rastInfo.lineWidth = 1;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;
 	rastInfo.rasterizerDiscardEnable = false;
+	rastInfo.enableOutOfOrderRasterization = false;
 
 	PipelineDepthStencilInfo depthInfo = {};
 	depthInfo.enableDepthTest = true;

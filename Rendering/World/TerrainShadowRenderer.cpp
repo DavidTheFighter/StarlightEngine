@@ -197,8 +197,8 @@ void TerrainShadowRenderer::createTerrainMesh()
 
 void TerrainShadowRenderer::createDepthPipeline()
 {
-	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/terrain-depth.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/terrain-depth.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/terrain-depth.glsl", SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_GLSL);
+	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/terrain-depth.glsl", SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL);
 
 	VertexInputBinding meshVertexBindingDesc = {};
 	meshVertexBindingDesc.binding = 0;
@@ -242,6 +242,7 @@ void TerrainShadowRenderer::createDepthPipeline()
 	rastInfo.lineWidth = 3;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;
 	rastInfo.rasterizerDiscardEnable = false;
+	rastInfo.enableOutOfOrderRasterization = true;
 
 	PipelineDepthStencilInfo depthInfo = {};
 	depthInfo.enableDepthTest = true;

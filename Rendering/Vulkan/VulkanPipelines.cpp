@@ -158,6 +158,15 @@ Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineIn
 		dynamicState.pDynamicStates = dynamicStates.data();
 	}
 
+	VkPipelineRasterizationStateRasterizationOrderAMD rastOrderAMD = {};
+
+	if (VulkanExtensions::enabled_VK_AMD_rasterization_order)
+	{
+		rastOrderAMD.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_RASTERIZATION_ORDER_AMD;
+		rastOrderAMD.rasterizationOrder = pipelineInfo.rasterizationInfo.enableOutOfOrderRasterization ? VK_RASTERIZATION_ORDER_RELAXED_AMD : VK_RASTERIZATION_ORDER_STRICT_AMD;
+		rastState.pNext = &rastOrderAMD;
+	}
+
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
 	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineCreateInfo.stageCount = static_cast<uint32_t>(pipelineShaderStages.size());
@@ -292,7 +301,7 @@ std::vector<VkPipelineShaderStageCreateInfo> VulkanPipelines::getPipelineShaderS
 		const VulkanShaderModule *shaderModule = static_cast<VulkanShaderModule*>(stages[i].module);
 		VkPipelineShaderStageCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		createInfo.pName = "main";
+		createInfo.pName = stages[i].entry;
 		createInfo.module = shaderModule->module;
 		createInfo.stage = toVkShaderStageFlagBits(shaderModule->stage);
 

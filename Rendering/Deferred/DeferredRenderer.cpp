@@ -453,8 +453,8 @@ void DeferredRenderer::createDeferredLightingPipeline ()
 		lightingSource.replace(insertPos, insertMarker.length(), "");
 	}
 
-	ShaderModule vertShader = engine->renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = engine->renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = engine->renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_GLSL);
+	ShaderModule fragShader = engine->renderer->createShaderModuleFromSource(lightingSource, shaderSourceFile, SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL);
 
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";
@@ -488,6 +488,7 @@ void DeferredRenderer::createDeferredLightingPipeline ()
 	rastInfo.lineWidth = 1;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;
 	rastInfo.rasterizerDiscardEnable = false;
+	rastInfo.enableOutOfOrderRasterization = false;
 
 	PipelineDepthStencilInfo depthInfo = {};
 	depthInfo.enableDepthTest = false;

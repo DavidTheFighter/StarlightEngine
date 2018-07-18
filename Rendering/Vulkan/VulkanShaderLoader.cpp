@@ -46,19 +46,19 @@ std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (shaderc::Compil
 }
 #elif defined(_WIN32)
 
-std::vector<uint32_t> VulkanShaderLoader::compileGLSL (const std::string &file, VkShaderStageFlagBits stages)
+std::vector<uint32_t> VulkanShaderLoader::compileGLSL (const std::string &file, VkShaderStageFlagBits stages, ShaderSourceLanguage lang, const std::string &entryPoint)
 {
 	std::vector<char> glslSource = FileLoader::instance()->readFileBuffer(file);
 
-	return compileGLSLFromSource(glslSource, file, stages);
+	return compileGLSLFromSource(glslSource, file, stages, lang, entryPoint);
 }
 
-std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (const std::string &source, const std::string &sourceName, VkShaderStageFlagBits stages)
+std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (const std::string &source, const std::string &sourceName, VkShaderStageFlagBits stages, ShaderSourceLanguage lang, const std::string &entryPoint)
 {
-	return compileGLSLFromSource(std::vector<char>(source.data(), source.data() + source.length()), sourceName, stages);
+	return compileGLSLFromSource(std::vector<char>(source.data(), source.data() + source.length()), sourceName, stages, lang, entryPoint);
 }
 
-std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (const std::vector<char> &source, const std::string &sourceName, VkShaderStageFlagBits stages)
+std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (const std::vector<char> &source, const std::string &sourceName, VkShaderStageFlagBits stages, ShaderSourceLanguage lang, const std::string &entryPoint)
 {
 	char tempDir[MAX_PATH];
 	GetTempPath(MAX_PATH, tempDir);
@@ -93,7 +93,7 @@ std::vector<uint32_t> VulkanShaderLoader::compileGLSLFromSource (const std::vect
 	writeFile(tempShaderSourceFile, source);
 
 	char cmd[512];
-	sprintf(cmd, "glslangValidator -V -D%s -S %s -o %s %s", getShaderStageMacroString(stages).c_str(), stage.c_str(), tempShaderOutputFile.c_str(), tempShaderSourceFile.c_str());
+	sprintf(cmd, "glslangValidator -V %s -e %s -D%s -S %s -o %s %s", (lang == SHADER_LANGUAGE_HLSL ? "-D" : ""), entryPoint.c_str(), getShaderStageMacroString(stages).c_str(), stage.c_str(), tempShaderOutputFile.c_str(), tempShaderSourceFile.c_str());
 
 	system(cmd);
 

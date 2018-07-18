@@ -399,8 +399,8 @@ void GUIRenderer::destroy()
 
 void GUIRenderer::createGraphicsPipeline()
 {
-	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_VERTEX_BIT);
-	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_FRAGMENT_BIT);
+	ShaderModule vertShader = renderer->createShaderModule("GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_GLSL);
+	ShaderModule fragShader = renderer->createShaderModule("GameData/shaders/vulkan/nuklear-gui.glsl", SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL);
 
 	VertexInputBinding bindingDesc;
 	bindingDesc.binding = 0;
@@ -449,6 +449,7 @@ void GUIRenderer::createGraphicsPipeline()
 	rastInfo.lineWidth = 1;
 	rastInfo.polygonMode = POLYGON_MODE_FILL;
 	rastInfo.rasterizerDiscardEnable = false;
+	rastInfo.enableOutOfOrderRasterization = false;
 
 	PipelineDepthStencilInfo depthInfo = { };
 	depthInfo.enableDepthTest = true;

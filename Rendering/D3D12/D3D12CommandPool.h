@@ -31,6 +31,7 @@
 #define RENDERING_D3D12_D3D12COMMANDPOOL_H_
 
 #include <common.h>
+#include <Rendering/D3D12/D3D12Common.h>
 #include <Rendering/Renderer/RendererEnums.h>
 #include <Rendering/Renderer/RendererObjects.h>
 
@@ -38,7 +39,7 @@ class D3D12CommandPool : public RendererCommandPool
 {
 	public:
 
-	D3D12CommandPool();
+	D3D12CommandPool(ID3D12Device2 *devicePtr, QueueType queueType);
 	virtual ~D3D12CommandPool();
 
 	RendererCommandBuffer *allocateCommandBuffer(CommandBufferLevel level);
@@ -48,6 +49,11 @@ class D3D12CommandPool : public RendererCommandPool
 	void freeCommandBuffers(const std::vector<RendererCommandBuffer*> &commandBuffers);
 
 	void resetCommandPool(bool releaseResources);
+
+	private:
+
+	ID3D12Device2 *device;
+	ID3D12CommandAllocator *cmdAlloc;
 };
 
 #endif /* RENDERING_D3D12_D3D12COMMANDPOOL_H_*/

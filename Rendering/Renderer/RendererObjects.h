@@ -209,6 +209,7 @@ typedef struct RendererPipelineRasterizationInfo
 		bool depthClampEnable;
 		bool rasterizerDiscardEnable;
 		bool clockwiseFrontFace;
+		bool enableOutOfOrderRasterization;
 		PolygonMode polygonMode;
 		CullModeFlags cullMode;
 		float lineWidth;

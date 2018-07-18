@@ -576,14 +576,14 @@ Framebuffer VulkanRenderer::createFramebuffer (RenderPass renderPass, const std:
 	return framebuffer;
 }
 
-ShaderModule VulkanRenderer::createShaderModule (const std::string &file, ShaderStageFlagBits stage)
+ShaderModule VulkanRenderer::createShaderModule (const std::string &file, ShaderStageFlagBits stage, ShaderSourceLanguage sourceLang, const std::string &entryPoint)
 {
 	VulkanShaderModule *vulkanShader = new VulkanShaderModule();
 
 #ifdef __linux__
 	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSL(*defaultCompiler, file, toVkShaderStageFlagBits(stage)));
 #elif defined(_WIN32)
-	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSL(file, toVkShaderStageFlagBits(stage)));
+	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSL(file, toVkShaderStageFlagBits(stage), sourceLang, entryPoint));
 #endif
 	vulkanShader->stage = stage;
 
@@ -604,14 +604,14 @@ ShaderModule VulkanRenderer::createShaderModule (const std::string &file, Shader
 	return vulkanShader;
 }
 
-ShaderModule VulkanRenderer::createShaderModuleFromSource (const std::string &source, const std::string &referenceName, ShaderStageFlagBits stage)
+ShaderModule VulkanRenderer::createShaderModuleFromSource (const std::string &source, const std::string &referenceName, ShaderStageFlagBits stage, ShaderSourceLanguage sourceLang, const std::string &entryPoint)
 {
 	VulkanShaderModule *vulkanShader = new VulkanShaderModule();
 
 #ifdef __linux__
 	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSLFromSource(*defaultCompiler, source, referenceName, toVkShaderStageFlagBits(stage)));
 #elif defined(_WIN32)
-	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSLFromSource(source, referenceName, toVkShaderStageFlagBits(stage)));
+	vulkanShader->module = VulkanShaderLoader::createVkShaderModule(device, VulkanShaderLoader::compileGLSLFromSource(source, referenceName, toVkShaderStageFlagBits(stage), sourceLang, entryPoint));
 #endif
 	vulkanShader->stage = stage;
 
@@ -1203,24 +1203,28 @@ void VulkanRenderer::createLogicalDevice ()
 
 	uint32_t extensionCount;
 	vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
-	std::vector<VkExtensionProperties> extensions(extensionCount);
-	vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensions.data());
+	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+	vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
 
-	if (SE_VULKAN_DEBUG_MARKERS)
+	// Check for debug marker support (aka, we're running under RenderDoc)
+	for (auto ext : availableExtensions)
 	{
-		uint32_t extensionCount;
-		vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
-		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-		vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
+		if (SE_RENDER_DEBUG_MARKERS && strcmp(ext.extensionName, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) == 0)
+		{
+			enabledDeviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+			VulkanExtensions::enabled_VK_EXT_debug_marker = true;
+		}
+	}
 
+	// Only enable extensions if we're not under running RenderDoc or some other debugger (RenderDoc crashes w/ extensions)
+	if (!VulkanExtensions::enabled_VK_EXT_debug_marker)
+	{
 		for (auto ext : availableExtensions)
 		{
-			if (strcmp(ext.extensionName, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) == 0)
+			if (strcmp(ext.extensionName, VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME))
 			{
-				enabledDeviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
-				VulkanExtensions::enabled_VK_EXT_debug_marker = true;
-
-				break;
+				enabledDeviceExtensions.push_back(VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME);
+				VulkanExtensions::enabled_VK_AMD_rasterization_order = true;
 			}
 		}
 	}
