@@ -462,7 +462,7 @@ RenderPass VulkanRenderer::createRenderPass (const std::vector<AttachmentDescrip
 	// These are needed so the pointers in the render pass create info point to data which is still in scope
 	std::vector<std::vector<VkAttachmentReference> > subpass_vkColorAttachments;
 	std::vector<std::vector<VkAttachmentReference> > subpass_vkInputAttachments;
-	std::vector<VkAttachmentReference> subpass_vkDepthAttachment;
+	std::vector<VkAttachmentReference> subpass_vkDepthAttachment(subpasses.size());
 	std::vector<std::vector<uint32_t> > subpass_vkPreserveAttachments;
 
 	for (size_t i = 0; i < subpasses.size(); i ++)
@@ -473,6 +473,7 @@ RenderPass VulkanRenderer::createRenderPass (const std::vector<AttachmentDescrip
 		vkSubpass.colorAttachmentCount = static_cast<uint32_t>(subpass.colorAttachments.size());
 		vkSubpass.inputAttachmentCount = static_cast<uint32_t>(subpass.inputAttachments.size());
 		vkSubpass.preserveAttachmentCount = static_cast<uint32_t>(subpass.preserveAttachments.size());
+		vkSubpass.pDepthStencilAttachment = nullptr;
 
 		subpass_vkColorAttachments.push_back(std::vector<VkAttachmentReference>());
 		subpass_vkInputAttachments.push_back(std::vector<VkAttachmentReference>());
@@ -504,15 +505,9 @@ RenderPass VulkanRenderer::createRenderPass (const std::vector<AttachmentDescrip
 			vkRef.attachment = subpass.depthStencilAttachment->attachment;
 			vkRef.layout = toVkImageLayout(subpass.depthStencilAttachment->layout);
 
-			subpass_vkDepthAttachment.push_back(vkRef);
+			subpass_vkDepthAttachment[i] = vkRef;
 
 			vkSubpass.pDepthStencilAttachment = &subpass_vkDepthAttachment[i];
-		}
-		else
-		{
-			subpass_vkDepthAttachment.push_back(VkAttachmentReference());
-
-			vkSubpass.pDepthStencilAttachment = nullptr;
 		}
 
 		vkSubpass.pColorAttachments = subpass_vkColorAttachments[i].data();
@@ -532,7 +527,7 @@ RenderPass VulkanRenderer::createRenderPass (const std::vector<AttachmentDescrip
 		vkDependency.dstAccessMask = toVkAccessFlags(dependency.dstAccessMask);
 		vkDependency.srcStageMask = toVkPipelineStageFlags(dependency.srcStageMask);
 		vkDependency.dstStageMask = toVkPipelineStageFlags(dependency.dstStageMask);
-		vkDependency.dependencyFlags = 0;
+		vkDependency.dependencyFlags = dependency.byRegionDependency ? VK_DEPENDENCY_BY_REGION_BIT : 0;
 
 		vkDependencies.push_back(vkDependency);
 	}
@@ -1209,23 +1204,17 @@ void VulkanRenderer::createLogicalDevice ()
 	// Check for debug marker support (aka, we're running under RenderDoc)
 	for (auto ext : availableExtensions)
 	{
-		if (SE_RENDER_DEBUG_MARKERS && strcmp(ext.extensionName, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) == 0)
+		if (!VulkanExtensions::enabled_VK_EXT_debug_marker && SE_RENDER_DEBUG_MARKERS && strcmp(ext.extensionName, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) == 0)
 		{
 			enabledDeviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
 			VulkanExtensions::enabled_VK_EXT_debug_marker = true;
+			printf("%s Enablilng the VK_EXT_debug_marker extension\n", INFO_PREFIX);
 		}
-	}
-
-	// Only enable extensions if we're not under running RenderDoc or some other debugger (RenderDoc crashes w/ extensions)
-	if (!VulkanExtensions::enabled_VK_EXT_debug_marker)
-	{
-		for (auto ext : availableExtensions)
+		else if (!VulkanExtensions::enabled_VK_AMD_rasterization_order && strcmp(ext.extensionName, VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME) == 0)
 		{
-			if (strcmp(ext.extensionName, VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME))
-			{
-				enabledDeviceExtensions.push_back(VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME);
-				VulkanExtensions::enabled_VK_AMD_rasterization_order = true;
-			}
+			enabledDeviceExtensions.push_back(VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME);
+			VulkanExtensions::enabled_VK_AMD_rasterization_order = true;
+			printf("%s Enabling the VK_AMD_rasterization_order extension\n", INFO_PREFIX);
 		}
 	}
 

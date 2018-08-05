@@ -76,7 +76,7 @@ typedef struct RendererSupassDependency
 		PipelineStageFlags dstStageMask;
 		AccessFlags srcAccessMask;
 		AccessFlags dstAccessMask;
-		// Note at least for now I'm disregarding dependency flags
+		bool byRegionDependency;
 } SubpassDependency;
 
 typedef struct RendererSubpassDescription
