@@ -18,6 +18,7 @@ typedef struct RendererTexture
 
 typedef struct RendererTextureView
 {
+	RendererTexture *parentTexture;
 } RendererTextureView;
 
 typedef struct RendererSampler
@@ -260,7 +261,7 @@ typedef struct RendererPipelineDynamicStateInfo
 		std::vector<DynamicState> dynamicStates;
 } PipelineDynamicStateInfo;
 
-typedef struct RendererPipelineInfo
+typedef struct RendererGraphicsPipelineInfo
 {
 		std::vector<PipelineShaderStage> stages;
 		PipelineVertexInputInfo vertexInputInfo;
@@ -280,7 +281,16 @@ typedef struct RendererPipelineInfo
 		//RendererRenderPass *renderPass;
 		//uint32_t subpass;
 
-} PipelineInfo;
+} GraphicsPipelineInfo;
+
+typedef struct RendererComputePipelineInfo
+{
+	PipelineShaderStage shader;
+
+	std::vector<PushConstantRange> inputPushConstantRanges;
+	std::vector<std::vector<DescriptorSetLayoutBinding> > inputSetLayouts;
+
+} ComputePipelineInfo;
 
 typedef struct RendererDescriptorSet
 {

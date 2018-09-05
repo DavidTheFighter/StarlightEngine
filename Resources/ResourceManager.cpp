@@ -471,7 +471,7 @@ ResourcePipeline ResourceManager::loadPipelineImmediate (const std::string &defU
 		dynamicState.dynamicStates =
 		{	DYNAMIC_STATE_VIEWPORT, DYNAMIC_STATE_SCISSOR};
 
-		PipelineInfo info = {};
+		GraphicsPipelineInfo info = {};
 
 		PipelineShaderStage vertShaderStage = {};
 		vertShaderStage.entry = "main";

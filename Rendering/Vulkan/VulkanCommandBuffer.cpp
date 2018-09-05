@@ -126,6 +126,11 @@ void VulkanCommandBuffer::drawIndexed (uint32_t indexCount, uint32_t instanceCou
 	vkCmdDrawIndexed(bufferHandle, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
+void VulkanCommandBuffer::dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
+{
+	vkCmdDispatch(bufferHandle, groupCountX, groupCountY, groupCountZ);
+}
+
 void VulkanCommandBuffer::pushConstants (ShaderStageFlags stages, uint32_t offset, uint32_t size, const void *data)
 {
 	vkCmdPushConstants(bufferHandle, static_cast<VulkanPipeline*>(context_currentBoundPipeline)->pipelineLayoutHandle, toVkShaderStageFlags(stages), offset, size, data);

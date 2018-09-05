@@ -297,6 +297,12 @@ inline std::string toString (T0 arg)
 	return str;
 }
 
+template<typename T0>
+inline void appendVector(std::vector<T0> &to, const std::vector<T0> &vectorToBeAppended)
+{
+	to.insert(to.end(), vectorToBeAppended.begin(), vectorToBeAppended.end());
+}
+
 /*
  * Gets the parent directory of the file. Does not include a separtor at the end of the string, e.g. "C:\Users\Someone\Documents"
  */

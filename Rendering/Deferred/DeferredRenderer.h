@@ -37,71 +37,50 @@
 
 class StarlightEngine;
 class AtmosphereRenderer;
-class SkyCubemapRenderer;
 class Game;
-class WorldRenderer;
+
+typedef struct
+{
+	glm::mat4 invCamMVPMat;
+	glm::vec3 cameraPosition;
+	float padding0;
+	glm::vec4 prjMat_aspectRatio_tanHalfFOV;
+
+} DeferredRendererLightingPushConsts;
 
 class DeferredRenderer
 {
 	public:
 
 		Game *game;
-		TextureView deferredOutputView;
-		glm::mat4 invCamMVPMat;
 
-		uint32_t cmdBufferIndex;
-		std::vector<Semaphore> lightingSemaphores;
-
-		DeferredRenderer (StarlightEngine *enginePtr, WorldRenderer *worldRendererPtr);
+		DeferredRenderer (StarlightEngine *enginePtr, AtmosphereRenderer *atmospherePtr);
 		virtual ~DeferredRenderer ();
 
-		void init ();
-		void destroy ();
-
-		void renderDeferredLighting ();
-		void setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, TextureView gbuffer_DepthView, suvec2 gbufferSize);
-
-		TextureView getGBuffer_AlbedoRoughness ();
-		TextureView getGBuffer_NormalsMetalness ();
+		void lightingPassInit(RenderPass renderPass, uint32_t baseSubpass);
+		void lightingPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size);
+		void lightingPassRender(CommandBuffer cmdBuffer, uint32_t counter);
 
 	private:
 
-		bool destroyed;
-
 		StarlightEngine *engine;
-		WorldRenderer *worldRenderer;
 		AtmosphereRenderer *atmosphere;
-		SkyCubemapRenderer *skyCubemap;
 
-		RenderPass deferredRenderPass;
 		Pipeline deferredPipeline;
-		Framebuffer deferredFramebuffer;
-
-		CommandPool deferredCommandPool;
-		CommandBuffer deferredCommandBuffer;
-
-		std::vector<CommandBuffer> lightingCmdBuffers;
-
-		bool gbufferDirty;
-		TextureView gbuffer_AlbedoRoughnessView; // rgb - albedo, a - roughness
-		TextureView gbuffer_NormalsMetalnessView; // rgb - normals, a - metalness
-		TextureView gbuffer_DepthView;
 
 		DescriptorPool deferredInputsDescriptorPool;
 		DescriptorSet deferredInputDescriptorSet;
 
-		svec2 gbufferSize;
-		Texture deferredOutput;
-
-		Sampler deferredInputsSampler;
+		Sampler linearSampler;
 		Sampler atmosphereTextureSampler;
 		Sampler shadowsSampler;
 		Sampler ditherSampler;
 
 		ResourceTexture brdfLUT;
 
-		void createDeferredLightingRenderPass ();
-		void createDeferredLightingPipeline ();
+		suvec3 renderSize;
+
+		void createDeferredLightingPipeline (RenderPass renderPass, uint32_t baseSubpass);
 };
 
 #endif /* RENDERING_DEFERRED_DEFERREDRENDERER_H_ */

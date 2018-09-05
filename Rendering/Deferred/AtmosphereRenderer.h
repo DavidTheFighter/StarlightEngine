@@ -35,7 +35,7 @@
 #include <Rendering/Renderer/RendererObjects.h>
 #include <Resources/ResourceManager.h>
 
-class StarlightEngine;
+class Renderer;
 
 class DensityProfileLayer
 {
@@ -62,11 +62,8 @@ class AtmosphereRenderer
 		TextureView scatteringTV;
 		TextureView irradianceTV;
 
-		AtmosphereRenderer (StarlightEngine *enginePtr);
+		AtmosphereRenderer (Renderer *rendererPtr);
 		virtual ~AtmosphereRenderer ();
-
-		void init ();
-		void destroy ();
 
 		std::string getAtmosphericShaderLib ();
 
@@ -76,9 +73,7 @@ class AtmosphereRenderer
 		Texture scatteringTexture;
 		Texture irradianceTexture;
 
-		bool destroyed;
-
-		StarlightEngine *engine;
+		Renderer *renderer;
 		std::string atmosphereShaderInclude;
 
 		void loadPrecomputedTextures ();

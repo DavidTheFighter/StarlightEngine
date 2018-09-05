@@ -35,58 +35,34 @@
 #include <Rendering/Renderer/RendererObjects.h>
 #include <Resources/ResourceManager.h>
 
-class StarlightEngine;
+class Renderer;
 
 class PostProcess
 {
 	public:
 
-		TextureView postprocessOutputTextureView;
 
-		uint32_t cmdBufferIndex;
-		std::vector<Semaphore> finalCombineSemaphores;
+	PostProcess (Renderer *rendererPtr);
+	virtual ~PostProcess ();
 
-		PostProcess (StarlightEngine *enginePtr);
-		virtual ~PostProcess ();
-
-		void renderPostProcessing (Semaphore deferredLightingOutputSemaphore);
-
-		void init ();
-		void destroy ();
-
-		void setInputs (TextureView gbuffer_AlbedoRoughnessTV, TextureView gbuffer_NormalsMetalnessTV, TextureView gbuffer_DepthTV, TextureView deferredLightingOutputTV, suvec2 gbufferSize);
+	void combineTonemapPassInit(RenderPass renderPass, uint32_t baseSubpass);
+	void combineTonemapPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size);
+	void combineTonemapPassRender(CommandBuffer cmdBuffer, uint32_t counter);
 
 	private:
 
-		bool destroyed;
+	Renderer *renderer;
 
-		StarlightEngine *engine;
+	Pipeline combinePipeline;
 
-		RenderPass postprocessRenderPass;
-		Framebuffer postprocessFramebuffer;
+	DescriptorPool combineDescriptorPool;
+	DescriptorSet combineDescriptorSet;
 
-		Pipeline combinePipeline;
+	Sampler inputSampler;
 
-		CommandPool postprocessCommandPool;
-		std::vector<CommandBuffer> finalCombineCmdBuffers;
+	suvec3 renderSize;
 
-		DescriptorPool combineDescriptorPool;
-		DescriptorSet combineDescriptorSet;
-
-		Sampler inputSampler;
-
-		Texture postprocessOutputTexture;
-
-		TextureView gbuffer_AlbedoRoughness;
-		TextureView gbuffer_NormalsMetalness;
-		TextureView gbuffer_Depth;
-		TextureView deferredLightingOutput;
-
-		svec2 gbufferSize;
-
-		void createCombinePipeline ();
-
-		void createPostProcessRenderPass ();
+	void createCombinePipeline(RenderPass renderPass, uint32_t baseSubpass);
 };
 
 #endif /* RENDERING_POSTPROCESS_POSTPROCESS_H_ */

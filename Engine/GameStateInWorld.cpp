@@ -52,6 +52,10 @@ GameStateInWorld::GameStateInWorld (StarlightEngine *enginePtr)
 	testGame = nullptr;
 	deferredRenderer = nullptr;
 	postprocess = nullptr;
+	skyboxRenderer = nullptr;
+	atmosphere = nullptr;
+
+	frameGraph = std::unique_ptr<FrameGraph>(new FrameGraph(engine->renderer, {1920, 1080}));
 }
 
 GameStateInWorld::~GameStateInWorld ()
@@ -67,10 +71,12 @@ void GameStateInWorld::init ()
 
 	Game::setInstance(testGame);
 
+	atmosphere = new AtmosphereRenderer(engine->renderer);
 	worldRenderer = new WorldRenderer(engine, engine->worldHandler);
-	deferredRenderer = new DeferredRenderer(engine, worldRenderer);
-	postprocess = new PostProcess(engine);
+	deferredRenderer = new DeferredRenderer(engine, atmosphere);
+	postprocess = new PostProcess(engine->renderer);
 	deferredRenderer->game = testGame;
+	skyboxRenderer = new SkyCubemapRenderer(engine->renderer, atmosphere, 256, 5);
 
 	engine->api->setWorldRendererPtr(worldRenderer);
 
@@ -329,17 +335,135 @@ void GameStateInWorld::init ()
 
 	testGame->init();
 
-	worldRenderer->init({engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
-	deferredRenderer->init();
-	postprocess->init();
+	RenderPassAttachment gbuffer0, gbuffer1, gbufferDepth;
+	gbuffer0.format = RESOURCE_FORMAT_R8G8B8A8_UNORM;
+	gbuffer1.format = RESOURCE_FORMAT_R16G16B16A16_SFLOAT;
+	gbufferDepth.format = RESOURCE_FORMAT_D32_SFLOAT;
 
-	deferredRenderer->setGBuffer(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
-	worldRenderer->setGBufferDimensions({engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
-	deferredRenderer->setGBuffer(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
-	postprocess->setInputs(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], deferredRenderer->deferredOutputView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	RenderPassAttachment sunShadows;
+	sunShadows.arrayLayers = 3;
+	sunShadows.format = RESOURCE_FORMAT_D16_UNORM;
+	sunShadows.sizeX = 4096;
+	sunShadows.sizeY = 4096;
+	sunShadows.sizeSwapchainRelative = false;
+	sunShadows.viewType = TEXTURE_VIEW_TYPE_2D_ARRAY;
+
+	RenderPassAttachment skybox;
+	skybox.format = RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32;
+	skybox.arrayLayers = 6;
+	skybox.sizeSwapchainRelative = false;
+	skybox.sizeX = 256;
+	skybox.sizeY = 256;
+	skybox.viewType = TEXTURE_VIEW_TYPE_CUBE;
+
+	RenderPassAttachment enviroSkybox;
+	enviroSkybox.format = RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32;
+	enviroSkybox.arrayLayers = 6;
+	enviroSkybox.sizeSwapchainRelative = false;
+	enviroSkybox.sizeX = 256;
+	enviroSkybox.sizeY = 256;
+	enviroSkybox.mipLevels = uint32_t(glm::floor(glm::log2((float) enviroSkybox.sizeX))) + 1;
+	enviroSkybox.viewType = TEXTURE_VIEW_TYPE_CUBE;
+
+	RenderPassAttachment enviroSkyboxSpecIBL;
+	enviroSkyboxSpecIBL.format = RESOURCE_FORMAT_B10G11R11_UFLOAT_PACK32;
+	enviroSkyboxSpecIBL.arrayLayers = 6;
+	enviroSkyboxSpecIBL.sizeSwapchainRelative = false;
+	enviroSkyboxSpecIBL.sizeX = skyboxRenderer->getFaceResolution();
+	enviroSkyboxSpecIBL.sizeY = skyboxRenderer->getFaceResolution();
+	enviroSkyboxSpecIBL.mipLevels = std::min(uint32_t(glm::floor(glm::log2((float) enviroSkybox.sizeX))) + 1, skyboxRenderer->getMaxEnviroSpecIBLMipCount());
+	enviroSkyboxSpecIBL.viewType = TEXTURE_VIEW_TYPE_CUBE;
+
+	RenderPassAttachment deferredLighting;
+	deferredLighting.format = RESOURCE_FORMAT_R16G16B16A16_SFLOAT;
+
+	RenderPassAttachment combinedFinal;
+	combinedFinal.format = RESOURCE_FORMAT_R8G8B8A8_UNORM;
+
+	FrameGraph &graph = *frameGraph;
+
+	auto &gbuffer = graph.addRenderPass("gbuffer", FG_PIPELINE_GRAPHICS);
+	gbuffer.addColorOutput("gbuffer0", gbuffer0);
+	gbuffer.addColorOutput("gbuffer1", gbuffer1);
+	gbuffer.setDepthStencilOutput("gbufferDepth", gbufferDepth, true, {0, 0});
+
+	gbuffer.setInitFunction(std::bind(&WorldRenderer::gbufferPassInit, worldRenderer, std::placeholders::_1, std::placeholders::_2));
+	gbuffer.setDescriptorUpdateFunction(std::bind(&WorldRenderer::gbufferPassDescriptorUpdate, worldRenderer, std::placeholders::_1, std::placeholders::_2));
+	gbuffer.setRenderFunction(std::bind(&WorldRenderer::gbufferPassRender, worldRenderer, std::placeholders::_1, std::placeholders::_2));
+
+	auto &sunShadowsGen = graph.addRenderPass("sunShadowsGen", FG_PIPELINE_GRAPHICS);
+	sunShadowsGen.setDepthStencilOutput("sunShadows", sunShadows);
+	sunShadowsGen.setColorOutputRenderLayerMethod("sunShadows", RP_LAYER_RENDER_IN_MULTIPLE_RENDERPASSES);
+
+	sunShadowsGen.setInitFunction(std::bind(&WorldRenderer::sunShadowsPassInit, worldRenderer, std::placeholders::_1, std::placeholders::_2));
+	sunShadowsGen.setDescriptorUpdateFunction(std::bind(&WorldRenderer::sunShadowsPassDescriptorUpdate, worldRenderer, std::placeholders::_1, std::placeholders::_2));
+	sunShadowsGen.setRenderFunction(std::bind(&WorldRenderer::sunShadowsPassRender, worldRenderer, std::placeholders::_1, std::placeholders::_2));
+
+	auto &skyboxGen = graph.addRenderPass("skyboxGen", FG_PIPELINE_GRAPHICS);
+	skyboxGen.addColorOutput("skybox", skybox, false);
+
+	skyboxGen.setInitFunction(std::bind(&SkyCubemapRenderer::skyboxGenPassInit, skyboxRenderer, std::placeholders::_1, std::placeholders::_2));
+	skyboxGen.setDescriptorUpdateFunction(std::bind(&SkyCubemapRenderer::skyboxGenPassDescriptorUpdate, skyboxRenderer, std::placeholders::_1, std::placeholders::_2));
+	skyboxGen.setRenderFunction(std::bind(&SkyCubemapRenderer::skyboxGenPassRender, skyboxRenderer, std::placeholders::_1, std::placeholders::_2));
+
+	auto &enviroSkyboxGen = graph.addRenderPass("enviroSkyboxGen", FG_PIPELINE_GRAPHICS);
+	enviroSkyboxGen.addColorOutput("enviroSkybox", enviroSkybox, false);
+	enviroSkyboxGen.setColorOutputMipGenMethod("enviroSkybox", RP_MIP_GEN_POST_BLIT);
+
+	enviroSkyboxGen.setInitFunction(std::bind(&SkyCubemapRenderer::enviroSkyboxGenPassInit, skyboxRenderer, std::placeholders::_1, std::placeholders::_2));
+	enviroSkyboxGen.setDescriptorUpdateFunction(std::bind(&SkyCubemapRenderer::enviroSkyboxGenPassDescriptorUpdate, skyboxRenderer, std::placeholders::_1, std::placeholders::_2));
+	enviroSkyboxGen.setRenderFunction(std::bind(&SkyCubemapRenderer::enviroSkyboxGenPassRender, skyboxRenderer, std::placeholders::_1, std::placeholders::_2));
+
+	auto &enviroSkyboxSpecIBLGen = graph.addRenderPass("enviroSkyboxSpecIBLGen", FG_PIPELINE_COMPUTE);
+	enviroSkyboxSpecIBLGen.addColorInput("enviroSkybox");
+	enviroSkyboxSpecIBLGen.addColorOutput("enviroSkyboxSpecIBL", enviroSkyboxSpecIBL);
+
+	enviroSkyboxSpecIBLGen.setInitFunction(std::bind(&SkyCubemapRenderer::enviroSkyboxSpecIBLGenPassInit, skyboxRenderer, std::placeholders::_1, std::placeholders::_2));
+	enviroSkyboxSpecIBLGen.setDescriptorUpdateFunction(std::bind(&SkyCubemapRenderer::enviroSkyboxSpecIBLGenPassDescriptorUpdate, skyboxRenderer, std::placeholders::_1, std::placeholders::_2));
+	enviroSkyboxSpecIBLGen.setRenderFunction(std::bind(&SkyCubemapRenderer::enviroSkyboxSpecIBLGenPassRender, skyboxRenderer, std::placeholders::_1, std::placeholders::_2));
+
+	auto &lighting = graph.addRenderPass("lighting", FG_PIPELINE_GRAPHICS);
+	lighting.addColorInputAttachment("gbuffer0");
+	lighting.addColorInputAttachment("gbuffer1");
+	lighting.addDepthStencilInputAttachment("gbufferDepth");
+	lighting.addColorInput("skybox");
+	lighting.addColorInput("enviroSkyboxSpecIBL");
+	lighting.addDepthStencilInput("sunShadows");
+	lighting.addColorOutput("deferredLighting", deferredLighting);
+
+	lighting.setInitFunction(std::bind(&DeferredRenderer::lightingPassInit, deferredRenderer, std::placeholders::_1, std::placeholders::_2));
+	lighting.setDescriptorUpdateFunction(std::bind(&DeferredRenderer::lightingPassDescriptorUpdate, deferredRenderer, std::placeholders::_1, std::placeholders::_2));
+	lighting.setRenderFunction(std::bind(&DeferredRenderer::lightingPassRender, deferredRenderer, std::placeholders::_1, std::placeholders::_2));
+
+	auto &combine_tonemap = graph.addRenderPass("combine_tonemap", FG_PIPELINE_GRAPHICS);
+	combine_tonemap.addColorInput("deferredLighting");
+	combine_tonemap.addColorOutput("combineFinal", combinedFinal);
+
+	combine_tonemap.setInitFunction(std::bind(&PostProcess::combineTonemapPassInit, postprocess, std::placeholders::_1, std::placeholders::_2));
+	combine_tonemap.setDescriptorUpdateFunction(std::bind(&PostProcess::combineTonemapPassDescriptorUpdate, postprocess, std::placeholders::_1, std::placeholders::_2));
+	combine_tonemap.setRenderFunction(std::bind(&PostProcess::combineTonemapPassRender, postprocess, std::placeholders::_1, std::placeholders::_2));
+
+	graph.setBackbufferSource("combineFinal");
+
+	sT = engine->getTime();
+	graph.build();
+	printf("build took %fms\n", (engine->getTime() - sT) * 1000.0);
+
+	//auto &gui = graph.addRenderPass("gui", FG_PIPELINE_GRAPHICS);
+	//gui.addColorOutput("combineFinal", combinedFinal);
+
+	//worldRenderer->init({engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	//deferredRenderer->init();
+	//postprocess->init();
+
+	//deferredRenderer->setGBuffer(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	//worldRenderer->setGBufferDimensions({engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	//deferredRenderer->setGBuffer(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
+	//postprocess->setInputs(worldRenderer->gbufferView[0], worldRenderer->gbufferView[1], worldRenderer->gbufferView[2], deferredRenderer->deferredOutputView, {engine->mainWindow->getWidth(), engine->mainWindow->getHeight()});
 
 	//engine->renderer->setSwapchainTexture(engine->mainWindow, postprocess->postprocessOutputTextureView, worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	engine->setGUIBackground(postprocess->postprocessOutputTextureView);
+
+	engine->setGUIBackground(graph.getBackbufferSourceTextureView());
 
 	engine->resources->setPipelineRenderPass(worldRenderer->gbufferRenderPass, worldRenderer->shadowsRenderPass);
 
@@ -351,10 +475,6 @@ void GameStateInWorld::init ()
 void GameStateInWorld::destroy ()
 {
 	engine->worldHandler->unloadLevel(engine->resources->getLevelDef("Test Level"));
-
-	worldRenderer->destroy();
-	deferredRenderer->destroy();
-	postprocess->destroy();
 
 	engine->resources->returnMaterial("dirt");
 	engine->resources->returnMaterial("slate");
@@ -372,6 +492,8 @@ void GameStateInWorld::destroy ()
 	delete worldRenderer;
 	delete deferredRenderer;
 	delete postprocess;
+	delete atmosphere;
+	frameGraph.release();
 
 	EventHandler::instance()->removeObserver(EVENT_WINDOW_RESIZE, windowResizedCallback, this);
 }
@@ -395,24 +517,13 @@ void GameStateInWorld::update (float delta)
 {
 	testGame->update(delta);
 
-	glm::vec3 playerLookDir = glm::vec3(cos(testGame->mainCamera.lookAngles.y) * sin(testGame->mainCamera.lookAngles.x), sin(testGame->mainCamera.lookAngles.y), cos(testGame->mainCamera.lookAngles.y) * cos(testGame->mainCamera.lookAngles.x));
-	glm::vec3 playerLookRight = glm::vec3(sin(testGame->mainCamera.lookAngles.x - M_PI * 0.5f), 0, cos(testGame->mainCamera.lookAngles.x - M_PI * 0.5f));
-	glm::vec3 playerLookUp = glm::cross(playerLookRight, playerLookDir);
-
-	glm::vec3 cameraCellOffset = glm::floor((testGame->mainCamera.position) / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
-
-	worldRenderer->camViewMat = glm::lookAt(testGame->mainCamera.position - cameraCellOffset, testGame->mainCamera.position - cameraCellOffset + playerLookDir, playerLookUp);
-	worldRenderer->cameraPosition = testGame->mainCamera.position;
-	deferredRenderer->invCamMVPMat = glm::inverse(worldRenderer->camProjMat * worldRenderer->camViewMat);
-
 	worldRenderer->update();
+	skyboxRenderer->setSunDirection(engine->api->getSunDirection());
 }
 
 void GameStateInWorld::render ()
 {
-	worldRenderer->render3DWorld();
-	deferredRenderer->renderDeferredLighting();
-	postprocess->renderPostProcessing(deferredRenderer->lightingSemaphores[deferredRenderer->cmdBufferIndex]);
+	frameGraph->execute();
 }
 
 void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, void *usrPtr)
@@ -424,11 +535,10 @@ void GameStateInWorld::windowResizedCallback (EventWindowResizeData &eventData, 
 		float resMult = 1;// 1920 / 2560.0f;
 		suvec2 scaledRes = {(uint32_t) round(eventData.width * resMult), (uint32_t) round(eventData.height * resMult)};
 
-		gameState->worldRenderer->setGBufferDimensions({scaledRes.x, scaledRes.y});
-		gameState->deferredRenderer->setGBuffer(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], {scaledRes.x, scaledRes.y});
-		gameState->postprocess->setInputs(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], gameState->deferredRenderer->deferredOutputView, {scaledRes.x, scaledRes.y});
+		//gameState->worldRenderer->setGBufferDimensions({scaledRes.x, scaledRes.y});
+		//gameState->deferredRenderer->setGBuffer(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], {scaledRes.x, scaledRes.y});
+	//	gameState->postprocess->setInputs(gameState->worldRenderer->gbufferView[0], gameState->worldRenderer->gbufferView[1], gameState->worldRenderer->gbufferView[2], gameState->deferredRenderer->deferredOutputView, {scaledRes.x, scaledRes.y});
 		
-		gameState->engine->setGUIBackground(gameState->postprocess->postprocessOutputTextureView);
 		//gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->postprocess->postprocessOutputTextureView, gameState->worldRenderer->testSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		//gameState->engine->renderer->setSwapchainTexture(gameState->engine->mainWindow, gameState->worldRenderer->gbuffer_AlbedoRoughnessView, gameState->presentSampler, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

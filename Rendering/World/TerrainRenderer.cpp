@@ -31,6 +31,8 @@
 
 #include <Engine/StarlightEngine.h>
 
+#include <Game/API/SEAPI.h>
+
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/World/WorldRenderer.h>
 
@@ -121,8 +123,8 @@ void TerrainRenderer::update ()
 	 engine->renderer->endSingleTimeCommand(cmdBuffer, testCommandPool, QUEUE_TYPE_GRAPHICS);
 	 */
 
-	float cameraCellXNorm = ((worldRenderer->cameraPosition.x - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE));
-	float cameraCellZNorm = ((worldRenderer->cameraPosition.z - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE));
+	float cameraCellXNorm = ((engine->api->getMainCameraPosition().x - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE));
+	float cameraCellZNorm = ((engine->api->getMainCameraPosition().z - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE));
 	int32_t cameraCellX = int32_t(floor(cameraCellXNorm));
 	int32_t cameraCellZ = int32_t(floor(cameraCellZNorm));
 
@@ -439,12 +441,13 @@ ResourceMaterial testTerrainGrassMaterial = nullptr;
 
 void TerrainRenderer::renderTerrain (CommandBuffer &cmdBuffer)
 {
-	svec2 cameraCellCoords = {(float) floor((worldRenderer->cameraPosition.x - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE)), (float) floor((worldRenderer->cameraPosition.z - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE))};
+	glm::vec3 cameraPosition = engine->api->getMainCameraPosition();
+	svec2 cameraCellCoords = {(float) floor((cameraPosition.x - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE)), (float) floor((cameraPosition.z - LEVEL_CELL_SIZE * 0.5f) / float(LEVEL_CELL_SIZE))};
 	svec2 cellCoordStart = {0, 0};
 	int32_t instanceCountWidth = 16;
 	glm::vec3 cameraCellOffset = glm::floor(Game::instance()->mainCamera.position / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
 
-	glm::mat4 camMVP = worldRenderer->camProjMat * worldRenderer->camViewMat;
+	glm::mat4 camMVP = engine->api->getMainCameraProjMat() * engine->api->getMainCameraViewMat();
 
 	char pushConstData[pcSize];
 	size_t seqOffset = 0;
@@ -453,7 +456,7 @@ void TerrainRenderer::renderTerrain (CommandBuffer &cmdBuffer)
 	seqmemcpy(pushConstData, &camMVP[0][0], sizeof(glm::mat4), seqOffset);
 	seqmemcpy(pushConstData, &cameraCellCoords.x, sizeof(svec2), seqOffset);
 	seqmemcpy(pushConstData, &cellCoordStart.x, sizeof(svec2), seqOffset);
-	seqmemcpy(pushConstData, &worldRenderer->cameraPosition.x, sizeof(glm::vec4), seqOffset);
+	seqmemcpy(pushConstData, &cameraPosition.x, sizeof(glm::vec4), seqOffset);
 	seqmemcpy(pushConstData, &cameraCellOffset.x, sizeof(glm::vec4), seqOffset);
 	seqmemcpy(pushConstData, &instanceCountWidth, sizeof(int32_t), seqOffset);
 
@@ -867,7 +870,7 @@ void TerrainRenderer::createGraphicsPipeline ()
 	PipelineTessellationInfo tessInfo = {};
 	tessInfo.patchControlPoints = 4;
 
-	PipelineInfo info = {};
+	GraphicsPipelineInfo info = {};
 	info.stages =
 	{	vertShaderStage, tessCtrlShaderStage, tessEvalShaderStage, fragShaderStage};
 	info.vertexInputInfo = vertexInput;

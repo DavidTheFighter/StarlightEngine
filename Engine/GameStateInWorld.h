@@ -37,6 +37,11 @@
 #include <Rendering/Renderer/RendererEnums.h>
 #include <Rendering/Renderer/RendererObjects.h>
 
+#include <Rendering/Deferred/SkyCubemapRenderer.h>
+#include <Rendering/Deferred/AtmosphereRenderer.h>
+
+#include <Rendering/FrameGraph.h>
+
 class WorldRenderer;
 class DeferredRenderer;
 class PostProcess;
@@ -50,6 +55,11 @@ class GameStateInWorld : public GameState
 		WorldRenderer *worldRenderer;
 		DeferredRenderer *deferredRenderer;
 		PostProcess *postprocess;
+
+		std::unique_ptr<FrameGraph> frameGraph;
+
+		AtmosphereRenderer *atmosphere;
+		SkyCubemapRenderer *skyboxRenderer;
 		Game *testGame; // Probably a temp, probably will restructure this later
 
 		GameStateInWorld (StarlightEngine *enginePtr);

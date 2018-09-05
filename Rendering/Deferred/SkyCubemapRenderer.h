@@ -35,47 +35,57 @@
 #include <Rendering/Renderer/RendererObjects.h>
 
 class Renderer;
+class AtmosphereRenderer;
 
 typedef struct
 {
-	glm::mat4 invCamMVPMat;
 	glm::vec3 lightDir;
 	float cosSunAngularRadius;
 } SkyCubemapRendererPushConsts;
 
 typedef struct
 {
-	glm::mat4 invCamMVPMat;
 	float roughness;
+	float invMipSize;
 } SkyEnvironmentMapPushConsts;
 
 class SkyCubemapRenderer
 {
 	public:
 
-	SkyCubemapRenderer(Renderer *rendererPtr);
+	SkyCubemapRenderer(Renderer *rendererPtr, AtmosphereRenderer *atmospherePtr, uint32_t cubemapFaceSize, uint32_t maxEnviroSpecIBLMipCount);
 	virtual ~SkyCubemapRenderer();
 
-	void renderSkyCubemap(CommandBuffer &cmdBuffer, glm::vec3 lightDir);
+	void skyboxGenPassInit(RenderPass renderPass, uint32_t baseSubpass);
+	void skyboxGenPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size);
+	void skyboxGenPassRender(CommandBuffer cmdBuffer, uint32_t counter);
 
-	void init(uint32_t cubemapFaceResolution, const std::string &atmosphericShaderLib, std::vector<TextureView> atmosphereTextures, Sampler atmosphereSampler);
-	void destroy();
+	void enviroSkyboxGenPassInit(RenderPass renderPass, uint32_t baseSubpass);
+	void enviroSkyboxGenPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size);
+	void enviroSkyboxGenPassRender(CommandBuffer cmdBuffer, uint32_t counter);
 
-	TextureView getSkyCubemapTextureView();
-	TextureView getSkyEnviroCubemapTextureView();
+	void enviroSkyboxSpecIBLGenPassInit(RenderPass renderPass, uint32_t baseSubpass);
+	void enviroSkyboxSpecIBLGenPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size);
+	void enviroSkyboxSpecIBLGenPassRender(CommandBuffer cmdBuffer, uint32_t counter);
+
+	void setSunDirection(glm::vec3 sunLightDir);
 
 	Sampler getSkyEnviroCubemapSampler();
 
+	uint32_t getFaceResolution();
+	uint32_t getMaxEnviroSpecIBLMipCount();
+
 	private:
 
-	bool destroyed;
-
 	Renderer *renderer;
+	AtmosphereRenderer *atmosphere;
 
-	Pipeline skyPipelines[6];
-	std::vector<Pipeline> enviroFilterPipelines;
-	RenderPass skyRenderPass;
-	RenderPass skyEnvironmentRenderPass;
+	Buffer skyCubemapInvMVPsBuffer;
+
+	glm::vec3 sunDirection;
+
+	Pipeline skyPipelines;
+	Pipeline enviroFilterPipeline;
 
 	DescriptorPool skyDescriptorPool;
 	DescriptorSet skyDescriptorSet;
@@ -83,31 +93,23 @@ class SkyCubemapRenderer
 	DescriptorPool skyEnviroDescriptorPool;
 	DescriptorSet skyEnviroDescriptorSet;
 
-	Texture skyCubemapTexture;
-	TextureView skyCubemapFaceTV[6];
-	TextureView skyCubemapTV;
-	Framebuffer skyCubemapFB;
+	DescriptorPool skyEnviroOutputDescPool;
+	std::vector<DescriptorSet> skyEnviroOutputMipDescSets;
 
-	Texture skySrcEnviroMapTexture;
-	TextureView skySrcEnviroMapTV;
-	TextureView skySrcEnviroMapFaceTV[6];
-	Framebuffer skySrcEnviroMapFB;
-
-	Texture skyFilteredEnviroMapTexture;
-	TextureView skyFilteredEnviroMapTV;
-	std::vector<TextureView> skyFilteredEnviroMapTVs; // A texture view of each face's mipmap, skyFilteredEnviroMapTVs[face * <mip_count> + mip_lvl]
-	std::vector<Framebuffer> skyFilteredEnviroMapMipFBs;
-
+	Sampler atmosphereSampler;
 	Sampler enviroInputSampler;
 	Sampler enviroCubemapSampler;
+
+	TextureView enviroSkyboxInput;
+	TextureView enviroSkyboxSpecIBLOutput;
 
 	uint32_t getMipCount();
 
 	uint32_t faceResolution;
+	uint32_t maxEnviroSpecIBLMips;
 
-	void createCubemapPipeline(const std::string &atmosphericShaderLib);
+	void createCubemapPipeline(RenderPass renderPass, uint32_t baseSubpass);
 	void createEnvironmentMapPipeline();
-	void createRenderPasses();
 };
 
 #endif /* RENDERING_DEFERRED_SKYCUBEMAPRENDERER_H_ */

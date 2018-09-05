@@ -42,139 +42,68 @@
 
 #include <Game/API/SEAPI.h>
 
-DeferredRenderer::DeferredRenderer (StarlightEngine *enginePtr, WorldRenderer *worldRendererPtr)
+DeferredRenderer::DeferredRenderer (StarlightEngine *enginePtr, AtmosphereRenderer *atmospherePtr)
 {
 	engine = enginePtr;
-	worldRenderer = worldRendererPtr;
-	atmosphere = nullptr;
-	skyCubemap = nullptr;
+	atmosphere = atmospherePtr;
 
-	gbuffer_AlbedoRoughnessView = nullptr;
-	gbuffer_NormalsMetalnessView = nullptr;
-	gbuffer_DepthView = nullptr;
-	gbufferDirty = false;
-	destroyed = false;
-
-	deferredRenderPass = nullptr;
 	deferredPipeline = nullptr;
-	deferredFramebuffer = nullptr;
-
-	deferredCommandPool = nullptr;
-	deferredCommandBuffer = nullptr;
-
-	deferredOutput = nullptr;
-	deferredOutputView = nullptr;
-	deferredInputsSampler = nullptr;
+	linearSampler = nullptr;
 	atmosphereTextureSampler = nullptr;
 
 	deferredInputsDescriptorPool = nullptr;
 	deferredInputDescriptorSet = nullptr;
 	game = nullptr;
-
-	cmdBufferIndex = 0;
 }
 
 DeferredRenderer::~DeferredRenderer ()
 {
-	if (!destroyed)
-		destroy();
+	engine->renderer->destroyDescriptorPool(deferredInputsDescriptorPool);
+
+	engine->renderer->destroySampler(linearSampler);
+	engine->renderer->destroySampler(atmosphereTextureSampler);
+	engine->renderer->destroySampler(shadowsSampler);
+	engine->renderer->destroySampler(ditherSampler);
+
+	engine->renderer->destroyPipeline(deferredPipeline);
+
+	engine->resources->returnTexture(brdfLUT);
 }
 
 const uint32_t lightingPcSize = (uint32_t) (sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4) + sizeof(glm::vec4));
 
-void DeferredRenderer::renderDeferredLighting ()
+void DeferredRenderer::lightingPassInit(RenderPass renderPass, uint32_t baseSubpass)
 {
-	char pushConstData[lightingPcSize];
-	size_t seqOffset = 0;
-	memset(pushConstData, 0, sizeof(pushConstData));
-
-	glm::vec4 playerLookDir = glm::vec4(glm::normalize(glm::vec3(cos(game->mainCamera.lookAngles.y) * sin(game->mainCamera.lookAngles.x), sin(game->mainCamera.lookAngles.y), cos(game->mainCamera.lookAngles.y) * cos(game->mainCamera.lookAngles.x))), 0);
-	glm::vec2 prjMat = glm::vec2(worldRenderer->camProjMat[2][2], worldRenderer->camProjMat[3][2]);
-	glm::vec2 aspectRatio_tanHalfFOV = glm::vec2(gbufferSize.x / float(gbufferSize.y), std::tan(60 * (M_PI / 180.0f) * 0.5f));
-
-	seqmemcpy(pushConstData, &invCamMVPMat[0][0], sizeof(glm::mat4), seqOffset);
-	seqmemcpy(pushConstData, &game->mainCamera.position.x, sizeof(glm::vec4), seqOffset);
-	seqmemcpy(pushConstData, &playerLookDir.x, sizeof(glm::vec4), seqOffset);
-	seqmemcpy(pushConstData, &prjMat, sizeof(glm::vec2), seqOffset);
-	seqmemcpy(pushConstData, &aspectRatio_tanHalfFOV, sizeof(glm::vec2), seqOffset);
-
-	cmdBufferIndex ++;
-	cmdBufferIndex %= lightingCmdBuffers.size();
-
-	lightingCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-	skyCubemap->renderSkyCubemap(lightingCmdBuffers[cmdBufferIndex], engine->api->getSunDirection());
-
-	lightingCmdBuffers[cmdBufferIndex]->beginDebugRegion("Deferred Lighting", glm::vec4(0.9f, 0.85f, 0.1f, 1.0f));
-	lightingCmdBuffers[cmdBufferIndex]->beginRenderPass(deferredRenderPass, deferredFramebuffer, {0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}, {}, SUBPASS_CONTENTS_INLINE);
-	lightingCmdBuffers[cmdBufferIndex]->setScissors(0, {{0, 0, (uint32_t) gbufferSize.x, (uint32_t) gbufferSize.y}});
-	lightingCmdBuffers[cmdBufferIndex]->setViewports(0, {{0, 0, gbufferSize.x, gbufferSize.y, 0.0f, 1.0f}});
-
-	lightingCmdBuffers[cmdBufferIndex]->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, deferredPipeline);
-	lightingCmdBuffers[cmdBufferIndex]->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {deferredInputDescriptorSet});
-	lightingCmdBuffers[cmdBufferIndex]->pushConstants(SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT, 0, lightingPcSize, pushConstData);
-
-	// Vertex positions contained in the shader as constants
-	lightingCmdBuffers[cmdBufferIndex]->draw(6);
-
-	lightingCmdBuffers[cmdBufferIndex]->endRenderPass();
-	lightingCmdBuffers[cmdBufferIndex]->endDebugRegion();
-	lightingCmdBuffers[cmdBufferIndex]->endCommands();
-	std::vector<Semaphore> waitSems = {worldRenderer->gbufferFillSemaphores[worldRenderer->cmdBufferIndex], worldRenderer->shadowmapsSemaphores[worldRenderer->cmdBufferIndex]};
-	std::vector<PipelineStageFlags> waitSemStages = {PIPELINE_STAGE_FRAGMENT_SHADER_BIT, PIPELINE_STAGE_FRAGMENT_SHADER_BIT};
-
-	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {lightingCmdBuffers[cmdBufferIndex]}, waitSems, waitSemStages, {lightingSemaphores[cmdBufferIndex]});
-}
-
-void DeferredRenderer::init ()
-{
-	atmosphere = new AtmosphereRenderer (engine);
-	atmosphere->init();
-
 	atmosphereTextureSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_LINEAR, SAMPLER_FILTER_LINEAR);
+	createDeferredLightingPipeline(renderPass, baseSubpass);
 
-	skyCubemap = new SkyCubemapRenderer(engine->renderer);
-	skyCubemap->init(256, atmosphere->getAtmosphericShaderLib(), {atmosphere->transmittanceTV, atmosphere->scatteringTV, atmosphere->scatteringTV, atmosphere->irradianceTV}, atmosphereTextureSampler);
-
-	createDeferredLightingRenderPass();
-	createDeferredLightingPipeline();
-
-	deferredCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_RESET_COMMAND_BUFFER_BIT);
-	lightingCmdBuffers = deferredCommandPool->allocateCommandBuffers(COMMAND_BUFFER_LEVEL_PRIMARY, 3);
-
-	lightingSemaphores = engine->renderer->createSemaphores(3);
-
-	deferredInputsSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST);
+	linearSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_LINEAR, SAMPLER_FILTER_LINEAR, 1.0f, {0, 16, 0});
 	shadowsSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, SAMPLER_FILTER_LINEAR, SAMPLER_FILTER_LINEAR);
 	ditherSampler = engine->renderer->createSampler(SAMPLER_ADDRESS_MODE_REPEAT, SAMPLER_FILTER_NEAREST, SAMPLER_FILTER_NEAREST);
 
 	brdfLUT = engine->resources->loadTextureImmediate("GameData/textures/brdf2dlut.dds");
 
 	deferredInputsDescriptorPool = engine->renderer->createDescriptorPool({{
-		{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{0, DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{1, DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{2, DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{3, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{4, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT},
+		{7, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT},
+		{8, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{10, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{10, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{11, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{12, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{12, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{13, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{14, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{15, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{16, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
+		{14, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{15, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{16, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
 		}}, 1);
 
 	deferredInputDescriptorSet = deferredInputsDescriptorPool->allocateDescriptorSet();
-
-	DescriptorImageInfo deferredInputSamplerImageInfo = {};
-	deferredInputSamplerImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	deferredInputSamplerImageInfo.sampler = deferredInputsSampler;
 
 	DescriptorImageInfo transmittanceImageInfo = {};
 	transmittanceImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -186,7 +115,6 @@ void DeferredRenderer::init ()
 	scatteringImageInfo.sampler = atmosphereTextureSampler;
 	scatteringImageInfo.view = atmosphere->scatteringTV;
 
-	// Need to upload something or the validation layer will have a coronary, even if we don't use this texture
 	DescriptorImageInfo singleMieScatteringImageInfo = {};
 	singleMieScatteringImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	singleMieScatteringImageInfo.sampler = atmosphereTextureSampler;
@@ -197,244 +125,182 @@ void DeferredRenderer::init ()
 	irradianceImageInfo.sampler = atmosphereTextureSampler;
 	irradianceImageInfo.view = atmosphere->irradianceTV;
 
-	DescriptorImageInfo testShadowmapImageInfo = {};
-	testShadowmapImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	testShadowmapImageInfo.view = worldRenderer->sunCSM->getCSMTextureView();
+	DescriptorImageInfo sunShadowmapSamplerInfo = {};
+	sunShadowmapSamplerInfo.sampler = shadowsSampler;
 
-	DescriptorImageInfo shadowClipmapImageInfo = {};
-	shadowClipmapImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	shadowClipmapImageInfo.view = worldRenderer->terrainShadowRenderer->terrainDepthsView;
+	DescriptorImageInfo ditherTextureInfo = {};
+	ditherTextureInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	ditherTextureInfo.sampler = ditherSampler;
+	ditherTextureInfo.view = engine->resources->getDitherPatternTexture();
 
-	DescriptorBufferInfo weuboInfo = {};
-	weuboInfo.buffer = engine->api->getWorldEnvironmentUBO();
-	weuboInfo.range = sizeof(WorldEnvironmentUBO);
-
-	DescriptorImageInfo shadowSamplerImageInfo = {};
-	shadowSamplerImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	shadowSamplerImageInfo.sampler = shadowsSampler;
-	shadowSamplerImageInfo.view = worldRenderer->sunCSM->getCSMTextureView();
-
-	DescriptorImageInfo ditherImageInfo = {};
-	ditherImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	ditherImageInfo.sampler = ditherSampler;
-	ditherImageInfo.view = engine->resources->getDitherPatternTexture();
-
-	DescriptorImageInfo skyCubemapImageInfo = {};
-	skyCubemapImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	skyCubemapImageInfo.sampler = atmosphereTextureSampler;
-	skyCubemapImageInfo.view = skyCubemap->getSkyCubemapTextureView();
-
-	DescriptorImageInfo skyEnviroCubemapImageInfo = {};
-	skyEnviroCubemapImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	skyEnviroCubemapImageInfo.sampler = skyCubemap->getSkyEnviroCubemapSampler();
-	skyEnviroCubemapImageInfo.view = skyCubemap->getSkyEnviroCubemapTextureView();
+	DescriptorImageInfo linearSamplerInfo = {};
+	linearSamplerInfo.sampler = linearSampler;
 
 	DescriptorImageInfo brdfLUTImageInfo = {};
 	brdfLUTImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	brdfLUTImageInfo.sampler = shadowsSampler;
 	brdfLUTImageInfo.view = brdfLUT->textureView;
 
-	DescriptorWriteInfo swrite = {}, twrite = {}, stwrite = {}, smswrite = {}, iwrite = {}, weubowrite = {}, tsmwrite = {}, shadowSamplerWrite = {}, ditherSamplerWrite = {}, ditherTextureWrite = {}, shadowClipmapWrite = {}, skyCubemapWrite = {}, skyEnviroCubemapWrite = {}, brdfLUTWrite = {};
-	swrite.descriptorCount = 1;
-	swrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
-	swrite.dstBinding = 0;
-	swrite.dstSet = deferredInputDescriptorSet;
-	swrite.imageInfo = {deferredInputSamplerImageInfo};
+	DescriptorBufferInfo worldEnvironmentUBOBufferInfo = {};
+	worldEnvironmentUBOBufferInfo.buffer = engine->api->getWorldEnvironmentUBO();
+	worldEnvironmentUBOBufferInfo.range = sizeof(WorldEnvironmentUBO);
 
-	twrite.descriptorCount = 1;
-	twrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	twrite.dstBinding = 4;
-	twrite.dstSet = deferredInputDescriptorSet;
-	twrite.imageInfo = {transmittanceImageInfo};
+	DescriptorWriteInfo transmittanceWriteInfo = {}, scatteringWriteInfo = {}, singleMieScatteringWriteInfo = {}, irradianceWriteInfo = {}, sunShadowmapSamplerWriteInfo = {}, ditherSamplerWriteInfo = {}, ditherTextureWriteInfo = {}, worldEnvironmentUBOWrite = {}, linearSamplerWrite = {}, brdfLUTWrite = {};
+	transmittanceWriteInfo.descriptorCount = 1;
+	transmittanceWriteInfo.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	transmittanceWriteInfo.dstBinding = 3;
+	transmittanceWriteInfo.dstSet = deferredInputDescriptorSet;
+	transmittanceWriteInfo.imageInfo = {transmittanceImageInfo};
 
-	stwrite.descriptorCount = 1;
-	stwrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	stwrite.dstBinding = 5;
-	stwrite.dstSet = deferredInputDescriptorSet;
-	stwrite.imageInfo = {scatteringImageInfo};
+	scatteringWriteInfo.descriptorCount = 1;
+	scatteringWriteInfo.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	scatteringWriteInfo.dstBinding = 4;
+	scatteringWriteInfo.dstSet = deferredInputDescriptorSet;
+	scatteringWriteInfo.imageInfo = {scatteringImageInfo};
 
-	smswrite.descriptorCount = 1;
-	smswrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	smswrite.dstBinding = 6;
-	smswrite.dstSet = deferredInputDescriptorSet;
-	smswrite.imageInfo = {singleMieScatteringImageInfo};
+	singleMieScatteringWriteInfo.descriptorCount = 1;
+	singleMieScatteringWriteInfo.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	singleMieScatteringWriteInfo.dstBinding = 5;
+	singleMieScatteringWriteInfo.dstSet = deferredInputDescriptorSet;
+	singleMieScatteringWriteInfo.imageInfo = {singleMieScatteringImageInfo};
 
-	iwrite.descriptorCount = 1;
-	iwrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	iwrite.dstBinding = 7;
-	iwrite.dstSet = deferredInputDescriptorSet;
-	iwrite.imageInfo = {irradianceImageInfo};
+	irradianceWriteInfo.descriptorCount = 1;
+	irradianceWriteInfo.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	irradianceWriteInfo.dstBinding = 6;
+	irradianceWriteInfo.dstSet = deferredInputDescriptorSet;
+	irradianceWriteInfo.imageInfo = {irradianceImageInfo};
 
-	weubowrite.descriptorCount = 1;
-	weubowrite.descriptorType = DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	weubowrite.dstBinding = 8;
-	weubowrite.dstSet = deferredInputDescriptorSet;
-	weubowrite.bufferInfo = {weuboInfo};
+	sunShadowmapSamplerWriteInfo.descriptorCount = 1;
+	sunShadowmapSamplerWriteInfo.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
+	sunShadowmapSamplerWriteInfo.dstBinding = 10;
+	sunShadowmapSamplerWriteInfo.dstSet = deferredInputDescriptorSet;
+	sunShadowmapSamplerWriteInfo.imageInfo = {sunShadowmapSamplerInfo};
 
-	tsmwrite.descriptorCount = 1;
-	tsmwrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	tsmwrite.dstBinding = 9;
-	tsmwrite.dstSet = deferredInputDescriptorSet;
-	tsmwrite.imageInfo = {testShadowmapImageInfo};
+	ditherSamplerWriteInfo.descriptorCount = 1;
+	ditherSamplerWriteInfo.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
+	ditherSamplerWriteInfo.dstBinding = 11;
+	ditherSamplerWriteInfo.dstSet = deferredInputDescriptorSet;
+	ditherSamplerWriteInfo.imageInfo = {ditherTextureInfo};
 
-	shadowSamplerWrite.descriptorCount = 1;
-	shadowSamplerWrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	shadowSamplerWrite.dstBinding = 10;
-	shadowSamplerWrite.dstSet = deferredInputDescriptorSet;
-	shadowSamplerWrite.imageInfo = {shadowSamplerImageInfo};
+	ditherTextureWriteInfo.descriptorCount = 1;
+	ditherTextureWriteInfo.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	ditherTextureWriteInfo.dstBinding = 13;
+	ditherTextureWriteInfo.dstSet = deferredInputDescriptorSet;
+	ditherTextureWriteInfo.imageInfo = {ditherTextureInfo};
 
-	ditherSamplerWrite.descriptorCount = 1;
-	ditherSamplerWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
-	ditherSamplerWrite.dstBinding = 11;
-	ditherSamplerWrite.dstSet = deferredInputDescriptorSet;
-	ditherSamplerWrite.imageInfo = {ditherImageInfo};
+	worldEnvironmentUBOWrite.descriptorCount = 1;
+	worldEnvironmentUBOWrite.descriptorType = DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	worldEnvironmentUBOWrite.dstBinding = 7;
+	worldEnvironmentUBOWrite.dstSet = deferredInputDescriptorSet;
+	worldEnvironmentUBOWrite.bufferInfo = {worldEnvironmentUBOBufferInfo};
 
-	ditherTextureWrite.descriptorCount = 1;
-	ditherTextureWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	ditherTextureWrite.dstBinding = 12;
-	ditherTextureWrite.dstSet = deferredInputDescriptorSet;
-	ditherTextureWrite.imageInfo = {ditherImageInfo};
-
-	shadowClipmapWrite.descriptorCount = 1;
-	shadowClipmapWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	shadowClipmapWrite.dstBinding = 13;
-	shadowClipmapWrite.dstSet = deferredInputDescriptorSet;
-	shadowClipmapWrite.imageInfo = {shadowClipmapImageInfo};
-
-	skyCubemapWrite.descriptorCount = 1;
-	skyCubemapWrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	skyCubemapWrite.dstBinding = 14;
-	skyCubemapWrite.dstSet = deferredInputDescriptorSet;
-	skyCubemapWrite.imageInfo = {skyCubemapImageInfo};
-
-	skyEnviroCubemapWrite.descriptorCount = 1;
-	skyEnviroCubemapWrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	skyEnviroCubemapWrite.dstBinding = 15;
-	skyEnviroCubemapWrite.dstSet = deferredInputDescriptorSet;
-	skyEnviroCubemapWrite.imageInfo = {skyEnviroCubemapImageInfo};
+	linearSamplerWrite.descriptorCount = 1;
+	linearSamplerWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLER;
+	linearSamplerWrite.dstBinding = 12;
+	linearSamplerWrite.dstSet = deferredInputDescriptorSet;
+	linearSamplerWrite.imageInfo = {linearSamplerInfo};
 
 	brdfLUTWrite.descriptorCount = 1;
-	brdfLUTWrite.descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	brdfLUTWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 	brdfLUTWrite.dstBinding = 16;
 	brdfLUTWrite.dstSet = deferredInputDescriptorSet;
 	brdfLUTWrite.imageInfo = {brdfLUTImageInfo};
 
-	engine->renderer->writeDescriptorSets({swrite, twrite, stwrite, smswrite, iwrite, weubowrite, tsmwrite, shadowSamplerWrite, ditherSamplerWrite, ditherTextureWrite, shadowClipmapWrite, skyCubemapWrite, skyEnviroCubemapWrite, brdfLUTWrite});
+	engine->renderer->writeDescriptorSets({transmittanceWriteInfo, scatteringWriteInfo, singleMieScatteringWriteInfo, irradianceWriteInfo, sunShadowmapSamplerWriteInfo, ditherSamplerWriteInfo, ditherTextureWriteInfo, worldEnvironmentUBOWrite, linearSamplerWrite, brdfLUTWrite});
 }
 
-void DeferredRenderer::setGBuffer (TextureView gbuffer_AlbedoRoughnessView, TextureView gbuffer_NormalsMetalnessView, TextureView gbuffer_DepthView, suvec2 gbufferDim)
+void DeferredRenderer::lightingPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size)
 {
-	gbufferDirty = true;
+	renderSize = size;
 
-	this->gbufferSize = {(float) gbufferDim.x, (float) gbufferDim.y};
-	this->gbuffer_AlbedoRoughnessView = gbuffer_AlbedoRoughnessView;
-	this->gbuffer_NormalsMetalnessView = gbuffer_NormalsMetalnessView;
-	this->gbuffer_DepthView = gbuffer_DepthView;
+	DescriptorImageInfo gbuffer0ImageInfo = {};
+	gbuffer0ImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	gbuffer0ImageInfo.view = views["gbuffer0"];
 
-	if (deferredOutput != nullptr)
-		engine->renderer->destroyTexture(deferredOutput);
-	if (deferredOutputView != nullptr)
-		engine->renderer->destroyTextureView(deferredOutputView);
-	if (deferredFramebuffer != nullptr)
-		engine->renderer->destroyFramebuffer(deferredFramebuffer);
-
-	deferredOutput = engine->renderer->createTexture({gbufferDim.x, gbufferDim.y, 1}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-	deferredOutputView = engine->renderer->createTextureView(deferredOutput, TEXTURE_VIEW_TYPE_2D);
-	deferredFramebuffer = engine->renderer->createFramebuffer(deferredRenderPass, {deferredOutputView}, gbufferDim.x, gbufferDim.y, 1);
-
-	DescriptorImageInfo gbufferRoughnessAlbedoImageInfo = {};
-	gbufferRoughnessAlbedoImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	gbufferRoughnessAlbedoImageInfo.view = gbuffer_AlbedoRoughnessView;
-
-	DescriptorImageInfo gbufferNormalsMetalnessImageInfo = {};
-	gbufferNormalsMetalnessImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	gbufferNormalsMetalnessImageInfo.view = gbuffer_NormalsMetalnessView;
+	DescriptorImageInfo gbuffer1ImageInfo = {};
+	gbuffer1ImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	gbuffer1ImageInfo.view = views["gbuffer1"];
 
 	DescriptorImageInfo gbufferDepthImageInfo = {};
-	gbufferDepthImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	gbufferDepthImageInfo.view = gbuffer_DepthView;
+	gbufferDepthImageInfo.layout = TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	gbufferDepthImageInfo.view = views["gbufferDepth"];
 
-	DescriptorWriteInfo garWrite = {}, gnmWrite = {}, dwrite = {};
-	garWrite.descriptorCount = 1;
-	garWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	garWrite.dstBinding = 1;
-	garWrite.dstSet = deferredInputDescriptorSet;
-	garWrite.imageInfo =
-	{	gbufferRoughnessAlbedoImageInfo};
+	DescriptorImageInfo sunShadowmapImageInfo = {};
+	sunShadowmapImageInfo.layout = TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	sunShadowmapImageInfo.view = views["sunShadows"];
 
-	gnmWrite.descriptorCount = 1;
-	gnmWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	gnmWrite.dstBinding = 2;
-	gnmWrite.dstSet = deferredInputDescriptorSet;
-	gnmWrite.imageInfo =
-	{	gbufferNormalsMetalnessImageInfo};
+	DescriptorImageInfo terrainShadowmapImageInfo = {};
+	terrainShadowmapImageInfo.layout = TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	terrainShadowmapImageInfo.view = views["sunShadows"];
 
-	dwrite.descriptorCount = 1;
-	dwrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	dwrite.dstBinding = 3;
-	dwrite.dstSet = deferredInputDescriptorSet;
-	dwrite.imageInfo =
-	{	gbufferDepthImageInfo};
+	DescriptorImageInfo skyCubemapImageInfo = {};
+	skyCubemapImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	skyCubemapImageInfo.view = views["skybox"];
 
-	engine->renderer->writeDescriptorSets({garWrite, gnmWrite, dwrite});
+	DescriptorImageInfo skyEnviroImageInfo = {};
+	skyEnviroImageInfo.layout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	skyEnviroImageInfo.view = views["enviroSkyboxSpecIBL"];
 
-	engine->renderer->setObjectDebugName(deferredOutput, OBJECT_TYPE_TEXTURE, "Deferred Output");
+	DescriptorWriteInfo gbuffer0Write = {}, gbuffer1Write = {}, gbufferDepthWrite = {}, sunShadowmapWrite = {}, terrainShadowmapWrite = {}, skyCubemapWrite = {}, skyEnviroWrite = {};
+	gbuffer0Write.descriptorCount = 1;
+	gbuffer0Write.descriptorType = DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	gbuffer0Write.dstBinding = 0;
+	gbuffer0Write.dstSet = deferredInputDescriptorSet;
+	gbuffer0Write.imageInfo = {gbuffer0ImageInfo};
+
+	gbuffer1Write.descriptorCount = 1;
+	gbuffer1Write.descriptorType = DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	gbuffer1Write.dstBinding = 1;
+	gbuffer1Write.dstSet = deferredInputDescriptorSet;
+	gbuffer1Write.imageInfo = {gbuffer1ImageInfo};
+
+	gbufferDepthWrite.descriptorCount = 1;
+	gbufferDepthWrite.descriptorType = DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	gbufferDepthWrite.dstBinding = 2;
+	gbufferDepthWrite.dstSet = deferredInputDescriptorSet;
+	gbufferDepthWrite.imageInfo = {gbufferDepthImageInfo};
+	
+	sunShadowmapWrite.descriptorCount = 1;
+	sunShadowmapWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	sunShadowmapWrite.dstBinding = 8;
+	sunShadowmapWrite.dstSet = deferredInputDescriptorSet;
+	sunShadowmapWrite.imageInfo = {sunShadowmapImageInfo};
+
+	terrainShadowmapWrite.descriptorCount = 1;
+	terrainShadowmapWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	terrainShadowmapWrite.dstBinding = 9;
+	terrainShadowmapWrite.dstSet = deferredInputDescriptorSet;
+	terrainShadowmapWrite.imageInfo = {terrainShadowmapImageInfo};
+
+	skyCubemapWrite.descriptorCount = 1;
+	skyCubemapWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	skyCubemapWrite.dstBinding = 14;
+	skyCubemapWrite.dstSet = deferredInputDescriptorSet;
+	skyCubemapWrite.imageInfo = {skyCubemapImageInfo};
+
+	skyEnviroWrite.descriptorCount = 1;
+	skyEnviroWrite.descriptorType = DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	skyEnviroWrite.dstBinding = 15;
+	skyEnviroWrite.dstSet = deferredInputDescriptorSet;
+	skyEnviroWrite.imageInfo = {skyEnviroImageInfo};
+
+	engine->renderer->writeDescriptorSets({gbuffer0Write, gbuffer1Write, gbufferDepthWrite, sunShadowmapWrite, terrainShadowmapWrite, skyCubemapWrite, skyEnviroWrite});
 }
 
-void DeferredRenderer::destroy ()
+void DeferredRenderer::lightingPassRender(CommandBuffer cmdBuffer, uint32_t counter)
 {
-	destroyed = true;
+	DeferredRendererLightingPushConsts pushConstData = {};
+	pushConstData.invCamMVPMat = glm::inverse(engine->api->getMainCameraProjMat() * engine->api->getMainCameraViewMat());
+	pushConstData.cameraPosition = game->mainCamera.position;
+	pushConstData.prjMat_aspectRatio_tanHalfFOV = glm::vec4(engine->api->getMainCameraProjMat()[2][2], engine->api->getMainCameraProjMat()[3][2], renderSize.x / float(renderSize.y), std::tan(60 * (M_PI / 180.0f) * 0.5f));
+	
+	cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, deferredPipeline);
+	cmdBuffer->bindDescriptorSets(PIPELINE_BIND_POINT_GRAPHICS, 0, {deferredInputDescriptorSet});
+	cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pushConstData), &pushConstData);
 
-	engine->renderer->destroyDescriptorPool(deferredInputsDescriptorPool);
-
-	for (size_t i = 0; i < lightingSemaphores.size(); i ++)
-		engine->renderer->destroySemaphore(lightingSemaphores[i]);
-
-	engine->renderer->destroySampler(deferredInputsSampler);
-	engine->renderer->destroySampler(atmosphereTextureSampler);
-	engine->renderer->destroySampler(shadowsSampler);
-	engine->renderer->destroySampler(ditherSampler);
-
-	engine->renderer->destroyTexture(deferredOutput);
-	engine->renderer->destroyTextureView(deferredOutputView);
-
-	engine->renderer->destroyFramebuffer(deferredFramebuffer);
-	engine->renderer->destroyCommandPool(deferredCommandPool);
-
-	engine->renderer->destroyPipeline(deferredPipeline);
-	engine->renderer->destroyRenderPass(deferredRenderPass);
-
-	engine->resources->returnTexture(brdfLUT);
-
-	atmosphere->destroy();
-	skyCubemap->destroy();
-
-	delete atmosphere;
-	delete skyCubemap;
+	cmdBuffer->draw(6);
 }
 
-void DeferredRenderer::createDeferredLightingRenderPass ()
-{
-	AttachmentDescription deferredOutputAttachment = {};
-	deferredOutputAttachment.format = RESOURCE_FORMAT_R16G16B16A16_SFLOAT;
-	deferredOutputAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-	deferredOutputAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	deferredOutputAttachment.loadOp = ATTACHMENT_LOAD_OP_DONT_CARE;
-	deferredOutputAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
-
-	AttachmentReference subpass0_deferredOutputRef = {};
-	subpass0_deferredOutputRef.attachment = 0;
-	subpass0_deferredOutputRef.layout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	SubpassDescription subpass0 = {};
-	subpass0.bindPoint = PIPELINE_BIND_POINT_GRAPHICS;
-	subpass0.colorAttachments = {subpass0_deferredOutputRef};
-	subpass0.depthStencilAttachment = nullptr;
-
-	deferredRenderPass = engine->renderer->createRenderPass({deferredOutputAttachment}, {subpass0}, {});
-}
-
-void DeferredRenderer::createDeferredLightingPipeline ()
+void DeferredRenderer::createDeferredLightingPipeline (RenderPass renderPass, uint32_t baseSubpass)
 {
 	const std::string insertMarker = "#SE_BUILTIN_INCLUDE_ATMOSPHERE_LIB";
 	const std::string shaderSourceFile = "GameData/shaders/vulkan/lighting.glsl";
@@ -515,7 +381,7 @@ void DeferredRenderer::createDeferredLightingPipeline ()
 	dynamicState.dynamicStates =
 	{	DYNAMIC_STATE_VIEWPORT, DYNAMIC_STATE_SCISSOR};
 
-	PipelineInfo info = {};
+	GraphicsPipelineInfo info = {};
 	info.stages =
 	{	vertShaderStage, fragShaderStage};
 	info.vertexInputInfo = vertexInput;
@@ -528,37 +394,27 @@ void DeferredRenderer::createDeferredLightingPipeline ()
 
 	info.inputPushConstantRanges = {{0, lightingPcSize, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT}};
 	info.inputSetLayouts = {{
-		{0, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{1, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{2, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{3, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{0, DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{1, DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{2, DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{3, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{4, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{5, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{6, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{7, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{8, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT},
+		{7, DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, SHADER_STAGE_VERTEX_BIT | SHADER_STAGE_FRAGMENT_BIT},
+		{8, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{9, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{10, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{10, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{11, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{12, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{12, DESCRIPTOR_TYPE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
 		{13, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{14, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{15, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT},
-		{16, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, SHADER_STAGE_FRAGMENT_BIT}
+		{14, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{15, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT},
+		{16, DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1, SHADER_STAGE_FRAGMENT_BIT}
 		}};
 
-	deferredPipeline = engine->renderer->createGraphicsPipeline(info, deferredRenderPass, 0);
+	deferredPipeline = engine->renderer->createGraphicsPipeline(info, renderPass, baseSubpass);
 
 	engine->renderer->destroyShaderModule(vertShaderStage.module);
 	engine->renderer->destroyShaderModule(fragShaderStage.module);
-}
-
-TextureView DeferredRenderer::getGBuffer_AlbedoRoughness ()
-{
-	return gbuffer_AlbedoRoughnessView;
-}
-
-TextureView DeferredRenderer::getGBuffer_NormalsMetalness ()
-{
-	return gbuffer_NormalsMetalnessView;
 }

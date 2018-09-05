@@ -83,6 +83,10 @@ void D3D12CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount
 {
 }
 
+void D3D12CommandBuffer::dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
+{
+}
+
 void D3D12CommandBuffer::pushConstants(ShaderStageFlags stages, uint32_t offset, uint32_t size, const void * data)
 {
 }

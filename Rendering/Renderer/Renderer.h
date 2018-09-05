@@ -52,7 +52,8 @@ class Renderer
 		virtual Framebuffer createFramebuffer (RenderPass renderPass, const std::vector<TextureView> &attachments, uint32_t width, uint32_t height, uint32_t layers = 1) = 0;
 		virtual ShaderModule createShaderModule (const std::string &file, ShaderStageFlagBits stage, ShaderSourceLanguage sourceLang, const std::string &entryPoint = "main") = 0;
 		virtual ShaderModule createShaderModuleFromSource (const std::string &source, const std::string &referenceName, ShaderStageFlagBits stage, ShaderSourceLanguage sourceLang, const std::string &entryPoint = "main") = 0;
-		virtual Pipeline createGraphicsPipeline (const PipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass) = 0;
+		virtual Pipeline createGraphicsPipeline (const GraphicsPipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass) = 0;
+		virtual Pipeline createComputePipeline(const ComputePipelineInfo &pipelineInfo) = 0;
 		virtual DescriptorPool createDescriptorPool (const std::vector<DescriptorSetLayoutBinding> &layoutBindings, uint32_t poolBlockAllocSize) = 0;
 
 		virtual Fence createFence (bool createAsSignaled = false) = 0;

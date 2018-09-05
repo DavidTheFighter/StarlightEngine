@@ -23,7 +23,7 @@ VulkanPipelines::~VulkanPipelines ()
 	}
 }
 
-Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass)
+Pipeline VulkanPipelines::createGraphicsPipeline (const GraphicsPipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass)
 {
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 
@@ -216,6 +216,61 @@ Pipeline VulkanPipelines::createGraphicsPipeline (const PipelineInfo &pipelineIn
 	pipelineCreateInfo.layout = vulkanPipeline->pipelineLayoutHandle;
 
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(renderer->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &vulkanPipeline->pipelineHandle));
+
+	return vulkanPipeline;
+}
+
+Pipeline VulkanPipelines::createComputePipeline(const ComputePipelineInfo &pipelineInfo)
+{
+	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
+
+	VkComputePipelineCreateInfo pipelineCreateInfo = {};
+	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineCreateInfo.basePipelineIndex = -1;
+	pipelineCreateInfo.flags = 0;
+
+	VkPipelineShaderStageCreateInfo computeShaderStage = {};
+	computeShaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	computeShaderStage.flags = 0;
+	computeShaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	computeShaderStage.module = static_cast<VulkanShaderModule*>(pipelineInfo.shader.module)->module;
+	computeShaderStage.pName = pipelineInfo.shader.entry;
+	computeShaderStage.pSpecializationInfo = nullptr;
+
+	pipelineCreateInfo.stage = computeShaderStage;
+
+	std::vector<VkPushConstantRange> vulkanPushConstantRanges;
+	std::vector<VkDescriptorSetLayout> vulkanDescSetLayouts;
+
+	for (size_t i = 0; i < pipelineInfo.inputPushConstantRanges.size(); i++)
+	{
+		const PushConstantRange &genericPushRange = pipelineInfo.inputPushConstantRanges[i];
+		VkPushConstantRange vulkanPushRange = {};
+		vulkanPushRange.stageFlags = genericPushRange.stageFlags;
+		vulkanPushRange.size = genericPushRange.size;
+		vulkanPushRange.offset = genericPushRange.offset;
+
+		vulkanPushConstantRanges.push_back(vulkanPushRange);
+	}
+
+	for (size_t i = 0; i < pipelineInfo.inputSetLayouts.size(); i++)
+	{
+		vulkanDescSetLayouts.push_back(createDescriptorSetLayout(pipelineInfo.inputSetLayouts[i]));
+	}
+
+	VkPipelineLayoutCreateInfo layoutCreateInfo = {};
+	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(pipelineInfo.inputPushConstantRanges.size());
+	layoutCreateInfo.setLayoutCount = static_cast<uint32_t>(pipelineInfo.inputSetLayouts.size());
+	layoutCreateInfo.pPushConstantRanges = vulkanPushConstantRanges.data();
+	layoutCreateInfo.pSetLayouts = vulkanDescSetLayouts.data();
+
+	VK_CHECK_RESULT(vkCreatePipelineLayout(renderer->device, &layoutCreateInfo, nullptr, &vulkanPipeline->pipelineLayoutHandle));
+
+	pipelineCreateInfo.layout = vulkanPipeline->pipelineLayoutHandle;
+
+	VK_CHECK_RESULT(vkCreateComputePipelines(renderer->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &vulkanPipeline->pipelineHandle));
 
 	return vulkanPipeline;
 }

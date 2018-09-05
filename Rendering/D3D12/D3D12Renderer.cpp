@@ -250,7 +250,14 @@ ShaderModule D3D12Renderer::createShaderModuleFromSource(const std::string & sou
 	return shaderModule;
 }
 
-Pipeline D3D12Renderer::createGraphicsPipeline(const PipelineInfo & pipelineInfo, RenderPass renderPass, uint32_t subpass)
+Pipeline D3D12Renderer::createGraphicsPipeline(const GraphicsPipelineInfo & pipelineInfo, RenderPass renderPass, uint32_t subpass)
+{
+	D3D12Pipeline *pipeline = new D3D12Pipeline();
+
+	return pipeline;
+}
+
+Pipeline D3D12Renderer::createComputePipeline(const ComputePipelineInfo &pipelineInfo)
 {
 	D3D12Pipeline *pipeline = new D3D12Pipeline();
 

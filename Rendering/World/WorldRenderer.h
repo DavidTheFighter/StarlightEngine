@@ -67,88 +67,51 @@ class WorldRenderer
 {
 	public:
 
-		RenderPass gbufferRenderPass;
-		Framebuffer gbufferFramebuffer;
+	Sampler testSampler;
 
-		RenderPass shadowsRenderPass;
-		std::vector<Framebuffer> sunCSMFramebuffers;
+	CSM *sunCSM;
 
-		uint32_t cmdBufferIndex; // To implement multi-buffering, in most cases triple-buffering, so frame processing can overlap safely
+	StarlightEngine *engine;
+	WorldHandler *world;
 
-		std::vector<Semaphore> gbufferFillSemaphores;
-		std::vector<Semaphore> shadowmapsSemaphores;
+	TerrainRenderer *terrainRenderer;
+	TerrainShadowRenderer *terrainShadowRenderer;
 
-		Sampler testSampler;
+	RenderPass gbufferRenderPass;
+	RenderPass shadowsRenderPass;
 
-		/*
-		 * The GBuffer textures, all 32-bit. Packed as following:
-		 * 1st Texture:
-		 * 		RGB - Albedo
-		 * 		A   - Roughness
-		 *
-		 * 2nd Texture: (packed by bit masking in a single channel)
-		 * 		11:11 - RG normals, packed octahedral
-		 * 		5     - Metalness
-		 * 		5     - Ambient occlusion
-		 *
-		 * 3rd Texture:
-		 * 		R   - Depth
-		 */
-		Texture gbuffer[3];
-		TextureView gbufferView[3];
+	WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr);
+	virtual ~WorldRenderer ();
 
-		CSM *sunCSM;
+	void update ();
 
-		StarlightEngine *engine;
-		WorldHandler *world;
+	void renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4 mvp, bool renderDepth);
 
-		TerrainRenderer *terrainRenderer;
-		TerrainShadowRenderer *terrainShadowRenderer;
+	void gbufferPassInit(RenderPass renderPass, uint32_t baseSubpass);
+	void gbufferPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size);
+	void gbufferPassRender(CommandBuffer cmdBuffer, uint32_t counter);
 
-		glm::mat4 camProjMat;
-		glm::mat4 camViewMat;
-		glm::vec3 cameraPosition;
-
-		WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHandlerPtr);
-		virtual ~WorldRenderer ();
-
-		void init (suvec2 gbufferDimensions);
-		void destroy ();
-
-		void update ();
-
-		void render3DWorld ();
-		void renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4 mvp, bool renderDepth);
-
-		void setGBufferDimensions (suvec2 gbufferDimensions);
-		suvec2 getGBufferDimensions ();
+	void sunShadowsPassInit(RenderPass renderPass, uint32_t baseSubpass);
+	void sunShadowsPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size);
+	void sunShadowsPassRender(CommandBuffer cmdBuffer, uint32_t counter);
 
 	private:
 
-		Pipeline physxDebugPipeline;
+	suvec3 gbufferRenderSize;
+	suvec3 sunShadowsRenderSize;
 
-		void traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data, const glm::vec4 (&frustum)[6]);
+	Pipeline physxDebugPipeline;
 
-		void createGBuffer ();
-		void destroyGBuffer ();
-		void createRenderPasses ();
-		void createPipelines();
+	void traverseOctreeNode (SortedOctree<LevelStaticObjectType, LevelStaticObject> &node, LevelStaticObjectStreamingData &data, const glm::vec4 (&frustum)[6]);
 
-		LevelStaticObjectStreamingData getStaticObjStreamingData (const glm::vec4 (&frustum)[6]);
+	void createPipelines(RenderPass renderPass, uint32_t baseSubpass);
 
-		bool isDestroyed; // So that when an instance is deleted, destroy() is always called, either by the user or by the destructor
+	LevelStaticObjectStreamingData getStaticObjStreamingData (const glm::vec4 (&frustum)[6]);
 
-		suvec2 gbufferRenderDimensions;
-
-		CommandPool renderWorldCommandPool;
-
-		std::vector<CommandBuffer> gbufferFillCmdBuffers;
-		std::vector<CommandBuffer> shadowmapCmdBuffers;
-
-		size_t worldStreamingBufferOffset;
-		Buffer worldStreamingBuffer;
-		Buffer physxDebugStreamingBuffer;
-		void *worldStreamingBufferData;
+	size_t worldStreamingBufferOffset;
+	Buffer worldStreamingBuffer;
+	Buffer physxDebugStreamingBuffer;
+	void *worldStreamingBufferData;
 };
 
 #endif /* RENDERING_WORLD_WORLDRENDERER_H_ */

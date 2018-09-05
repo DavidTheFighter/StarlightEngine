@@ -269,7 +269,7 @@ void TerrainShadowRenderer::createDepthPipeline()
 	{};
 
 
-	PipelineInfo info = {};
+	GraphicsPipelineInfo info = {};
 	info.stages =
 	{vertShaderStage, fragShaderStage};
 	info.vertexInputInfo = vertexInput;

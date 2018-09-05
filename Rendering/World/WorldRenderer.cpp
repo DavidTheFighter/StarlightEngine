@@ -50,50 +50,74 @@ WorldRenderer::WorldRenderer (StarlightEngine *enginePtr, WorldHandler *worldHan
 	world = worldHandlerPtr;
 	terrainRenderer = nullptr;
 
-	isDestroyed = false;
-
-	gbufferRenderPass = nullptr;
-	gbufferFramebuffer = nullptr;
-
-	renderWorldCommandPool = nullptr;
-
 	worldStreamingBuffer = nullptr;
 	worldStreamingBufferOffset = 0;
 	worldStreamingBufferData = nullptr;
+
+	gbufferRenderPass = nullptr;
+	shadowsRenderPass = nullptr;
 
 	testSampler = nullptr;
 
 	sunCSM = nullptr;
 
-	shadowsRenderPass = nullptr;
-
 	physxDebugStreamingBuffer = nullptr;
-
-	cmdBufferIndex = 0;
 }
 
 WorldRenderer::~WorldRenderer ()
 {
-	if (!isDestroyed)
-		destroy();
+	terrainRenderer->destroy();
+	delete terrainRenderer;
+
+	terrainShadowRenderer->destroy();
+	delete terrainShadowRenderer;
+
+	delete sunCSM;
+
+	engine->renderer->destroyPipeline(physxDebugPipeline);
+
+	engine->renderer->destroySampler(testSampler);
+
+	engine->renderer->unmapBuffer(worldStreamingBuffer);
+	engine->renderer->destroyBuffer(worldStreamingBuffer);
 }
 
 void WorldRenderer::update ()
 {
 	terrainRenderer->update();
-	sunCSM->update(camViewMat, glm::vec2(60 * (M_PI / 180.0f), 60 * (M_PI / 180.0f)) / (getGBufferDimensions().x / float(getGBufferDimensions().y)), {1, 10, 75, 400}, engine->api->getSunDirection());
+	sunCSM->update(engine->api->getMainCameraViewMat(), glm::vec2(60 * (M_PI / 180.0f), 60 * (M_PI / 180.0f)) / (gbufferRenderSize.x / float(gbufferRenderSize.y)), {1, 10, 75, 400}, engine->api->getSunDirection());
 }
 
-void WorldRenderer::render3DWorld ()
+void WorldRenderer::gbufferPassInit(RenderPass renderPass, uint32_t baseSubpass)
 {
-	std::vector<ClearValue> clearValues = std::vector<ClearValue>(3);
-	clearValues[0].color =
-	{	0, 0, 0, 0};
-	clearValues[1].color =
-	{	0, 0, 0, 0};
-	clearValues[2].depthStencil =
-	{	0, 0};
+	gbufferRenderPass = renderPass;
 
+	testSampler = engine->renderer->createSampler();
+
+	worldStreamingBuffer = engine->renderer->createBuffer(STATIC_OBJECT_STREAMING_BUFFER_SIZE, BUFFER_USAGE_VERTEX_BUFFER, false, false, MEMORY_USAGE_CPU_TO_GPU, true);
+	worldStreamingBufferData = engine->renderer->mapBuffer(worldStreamingBuffer);
+
+	engine->renderer->setObjectDebugName(worldStreamingBuffer, OBJECT_TYPE_BUFFER, "LevelStaticObj Streaming Buffer");
+
+	createPipelines(renderPass, baseSubpass);
+
+	sunCSM = new CSM(engine->renderer, 4096, 3);
+
+	terrainRenderer = new TerrainRenderer(engine, world, this);
+	terrainRenderer->init();
+
+	terrainShadowRenderer = new TerrainShadowRenderer(engine->renderer);
+	terrainShadowRenderer->init();
+	terrainShadowRenderer->setClipmap(terrainRenderer->terrainClipmapView_Elevation, terrainRenderer->terrainClipmapSampler);
+}
+
+void WorldRenderer::gbufferPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size)
+{
+	gbufferRenderSize = size;
+}
+
+void WorldRenderer::gbufferPassRender(CommandBuffer cmdBuffer, uint32_t counter)
+{
 	bool renderPhysicsDebug = bool(engine->api->getDebugVariable("physics"));
 	uint32_t physxDebugVertexCount = 0;
 
@@ -107,7 +131,7 @@ void WorldRenderer::render3DWorld ()
 	if (renderPhysicsDebug)
 	{
 		auto physDat = world->getDebugRenderData(world->getActiveLevelData());
-		
+
 		if (physDat.numLines > 0)
 		{
 			physxDebugStreamingBuffer = engine->renderer->createBuffer(physDat.numLines * sizeof(PhysicsDebugLine), BUFFER_USAGE_VERTEX_BUFFER, true, false, MEMORY_USAGE_CPU_ONLY);
@@ -119,75 +143,47 @@ void WorldRenderer::render3DWorld ()
 		}
 	}
 
-	cmdBufferIndex ++;
-	cmdBufferIndex %= gbufferFillCmdBuffers.size();
+	glm::mat4 camMVPMat = engine->api->getMainCameraProjMat() * engine->api->getMainCameraViewMat();
 
-	gbufferFillCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-	gbufferFillCmdBuffers[cmdBufferIndex]->beginDebugRegion("GBuffer Fill", glm::vec4(0.196f, 0.698f, 1.0f, 1.0f));
-	gbufferFillCmdBuffers[cmdBufferIndex]->beginRenderPass(gbufferRenderPass, gbufferFramebuffer, {0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}, clearValues, SUBPASS_CONTENTS_INLINE);
-	gbufferFillCmdBuffers[cmdBufferIndex]->setScissors(0, {{0, 0, gbufferRenderDimensions.x, gbufferRenderDimensions.y}});
-	gbufferFillCmdBuffers[cmdBufferIndex]->setViewports(0, {{0, 0, (float) gbufferRenderDimensions.x, (float) gbufferRenderDimensions.y, 0.0f, 1.0f}});
-
-	renderWorldStaticMeshes(gbufferFillCmdBuffers[cmdBufferIndex], camProjMat * camViewMat, false);
-	terrainRenderer->renderTerrain(gbufferFillCmdBuffers[cmdBufferIndex]);
+	renderWorldStaticMeshes(cmdBuffer, camMVPMat, false);
+	terrainRenderer->renderTerrain(cmdBuffer);
 
 	if (renderPhysicsDebug && physxDebugVertexCount > 0)
 	{
 		glm::vec3 cameraCellOffset = glm::floor(Game::instance()->mainCamera.position / float(LEVEL_CELL_SIZE)) * float(LEVEL_CELL_SIZE);
-		glm::mat4 camMVPMat = camProjMat * camViewMat;
 
-		gbufferFillCmdBuffers[cmdBufferIndex]->beginDebugRegion("Physics Debug Visualization", glm::vec4(0, 1, 1, 1));
+		cmdBuffer->beginDebugRegion("Physics Debug Visualization", glm::vec4(0, 1, 1, 1));
 
-		gbufferFillCmdBuffers[cmdBufferIndex]->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, physxDebugPipeline);
-		gbufferFillCmdBuffers[cmdBufferIndex]->pushConstants(SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVPMat[0][0]);
-		gbufferFillCmdBuffers[cmdBufferIndex]->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::vec3), &cameraPosition.x);
-		gbufferFillCmdBuffers[cmdBufferIndex]->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4) + sizeof(glm::vec4), sizeof(glm::vec3), &cameraCellOffset.x);
+		glm::vec3 cameraPosition = engine->api->getMainCameraPosition();
 
-		gbufferFillCmdBuffers[cmdBufferIndex]->bindVertexBuffers(0, {physxDebugStreamingBuffer}, {0});
-		gbufferFillCmdBuffers[cmdBufferIndex]->draw(physxDebugVertexCount);
+		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, physxDebugPipeline);
+		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMVPMat[0][0]);
+		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), sizeof(glm::vec3), &cameraPosition.x);
+		cmdBuffer->pushConstants(SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4) + sizeof(glm::vec4), sizeof(glm::vec3), &cameraCellOffset.x);
 
-		gbufferFillCmdBuffers[cmdBufferIndex]->endDebugRegion();
+		cmdBuffer->bindVertexBuffers(0, {physxDebugStreamingBuffer}, {0});
+		cmdBuffer->draw(physxDebugVertexCount);
+
+		cmdBuffer->endDebugRegion();
 	}
+}
 
-	gbufferFillCmdBuffers[cmdBufferIndex]->endRenderPass();
-	gbufferFillCmdBuffers[cmdBufferIndex]->endDebugRegion();
-	gbufferFillCmdBuffers[cmdBufferIndex]->endCommands();
+void WorldRenderer::sunShadowsPassInit(RenderPass renderPass, uint32_t baseSubpass)
+{
+	shadowsRenderPass = renderPass;
+}
 
-	shadowmapCmdBuffers[cmdBufferIndex]->beginCommands(COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-	clearValues[2].depthStencil = {1, 0};
+void WorldRenderer::sunShadowsPassDescriptorUpdate(std::map<std::string, TextureView> views, suvec3 size)
+{
+	sunShadowsRenderSize = size;
+}
 
-	shadowmapCmdBuffers[cmdBufferIndex]->beginDebugRegion("Render Sun CSM", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
-	for (uint32_t i = 0; i < sunCSM->getCascadeCount(); i ++)
-	{
-		shadowmapCmdBuffers[cmdBufferIndex]->beginDebugRegion("Cascade #" + toString(i), glm::vec4(1, 1, 0, 1));
-		shadowmapCmdBuffers[cmdBufferIndex]->beginRenderPass(shadowsRenderPass, sunCSMFramebuffers[i], {0, 0, sunCSM->getShadowSize(), sunCSM->getShadowSize()}, {clearValues[2]}, SUBPASS_CONTENTS_INLINE);
-		shadowmapCmdBuffers[cmdBufferIndex]->setScissors(0, {{0, 0, sunCSM->getShadowSize(), sunCSM->getShadowSize()}});
-		shadowmapCmdBuffers[cmdBufferIndex]->setViewports(0, {{0, 0, (float) sunCSM->getShadowSize(), (float) sunCSM->getShadowSize(), 0.0f, 1.0f}});
+void WorldRenderer::sunShadowsPassRender(CommandBuffer cmdBuffer, uint32_t counter)
+{
+	cmdBuffer->setScissors(0, {{0, 0, sunCSM->getShadowSize(), sunCSM->getShadowSize()}});
+	cmdBuffer->setViewports(0, {{0, 0, (float) sunCSM->getShadowSize(), (float) sunCSM->getShadowSize(), 0.0f, 1.0f}});
 
-		renderWorldStaticMeshes(shadowmapCmdBuffers[cmdBufferIndex], sunCSM->getCamProjMat(i) * sunCSM->getCamViewMat(), true);
-
-		shadowmapCmdBuffers[cmdBufferIndex]->endRenderPass ();
-		shadowmapCmdBuffers[cmdBufferIndex]->endDebugRegion();
-	}
-
-	shadowmapCmdBuffers[cmdBufferIndex]->endDebugRegion();
-
-	//terrainShadowRenderer->renderTerrainShadowmap(shadowmapCmdBuffers[cmdBufferIndex], engine->api->getSunDirection());
-
-	shadowmapCmdBuffers[cmdBufferIndex]->endCommands();
-
-	std::vector<Semaphore> waitSems = {};
-	std::vector<PipelineStageFlags> waitSemStages = {};
-
-	if (terrainRenderer->clipmapUpdated)
-	{
-		waitSems.push_back(terrainRenderer->clipmapUpdateSemaphore);
-		waitSemStages.push_back(PIPELINE_STAGE_VERTEX_SHADER_BIT);
-	}
-
-	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {gbufferFillCmdBuffers[cmdBufferIndex]}, waitSems, waitSemStages, {gbufferFillSemaphores[cmdBufferIndex]});
-	engine->renderer->submitToQueue(QUEUE_TYPE_GRAPHICS, {shadowmapCmdBuffers[cmdBufferIndex]}, {}, {}, {shadowmapsSemaphores[cmdBufferIndex]});
+	renderWorldStaticMeshes(cmdBuffer, sunCSM->getCamProjMat(counter) * sunCSM->getCamViewMat(), true);
 }
 
 void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4 camMVPMat, bool renderDepth)
@@ -214,6 +210,8 @@ void WorldRenderer::renderWorldStaticMeshes (CommandBuffer &cmdBuffer, glm::mat4
 	for (auto pipeIt = streamDataByPipeline.begin(); pipeIt != streamDataByPipeline.end(); pipeIt ++)
 	{
 		ResourcePipeline materialPipeline = engine->resources->findPipeline(pipeIt->first);
+
+		glm::vec3 cameraPosition = engine->api->getMainCameraPosition();
 
 		cmdBuffer->beginDebugRegion("For pipeline: " + materialPipeline->defUniqueName, glm::vec4(0.18f, 0.94f, 0.94f, 1.0f));
 		cmdBuffer->bindPipeline(PIPELINE_BIND_POINT_GRAPHICS, renderDepth ? materialPipeline->depthPipeline : materialPipeline->pipeline);
@@ -285,7 +283,7 @@ void WorldRenderer::traverseOctreeNode (SortedOctree<LevelStaticObjectType, Leve
 		ResourceStaticMesh mesh = engine->resources->findStaticMesh(objType.meshDefUniqueNameHash);
 
 		int32_t lod = 0;
-		float cellDistance = glm::distance(cameraPosition, node.cellBB.getCenter());
+		float cellDistance = glm::distance(engine->api->getMainCameraPosition(), node.cellBB.getCenter());
 
 		for (uint32_t meshLod = 0; meshLod < mesh->meshLODs.size() + 1; meshLod ++)
 		{
@@ -337,169 +335,7 @@ LevelStaticObjectStreamingData WorldRenderer::getStaticObjStreamingData (const g
 	return data;
 }
 
-void WorldRenderer::init (suvec2 gbufferDimensions)
-{
-	gbufferRenderDimensions = gbufferDimensions;
-
-	renderWorldCommandPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_RESET_COMMAND_BUFFER_BIT);
-	gbufferFillCmdBuffers = renderWorldCommandPool->allocateCommandBuffers(COMMAND_BUFFER_LEVEL_PRIMARY, 3);
-	shadowmapCmdBuffers = renderWorldCommandPool->allocateCommandBuffers(COMMAND_BUFFER_LEVEL_PRIMARY, 3);;
-
-	gbufferFillSemaphores = engine->renderer->createSemaphores(3);
-	shadowmapsSemaphores = engine->renderer->createSemaphores(3);
-
-	testSampler = engine->renderer->createSampler();
-
-	worldStreamingBuffer = engine->renderer->createBuffer(STATIC_OBJECT_STREAMING_BUFFER_SIZE, BUFFER_USAGE_VERTEX_BUFFER, false, false, MEMORY_USAGE_CPU_TO_GPU, true);
-	worldStreamingBufferData = engine->renderer->mapBuffer(worldStreamingBuffer);
-
-	engine->renderer->setObjectDebugName(worldStreamingBuffer, OBJECT_TYPE_BUFFER, "LevelStaticObj Streaming Buffer");
-
-	createRenderPasses();
-	createPipelines();
-	createGBuffer();
-
-	sunCSM = new CSM(engine->renderer, 4096, 3);
-
-	for (uint32_t i = 0; i < sunCSM->getCascadeCount(); i ++)
-		sunCSMFramebuffers.push_back(engine->renderer->createFramebuffer(shadowsRenderPass, {sunCSM->getCSMTextureSliceView(i)}, sunCSM->getShadowSize(), sunCSM->getShadowSize()));
-
-	terrainRenderer = new TerrainRenderer(engine, world, this);
-	terrainRenderer->init();
-
-	terrainShadowRenderer = new TerrainShadowRenderer(engine->renderer);
-	terrainShadowRenderer->init();
-	terrainShadowRenderer->setClipmap(terrainRenderer->terrainClipmapView_Elevation, terrainRenderer->terrainClipmapSampler);
-
-}
-
-void WorldRenderer::createGBuffer ()
-{
-	gbuffer[0] = engine->renderer->createTexture({gbufferRenderDimensions.x, gbufferRenderDimensions.y, 1}, RESOURCE_FORMAT_R8G8B8A8_UNORM, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-	gbuffer[1] = engine->renderer->createTexture({gbufferRenderDimensions.x, gbufferRenderDimensions.y, 1}, RESOURCE_FORMAT_R16G16B16A16_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-	gbuffer[2] = engine->renderer->createTexture({gbufferRenderDimensions.x, gbufferRenderDimensions.y, 1}, RESOURCE_FORMAT_D32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, MEMORY_USAGE_GPU_ONLY, true);
-
-	gbufferView[0] = engine->renderer->createTextureView(gbuffer[0]);
-	gbufferView[1] = engine->renderer->createTextureView(gbuffer[1]);
-	gbufferView[2] = engine->renderer->createTextureView(gbuffer[2]);
-
-	gbufferFramebuffer = engine->renderer->createFramebuffer(gbufferRenderPass, {gbufferView[0], gbufferView[1], gbufferView[2]}, gbufferRenderDimensions.x, gbufferRenderDimensions.y, 1);
-
-	engine->renderer->setObjectDebugName(gbuffer[0], OBJECT_TYPE_TEXTURE, "GBuffer: Albedo,Roughness");
-	engine->renderer->setObjectDebugName(gbuffer[1], OBJECT_TYPE_TEXTURE, "GBuffer: Normals,Metalness,AO");
-	engine->renderer->setObjectDebugName(gbuffer[2], OBJECT_TYPE_TEXTURE, "GBuffer: Depth");
-}
-
-void WorldRenderer::destroyGBuffer ()
-{
-	engine->renderer->destroyFramebuffer(gbufferFramebuffer);
-
-	engine->renderer->destroyTextureView(gbufferView[0]);
-	engine->renderer->destroyTextureView(gbufferView[1]);
-	engine->renderer->destroyTextureView(gbufferView[2]);
-
-	engine->renderer->destroyTexture(gbuffer[0]);
-	engine->renderer->destroyTexture(gbuffer[1]);
-	engine->renderer->destroyTexture(gbuffer[2]);
-}
-
-void WorldRenderer::destroy ()
-{
-	isDestroyed = true;
-
-	terrainRenderer->destroy();
-	delete terrainRenderer;
-
-	terrainShadowRenderer->destroy();
-	delete terrainShadowRenderer;
-
-	destroyGBuffer();
-
-	delete sunCSM;
-
-	for (size_t i = 0; i < sunCSMFramebuffers.size(); i ++)
-		engine->renderer->destroyFramebuffer(sunCSMFramebuffers[i]);
-
-	for (size_t i = 0; i < gbufferFillSemaphores.size(); i ++)
-		engine->renderer->destroySemaphore(gbufferFillSemaphores[i]);
-
-	for (size_t i = 0; i < shadowmapsSemaphores.size(); i ++)
-		engine->renderer->destroySemaphore(shadowmapsSemaphores[i]);
-
-	engine->renderer->destroyPipeline(physxDebugPipeline);
-
-	engine->renderer->destroyRenderPass(gbufferRenderPass);
-	engine->renderer->destroyRenderPass(shadowsRenderPass);
-
-	engine->renderer->destroyCommandPool(renderWorldCommandPool);
-	engine->renderer->destroySampler(testSampler);
-
-	engine->renderer->unmapBuffer(worldStreamingBuffer);
-	engine->renderer->destroyBuffer(worldStreamingBuffer);
-}
-
-void WorldRenderer::createRenderPasses ()
-{
-	// GBuffer Render Pass
-	{
-		AttachmentDescription gbufferAlbedoRoughnessAttachment = {}, gbufferNormalMetalnessAttachment = {}, gbufferDepthAttachment = {};
-		gbufferAlbedoRoughnessAttachment.format = RESOURCE_FORMAT_R8G8B8A8_UNORM;
-		gbufferAlbedoRoughnessAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-		gbufferAlbedoRoughnessAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		gbufferAlbedoRoughnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
-		gbufferAlbedoRoughnessAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
-
-		gbufferNormalMetalnessAttachment.format = RESOURCE_FORMAT_R16G16B16A16_SFLOAT;
-		gbufferNormalMetalnessAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-		gbufferNormalMetalnessAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		gbufferNormalMetalnessAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
-		gbufferNormalMetalnessAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
-
-		gbufferDepthAttachment.format = RESOURCE_FORMAT_D32_SFLOAT;
-		gbufferDepthAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-		gbufferDepthAttachment.finalLayout = TEXTURE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-		gbufferDepthAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
-		gbufferDepthAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
-
-		AttachmentReference subpass0_gbufferAlbedoRoughnessRef = {}, subpass0_gbufferNormalMetalnessRef = {}, subpass0_gbufferDepthRef = {};
-		subpass0_gbufferAlbedoRoughnessRef.attachment = 0;
-		subpass0_gbufferAlbedoRoughnessRef.layout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		subpass0_gbufferNormalMetalnessRef.attachment = 1;
-		subpass0_gbufferNormalMetalnessRef.layout = TEXTURE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		subpass0_gbufferDepthRef.attachment = 2;
-		subpass0_gbufferDepthRef.layout = TEXTURE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		SubpassDescription subpass0 = {};
-		subpass0.bindPoint = PIPELINE_BIND_POINT_GRAPHICS;
-		subpass0.colorAttachments =
-		{	subpass0_gbufferAlbedoRoughnessRef, subpass0_gbufferNormalMetalnessRef};
-		subpass0.depthStencilAttachment = &subpass0_gbufferDepthRef;
-
-		gbufferRenderPass = engine->renderer->createRenderPass({gbufferAlbedoRoughnessAttachment, gbufferNormalMetalnessAttachment, gbufferDepthAttachment}, {subpass0}, {});
-	}
-
-	// Shadowmaps Render Pass
-	{
-		AttachmentDescription shadowsDepthAttachment = {};
-		shadowsDepthAttachment.format = RESOURCE_FORMAT_D16_UNORM;
-		shadowsDepthAttachment.initialLayout = TEXTURE_LAYOUT_UNDEFINED;
-		shadowsDepthAttachment.finalLayout = TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		shadowsDepthAttachment.loadOp = ATTACHMENT_LOAD_OP_CLEAR;
-		shadowsDepthAttachment.storeOp = ATTACHMENT_STORE_OP_STORE;
-
-		AttachmentReference subpass0_shadowsDepthRef = {};
-		subpass0_shadowsDepthRef.attachment = 0;
-		subpass0_shadowsDepthRef.layout = TEXTURE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		SubpassDescription subpass0 = {};
-		subpass0.bindPoint = PIPELINE_BIND_POINT_GRAPHICS;
-		subpass0.depthStencilAttachment = &subpass0_shadowsDepthRef;
-
-		shadowsRenderPass = engine->renderer->createRenderPass({shadowsDepthAttachment}, {subpass0}, {});
-	}
-}
-
-void WorldRenderer::createPipelines()
+void WorldRenderer::createPipelines(RenderPass renderPass, uint32_t baseSubpass)
 {
 	ShaderModule vertShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/physx-debug-lines.glsl", SHADER_STAGE_VERTEX_BIT, SHADER_LANGUAGE_GLSL);
 	ShaderModule fragShader = engine->renderer->createShaderModule("GameData/shaders/vulkan/physx-debug-lines.glsl", SHADER_STAGE_FRAGMENT_BIT, SHADER_LANGUAGE_GLSL);
@@ -570,7 +406,7 @@ void WorldRenderer::createPipelines()
 	dynamicState.dynamicStates =
 	{DYNAMIC_STATE_VIEWPORT, DYNAMIC_STATE_SCISSOR};
 
-	PipelineInfo info = {};
+	GraphicsPipelineInfo info = {};
 
 	PipelineShaderStage vertShaderStage = {};
 	vertShaderStage.entry = "main";
@@ -596,30 +432,8 @@ void WorldRenderer::createPipelines()
 	info.inputPushConstantRanges = {{0, sizeof(glm::mat4) + sizeof(glm::vec4) + sizeof(glm::vec4), SHADER_STAGE_VERTEX_BIT}};
 	info.inputSetLayouts = {layoutBindings};
 
-	physxDebugPipeline = engine->renderer->createGraphicsPipeline(info, gbufferRenderPass, 0);
+	physxDebugPipeline = engine->renderer->createGraphicsPipeline(info, renderPass, baseSubpass);
 
 	engine->renderer->destroyShaderModule(vertShader);
 	engine->renderer->destroyShaderModule(fragShader);
-}
-
-void WorldRenderer::setGBufferDimensions (suvec2 gbufferDimensions)
-{
-	engine->renderer->waitForDeviceIdle();
-
-	gbufferRenderDimensions = gbufferDimensions;
-
-	destroyGBuffer();
-	createGBuffer();
-
-	camProjMat = glm::perspective<float>(60 * (M_PI / 180.0f), gbufferDimensions.x / float(gbufferDimensions.y), 100000.0f, 0.1f);
-
-	float hfov = 2.0f * std::atan(1 / camProjMat[1][1]);
-	float ar = camProjMat[1][1] / (camProjMat[0][0]);
-
-	camProjMat[1][1] *= -1;
-}
-
-suvec2 WorldRenderer::getGBufferDimensions ()
-{
-	return gbufferRenderDimensions;
 }

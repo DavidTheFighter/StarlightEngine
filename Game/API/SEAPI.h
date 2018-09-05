@@ -69,9 +69,23 @@ class SEAPI
 		double getWorldTime ();
 		uint64_t getCalendarDate ();
 
+		// Gets the environment UBO data. Thread safe assuming SEAPI::update() is not being called concurrently (a worker/job thread would be safe)
 		Buffer getWorldEnvironmentUBO ();
 
+		// Gets the direction of the sun. Thread safe assuming SEAPI::update() is not being called concurrently (a worker/job thread would be safe)
 		glm::vec3 getSunDirection ();
+
+		// Gets the main camera position. Thread safe assuming SEAPI::update() is not being called concurrently (a worker/job thread would be safe)
+		glm::vec3 getMainCameraPosition();
+
+		// Gets the main camera direction. Thread safe assuming SEAPI::update() is not being called concurrently (a worker/job thread would be safe)
+		glm::vec3 getMainCameraDirection();
+
+		// Gets the main camera projection matrix. Thread safe assuming SEAPI::update() is not being called concurrently (a worker/job thread would be safe)
+		glm::mat4 getMainCameraProjMat();
+
+		// Gets the main camera view matrix. Thread safe assuming SEAPI::update() is not being called concurrently (a worker/job thread would be safe)
+		glm::mat4 getMainCameraViewMat();
 
 		void init ();
 		void update (float delta);
@@ -85,6 +99,11 @@ class SEAPI
 
 		StarlightEngine *engine;
 		WorldRenderer *worldRenderer;
+
+		glm::vec3 mainCameraPosition;
+		glm::vec3 mainCameraDirection;
+		glm::mat4 mainCameraProjMat;
+		glm::mat4 mainCameraViewMat;
 
 		WorldEnvironmentUBO worldEnvironmentUBOData;
 		Buffer worldEnvironmentUBO;

@@ -29,42 +29,27 @@
 
 #include "Rendering/Deferred/AtmosphereRenderer.h"
 
-#include <Engine/StarlightEngine.h>
-
 #include <Rendering/Renderer/Renderer.h>
 #include <Rendering/Deferred/Atmosphere/constants.h>
 #include <Rendering/Deferred/Atmosphere/definitions.glsl.inc>
 
-AtmosphereRenderer::AtmosphereRenderer (StarlightEngine *enginePtr)
+AtmosphereRenderer::AtmosphereRenderer (Renderer *rendererPtr)
 {
-	engine = enginePtr;
+	renderer = rendererPtr;
 
-	destroyed = false;
-}
-
-AtmosphereRenderer::~AtmosphereRenderer ()
-{
-	if (!destroyed)
-		destroy();
-}
-
-void AtmosphereRenderer::init ()
-{
 	loadScatteringSourceInclude();
 	loadPrecomputedTextures();
 }
 
-void AtmosphereRenderer::destroy ()
+AtmosphereRenderer::~AtmosphereRenderer ()
 {
-	destroyed = true;
+	renderer->destroyTextureView(transmittanceTV);
+	renderer->destroyTextureView(scatteringTV);
+	renderer->destroyTextureView(irradianceTV);
 
-	engine->renderer->destroyTextureView(transmittanceTV);
-	engine->renderer->destroyTextureView(scatteringTV);
-	engine->renderer->destroyTextureView(irradianceTV);
-
-	engine->renderer->destroyTexture(transmittanceTexture);
-	engine->renderer->destroyTexture(scatteringTexture);
-	engine->renderer->destroyTexture(irradianceTexture);
+	renderer->destroyTexture(transmittanceTexture);
+	renderer->destroyTexture(scatteringTexture);
+	renderer->destroyTexture(irradianceTexture);
 }
 
 std::string AtmosphereRenderer::getAtmosphericShaderLib ()
@@ -74,24 +59,24 @@ std::string AtmosphereRenderer::getAtmosphericShaderLib ()
 
 void AtmosphereRenderer::loadPrecomputedTextures ()
 {
-	transmittanceTexture = engine->renderer->createTexture({TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, 1}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
-	scatteringTexture = engine->renderer->createTexture({SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false, 1, 1);
-	irradianceTexture = engine->renderer->createTexture({IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, 1}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
+	transmittanceTexture = renderer->createTexture({TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, 1}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
+	scatteringTexture = renderer->createTexture({SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false, 1, 1);
+	irradianceTexture = renderer->createTexture({IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, 1}, RESOURCE_FORMAT_R32G32B32A32_SFLOAT, TEXTURE_USAGE_SAMPLED_BIT | TEXTURE_USAGE_TRANSFER_DST_BIT, MEMORY_USAGE_GPU_ONLY, false);
 
-	transmittanceTV = engine->renderer->createTextureView(transmittanceTexture);
-	scatteringTV = engine->renderer->createTextureView(scatteringTexture, TEXTURE_VIEW_TYPE_3D);
-	irradianceTV = engine->renderer->createTextureView(irradianceTexture);
+	transmittanceTV = renderer->createTextureView(transmittanceTexture);
+	scatteringTV = renderer->createTextureView(scatteringTexture, TEXTURE_VIEW_TYPE_3D);
+	irradianceTV = renderer->createTextureView(irradianceTexture);
 
 	std::vector<char> transmittanceBTD = FileLoader::instance()->readFileBuffer("GameData/textures/atmosphere/transmittance.btd");
 	std::vector<char> scatteringBTD = FileLoader::instance()->readFileBuffer("GameData/textures/atmosphere/scattering.btd");
 	std::vector<char> irradianceBTD = FileLoader::instance()->readFileBuffer("GameData/textures/atmosphere/irradiance.btd");
 
-	StagingBuffer transmittanceSB = engine->renderer->createAndFillStagingBuffer(transmittanceBTD.size(), transmittanceBTD.data());
-	StagingBuffer scatteringSB = engine->renderer->createAndFillStagingBuffer(scatteringBTD.size(), scatteringBTD.data());
-	StagingBuffer irradianceSB = engine->renderer->createAndFillStagingBuffer(irradianceBTD.size(), irradianceBTD.data());
+	StagingBuffer transmittanceSB = renderer->createAndFillStagingBuffer(transmittanceBTD.size(), transmittanceBTD.data());
+	StagingBuffer scatteringSB = renderer->createAndFillStagingBuffer(scatteringBTD.size(), scatteringBTD.data());
+	StagingBuffer irradianceSB = renderer->createAndFillStagingBuffer(irradianceBTD.size(), irradianceBTD.data());
 
-	CommandPool tmpCmdPool = engine->renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
-	CommandBuffer buf = engine->renderer->beginSingleTimeCommand(tmpCmdPool);
+	CommandPool tmpCmdPool = renderer->createCommandPool(QUEUE_TYPE_GRAPHICS, COMMAND_POOL_TRANSIENT_BIT);
+	CommandBuffer buf = renderer->beginSingleTimeCommand(tmpCmdPool);
 
 	buf->transitionTextureLayout(transmittanceTexture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	buf->transitionTextureLayout(scatteringTexture, TEXTURE_LAYOUT_UNDEFINED, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -105,11 +90,11 @@ void AtmosphereRenderer::loadPrecomputedTextures ()
 	buf->transitionTextureLayout(scatteringTexture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	buf->transitionTextureLayout(irradianceTexture, TEXTURE_LAYOUT_TRANSFER_DST_OPTIMAL, TEXTURE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	engine->renderer->endSingleTimeCommand(buf, tmpCmdPool, QUEUE_TYPE_GRAPHICS);
+	renderer->endSingleTimeCommand(buf, tmpCmdPool, QUEUE_TYPE_GRAPHICS);
 
-	engine->renderer->destroyStagingBuffer(transmittanceSB);
-	engine->renderer->destroyStagingBuffer(scatteringSB);
-	engine->renderer->destroyStagingBuffer(irradianceSB);
+	renderer->destroyStagingBuffer(transmittanceSB);
+	renderer->destroyStagingBuffer(scatteringSB);
+	renderer->destroyStagingBuffer(irradianceSB);
 }
 
 double Interpolate (const std::vector<double>& wavelengths, const std::vector<double>& wavelength_function, double wavelength)

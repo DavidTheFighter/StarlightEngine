@@ -20,9 +20,9 @@
 	layout(location = 0) out vec2 outUV;
 	layout(location = 1) out vec3 outNormal;
 	layout(location = 2) out vec3 outTangent;
-	layout(location = 3) out float px;
-	layout(location = 4) out vec3 vertex;
-	layout(location = 5) out vec3 camPos;
+	//layout(location = 3) out float px;
+	//layout(location = 4) out vec3 vertex;
+	//layout(location = 5) out vec3 camPos;
 
 	out gl_PerVertex
 	{
@@ -36,14 +36,20 @@
 		
 	void main()
 	{	
-		gl_Position = pushConsts.mvp * vec4(rotateByQuaternion(inVertex * inInstancePosition_Scale.w / 10.0, inInstanceRotation) + inInstancePosition_Scale.xyz - pushConsts.cameraCellOffset.xyz, 1);
-		vertex = rotateByQuaternion(inVertex * inInstancePosition_Scale.w / 10.0, inInstanceRotation) + inInstancePosition_Scale.xyz;
-		camPos = pushConsts.cameraPosition.xyz;
+		vec3 vertexPosition = inVertex;
+		vertexPosition *= inInstancePosition_Scale.w * 0.1f;
+		vertexPosition = rotateByQuaternion(vertexPosition, inInstanceRotation);
+		vertexPosition += inInstancePosition_Scale.xyz;
+		vertexPosition -= pushConsts.cameraCellOffset.xyz;
+	
+		gl_Position = pushConsts.mvp * vec4(vertexPosition, 1);
+		//vertex = rotateByQuaternion(inVertex * inInstancePosition_Scale.w / 10.0, inInstanceRotation) + inInstancePosition_Scale.xyz;
+		//camPos = pushConsts.cameraPosition.xyz;
 		
 		outUV = inUV;
 		outNormal = rotateByQuaternion(inNormal, inInstanceRotation);
 		outTangent = rotateByQuaternion(inTangent, inInstanceRotation);
-		px = gl_Position.x;
+		//px = gl_Position.x;
 		
 		//texcoord = inPosition;
 	}
@@ -60,9 +66,9 @@
 	layout(location = 0) in vec2 inUV;
 	layout(location = 1) in vec3 inNormal;
 	layout(location = 2) in vec3 inTangent;
-	layout(location = 3) in float px;
-	layout(location = 4) in vec3 vertex;
-	layout(location = 5) in vec3 camPos;
+	//layout(location = 3) in float px;
+	//layout(location = 4) in vec3 vertex;
+	//layout(location = 5) in vec3 camPos;
 	
 	layout(location = 0) out vec4 albedo_roughness; // rgb - albedo, a - roughness
 	layout(location = 1) out vec4 normal_metalness; // rgb - normals, a - metalness
@@ -89,6 +95,7 @@
 	{	
 		vec2 texcoords = inUV;
 	
+		/*
 		if (false)
 		{
 			vec3 N = normalize(inNormal);
@@ -125,6 +132,7 @@
 			
 			texcoords = prevTexCoords * weight + currentTexCoords * (1 - weight);
 		}
+		*/
 		
 		//albedo_roughness = vec4(texture(sampler2D(materialTex[0], materialSampler), texcoords)).rgb, texture(sampler2D(materialTex[2], materialSampler), texcoords).r);
 		albedo_roughness = vec4(texture(sampler2D(materialTex[0], materialSampler), texcoords).rgb, texture(sampler2D(materialTex[2], materialSampler), texcoords).r);

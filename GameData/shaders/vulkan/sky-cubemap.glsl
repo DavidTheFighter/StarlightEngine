@@ -3,19 +3,13 @@
 
 layout(push_constant) uniform PushConsts
 {
-	mat4 invCamMVPMat;
 	vec3 lightDir;
 	float cosSunAngularRadius;
 } pushConsts;
 
 #ifdef SHADER_STAGE_VERTEX
 
-	layout(location = 0) out vec3 outRay;
-
-	out gl_PerVertex
-	{
-		vec4 gl_Position;
-	};
+	layout(location = 0) out vec4 outPosition;
 
 	vec2 positions[6] = vec2[](
 		vec2(-1, -1),
@@ -31,11 +25,39 @@ layout(push_constant) uniform PushConsts
 	{
 		vec2 inPosition = positions[gl_VertexIndex];
 
-		gl_Position = vec4(inPosition.xy, 0, 1);
-
-		outRay = vec3(pushConsts.invCamMVPMat * vec4(inPosition.xy, 0, 1)) * vec3(1, 1, -1);
+		outPosition = vec4(inPosition.xy, 0, 1);
 	}
 
+#elif defined(SHADER_STAGE_GEOMETRY)
+
+	layout(triangles, invocations = 6) in;
+	layout(triangle_strip, max_vertices = 3) out;
+
+	layout(set = 0, binding = 4) uniform FaceInvMVPs
+	{
+		mat4 invCamMVPMat[6];
+	} mvps;
+	
+	layout(location = 0) in vec4 inPosition[3];
+	
+	
+	layout(location = 0) out vec3 outRay;
+	
+	void main()
+	{
+		for (int i = 0; i < 3; i ++)
+		{
+			outRay = vec3(mvps.invCamMVPMat[gl_InvocationID] * inPosition[i]) * vec3(1, 1, -1);
+
+			gl_Position = inPosition[i];
+			gl_Layer = gl_InvocationID;
+			
+			EmitVertex();
+		}
+		
+		EndPrimitive();
+	}
+	
 #elif defined(SHADER_STAGE_FRAGMENT)
 
 	#define TRANSMITTANCE_TEXTURE_NAME transmittance_texture

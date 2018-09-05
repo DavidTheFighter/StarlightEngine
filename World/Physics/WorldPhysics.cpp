@@ -144,7 +144,7 @@ void WorldPhysics::init()
 		exit(-1);
 	}
 
-	
+	printf("%s Initialized physics\n", INFO_PREFIX);
 }
 
 uint64_t WorldPhysics::createHeightmapRigidBody(const HeightmapSample *samples, uint32_t cx, uint32_t cz, uint32_t sceneID, bool addToWorld)

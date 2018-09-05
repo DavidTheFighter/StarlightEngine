@@ -510,7 +510,7 @@ void StarlightEngine::createGUITexturePassthroughPipeline()
 	PipelineDynamicStateInfo dynamicState = {};
 	dynamicState.dynamicStates = {DYNAMIC_STATE_VIEWPORT, DYNAMIC_STATE_SCISSOR};
 
-	PipelineInfo info = {};
+	GraphicsPipelineInfo info = {};
 	info.stages =
 	{vertShaderStage, fragShaderStage};
 	info.vertexInputInfo = vertexInput;

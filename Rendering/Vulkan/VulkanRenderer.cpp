@@ -628,9 +628,14 @@ ShaderModule VulkanRenderer::createShaderModuleFromSource (const std::string &so
 }
 
 
-Pipeline VulkanRenderer::createGraphicsPipeline (const PipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass)
+Pipeline VulkanRenderer::createGraphicsPipeline (const GraphicsPipelineInfo &pipelineInfo, RenderPass renderPass, uint32_t subpass)
 {
 	return pipelineHandler->createGraphicsPipeline(pipelineInfo, renderPass, subpass);
+}
+
+Pipeline VulkanRenderer::createComputePipeline(const ComputePipelineInfo &pipelineInfo)
+{
+	return pipelineHandler->createComputePipeline(pipelineInfo);
 }
 
 VulkanDescriptorPoolObject VulkanRenderer::createDescPoolObject (const std::vector<VkDescriptorPoolSize> &poolSizes, uint32_t maxSets)
@@ -779,6 +784,7 @@ TextureView VulkanRenderer::createTextureView (Texture texture, TextureViewType 
 	imageViewCreateInfo.subresourceRange.layerCount = subresourceRange.layerCount;
 
 	VulkanTextureView* vkTexView = new VulkanTextureView();
+	vkTexView->parentTexture = texture;
 
 	VK_CHECK_RESULT(vkCreateImageView(device, &imageViewCreateInfo, nullptr, &vkTexView->imageView));
 
@@ -1221,6 +1227,7 @@ void VulkanRenderer::createLogicalDevice ()
 	VkPhysicalDeviceFeatures enabledDeviceFeatures = {};
 	enabledDeviceFeatures.samplerAnisotropy = deviceFeatures.samplerAnisotropy;
 	enabledDeviceFeatures.logicOp = true;
+	enabledDeviceFeatures.geometryShader = true;
 	enabledDeviceFeatures.tessellationShader = true;
 	enabledDeviceFeatures.fillModeNonSolid = true;
 	enabledDeviceFeatures.wideLines = true;
